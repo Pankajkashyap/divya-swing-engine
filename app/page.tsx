@@ -1,65 +1,163 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+
+type MarketSnapshot = {
+  id: string
+  snapshot_date: string
+  market_phase: string
+  spx_distribution_days: number
+  ndx_distribution_days: number
+  breakout_success_rate_pct: number | null
+  max_long_exposure_pct: number | null
+  notes: string | null
+}
+
+type WatchlistRow = {
+  id: string
+  ticker: string
+  company_name: string | null
+  setup_type: string
+  base_pattern: string | null
+  setup_grade: string | null
+  rr_ratio: number | null
+  action_status: string
+}
+
+export default function HomePage() {
+  const [market, setMarket] = useState<MarketSnapshot | null>(null)
+  const [watchlist, setWatchlist] = useState<WatchlistRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      const [{ data: marketData, error: marketError }, { data: watchlistData, error: watchlistError }] =
+        await Promise.all([
+          supabase
+            .from('market_snapshots')
+            .select('*')
+            .order('snapshot_date', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('watchlist')
+            .select('id, ticker, company_name, setup_type, base_pattern, setup_grade, rr_ratio, action_status')
+            .order('created_at', { ascending: false })
+            .limit(10),
+        ])
+
+      if (marketError) {
+        console.error('Market snapshot error:', marketError)
+      }
+
+      if (watchlistError) {
+        console.error('Watchlist error:', watchlistError)
+      }
+
+      setMarket(marketData ?? null)
+      setWatchlist(watchlistData ?? [])
+      setLoading(false)
+    }
+
+    loadDashboard()
+  }, [])
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
+        <p>Loading Divya Swing Engine...</p>
+      </main>
+    )
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="min-h-screen bg-white text-neutral-900">
+      <section className="mx-auto max-w-6xl px-6 py-10">
+        <div className="mb-8">
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500">
+            Divya Swing Engine
+          </p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight">
+            Rule-based swing trading dashboard
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-3 max-w-3xl text-neutral-600">
+            Market-first workflow, setup evaluation, trade planning, and disciplined execution.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-neutral-200 p-5">
+            <h2 className="text-sm font-medium text-neutral-500">Market Phase</h2>
+            <p className="mt-2 text-2xl font-semibold">
+              {market?.market_phase ?? 'No data'}
+            </p>
+            <p className="mt-3 text-sm text-neutral-600">
+              Snapshot date: {market?.snapshot_date ?? '—'}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-neutral-200 p-5">
+            <h2 className="text-sm font-medium text-neutral-500">Distribution Days</h2>
+            <p className="mt-2 text-2xl font-semibold">
+              SPX {market?.spx_distribution_days ?? '—'} / NDX {market?.ndx_distribution_days ?? '—'}
+            </p>
+            <p className="mt-3 text-sm text-neutral-600">
+              Breakout success: {market?.breakout_success_rate_pct ?? '—'}%
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-neutral-200 p-5">
+            <h2 className="text-sm font-medium text-neutral-500">Max Long Exposure</h2>
+            <p className="mt-2 text-2xl font-semibold">
+              {market?.max_long_exposure_pct ?? '—'}%
+            </p>
+            <p className="mt-3 text-sm text-neutral-600">
+              {market?.notes ?? 'No notes'}
+            </p>
+          </div>
         </div>
-      </main>
-    </div>
-  );
+
+        <div className="mt-10 rounded-2xl border border-neutral-200 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Watchlist</h2>
+            <p className="text-sm text-neutral-500">{watchlist.length} records</p>
+          </div>
+
+          {watchlist.length === 0 ? (
+            <p className="text-neutral-600">No watchlist names yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-200 text-left text-neutral-500">
+                    <th className="py-3 pr-4">Ticker</th>
+                    <th className="py-3 pr-4">Company</th>
+                    <th className="py-3 pr-4">Setup</th>
+                    <th className="py-3 pr-4">Base</th>
+                    <th className="py-3 pr-4">Grade</th>
+                    <th className="py-3 pr-4">R/R</th>
+                    <th className="py-3 pr-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {watchlist.map((row) => (
+                    <tr key={row.id} className="border-b border-neutral-100">
+                      <td className="py-3 pr-4 font-medium">{row.ticker}</td>
+                      <td className="py-3 pr-4">{row.company_name ?? '—'}</td>
+                      <td className="py-3 pr-4">{row.setup_type}</td>
+                      <td className="py-3 pr-4">{row.base_pattern ?? '—'}</td>
+                      <td className="py-3 pr-4">{row.setup_grade ?? '—'}</td>
+                      <td className="py-3 pr-4">{row.rr_ratio ?? '—'}</td>
+                      <td className="py-3 pr-4">{row.action_status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  )
 }
