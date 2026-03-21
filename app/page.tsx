@@ -30,6 +30,7 @@ type WatchlistRow = {
 }
 
 type EvalResult = {
+  id: string | null
   verdict: 'pass' | 'watch' | 'fail'
   score_total: number
   fail_reason: string | null
@@ -138,7 +139,9 @@ setLoading(false)
 
     const evaluation = evaluateSetup(market, stock)
 
-    const { error } = await supabase.from('setup_evaluations').insert({
+    const { data: savedEvaluation, error } = await supabase
+      .from('setup_evaluations')
+      .insert({
       watchlist_id: stock.id,
       evaluation_date: new Date().toISOString().slice(0, 10),
       market_phase_pass: evaluation.market_phase_pass,
@@ -159,6 +162,8 @@ setLoading(false)
       fail_reason: evaluation.fail_reason,
       notes: evaluation.notes,
     })
+    .select('id')
+    .single()
 
     if (error) {
       console.error(error)
@@ -168,6 +173,7 @@ setLoading(false)
     }
 
 setResult({
+  id: savedEvaluation?.id ?? null,
   verdict: evaluation.verdict,
   score_total: evaluation.score_total,
   fail_reason: evaluation.fail_reason,
@@ -508,7 +514,10 @@ setSavedPlans(refreshedPlans ?? [])
         {result && (
           <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
             <h2 className="text-lg font-semibold">Evaluation Result</h2>
-            <p className="mt-3">
+            <p className="mt-3 text-sm text-neutral-500">
+            Saved evaluation ID: {result.id ?? '—'}
+            </p>
+            <p className="mt-2">
               <span className="font-medium">Verdict:</span> {result.verdict}
             </p>
             <p className="mt-2">
