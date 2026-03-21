@@ -2,161 +2,356 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { evaluateSetup } from '@/lib/evaluateSetup'
+import { generateTradePlan } from '@/lib/generateTradePlan'
 
 type MarketSnapshot = {
   id: string
-  snapshot_date: string
   market_phase: string
-  spx_distribution_days: number
-  ndx_distribution_days: number
-  breakout_success_rate_pct: number | null
   max_long_exposure_pct: number | null
-  notes: string | null
 }
 
 type WatchlistRow = {
   id: string
   ticker: string
   company_name: string | null
-  setup_type: string
-  base_pattern: string | null
   setup_grade: string | null
+  trend_template_pass: boolean | null
+  volume_dry_up_pass: boolean | null
   rr_ratio: number | null
-  action_status: string
+  earnings_within_2_weeks: boolean | null
+  binary_event_risk: boolean | null
+  pivot_price: number | null
+  entry_zone_low: number | null
+  entry_zone_high: number | null
+  stop_price: number | null
+  target_1_price: number | null
+  target_2_price: number | null
+}
+
+type EvalResult = {
+  verdict: 'pass' | 'watch' | 'fail'
+  score_total: number
+  fail_reason: string | null
+  notes: string | null
+}
+type TradePlanResult = {
+  risk_pct: number
+  dollar_risk: number
+  entry_price: number
+  stop_price: number
+  risk_per_share: number
+  planned_shares: number
+  position_value: number
+  final_shares: number
+  final_position_value: number
+  expected_rr: number
+  approval_status: 'approved' | 'blocked'
+  blocked_reason: string | null
+}
+type SavedTradePlan = {
+  id: string
+  plan_date: string
+  side: string
+  entry_price: number | null
+  stop_price: number | null
+  final_shares: number | null
+  final_position_value: number | null
+  expected_rr: number | null
+  approval_status: string
+  blocked_reason: string | null
 }
 
 export default function HomePage() {
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
-  const [watchlist, setWatchlist] = useState<WatchlistRow[]>([])
+  const [stock, setStock] = useState<WatchlistRow | null>(null)
+  const [result, setResult] = useState<EvalResult | null>(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [plan, setPlan] = useState<TradePlanResult | null>(null)
+  const [savedPlans, setSavedPlans] = useState<SavedTradePlan[]>([])
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      const [{ data: marketData, error: marketError }, { data: watchlistData, error: watchlistError }] =
-        await Promise.all([
-          supabase
-            .from('market_snapshots')
-            .select('*')
-            .order('snapshot_date', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from('watchlist')
-            .select('id, ticker, company_name, setup_type, base_pattern, setup_grade, rr_ratio, action_status')
-            .order('created_at', { ascending: false })
-            .limit(10),
-        ])
-
-      if (marketError) {
-        console.error('Market snapshot error:', marketError)
-      }
-
-      if (watchlistError) {
-        console.error('Watchlist error:', watchlistError)
-      }
+    const loadData = async () => {
+      const [{ data: marketData }, { data: stockData }, { data: tradePlanData }] =
+  await Promise.all([
+    supabase
+      .from('market_snapshots')
+      .select('id, market_phase, max_long_exposure_pct')
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('watchlist')
+      .select(
+        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
+      )
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('trade_plans')
+      .select(
+        'id, plan_date, side, entry_price, stop_price, final_shares, final_position_value, expected_rr, approval_status, blocked_reason'
+      )
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ])
 
       setMarket(marketData ?? null)
-      setWatchlist(watchlistData ?? [])
-      setLoading(false)
+setStock(stockData ?? null)
+setSavedPlans(tradePlanData ?? [])
+setLoading(false)
     }
 
-    loadDashboard()
+    loadData()
   }, [])
 
+  const runEvaluation = async () => {
+    if (!market || !stock) return
+
+    setSaving(true)
+
+    const evaluation = evaluateSetup(market, stock)
+
+    const { error } = await supabase.from('setup_evaluations').insert({
+      watchlist_id: stock.id,
+      evaluation_date: new Date().toISOString().slice(0, 10),
+      market_phase_pass: evaluation.market_phase_pass,
+      trend_template_pass: evaluation.trend_template_pass,
+      liquidity_pass: evaluation.liquidity_pass,
+      base_pattern_valid: evaluation.base_pattern_valid,
+      volume_pattern_valid: evaluation.volume_pattern_valid,
+      rs_line_confirmed: evaluation.rs_line_confirmed,
+      entry_near_pivot_pass: evaluation.entry_near_pivot_pass,
+      volume_breakout_pass: evaluation.volume_breakout_pass,
+      earnings_risk_flag: evaluation.earnings_risk_flag,
+      binary_event_flag: evaluation.binary_event_flag,
+      rr_pass: evaluation.rr_pass,
+      rr_ratio: evaluation.rr_ratio,
+      setup_grade: evaluation.setup_grade,
+      score_total: evaluation.score_total,
+      verdict: evaluation.verdict,
+      fail_reason: evaluation.fail_reason,
+      notes: evaluation.notes,
+    })
+
+    if (error) {
+      console.error(error)
+      alert('Failed to save evaluation')
+      setSaving(false)
+      return
+    }
+
+    setResult({
+      verdict: evaluation.verdict,
+      score_total: evaluation.score_total,
+      fail_reason: evaluation.fail_reason,
+      notes: evaluation.notes,
+    })
+
+    setSaving(false)
+  }
+
   if (loading) {
-    return (
-      <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
-        <p>Loading Divya Swing Engine...</p>
-      </main>
-    )
+    return <main className="p-10">Loading...</main>
   }
 
   return (
-    <main className="min-h-screen bg-white text-neutral-900">
-      <section className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500">
-            Divya Swing Engine
-          </p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight">
-            Rule-based swing trading dashboard
-          </h1>
-          <p className="mt-3 max-w-3xl text-neutral-600">
-            Market-first workflow, setup evaluation, trade planning, and disciplined execution.
-          </p>
-        </div>
+    <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
+      <section className="mx-auto max-w-4xl">
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500">
+          Divya Swing Engine
+        </p>
+        <h1 className="mt-2 text-4xl font-semibold tracking-tight">
+          Setup Evaluator
+        </h1>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
           <div className="rounded-2xl border border-neutral-200 p-5">
-            <h2 className="text-sm font-medium text-neutral-500">Market Phase</h2>
-            <p className="mt-2 text-2xl font-semibold">
-              {market?.market_phase ?? 'No data'}
-            </p>
+            <h2 className="text-lg font-semibold">Market</h2>
             <p className="mt-3 text-sm text-neutral-600">
-              Snapshot date: {market?.snapshot_date ?? '—'}
+              Current phase
+            </p>
+            <p className="text-2xl font-semibold">
+              {market?.market_phase ?? '—'}
             </p>
           </div>
 
           <div className="rounded-2xl border border-neutral-200 p-5">
-            <h2 className="text-sm font-medium text-neutral-500">Distribution Days</h2>
-            <p className="mt-2 text-2xl font-semibold">
-              SPX {market?.spx_distribution_days ?? '—'} / NDX {market?.ndx_distribution_days ?? '—'}
-            </p>
+            <h2 className="text-lg font-semibold">Candidate</h2>
             <p className="mt-3 text-sm text-neutral-600">
-              Breakout success: {market?.breakout_success_rate_pct ?? '—'}%
+              {stock?.ticker} — {stock?.company_name ?? '—'}
             </p>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-200 p-5">
-            <h2 className="text-sm font-medium text-neutral-500">Max Long Exposure</h2>
-            <p className="mt-2 text-2xl font-semibold">
-              {market?.max_long_exposure_pct ?? '—'}%
-            </p>
-            <p className="mt-3 text-sm text-neutral-600">
-              {market?.notes ?? 'No notes'}
+            <p className="mt-2 text-sm text-neutral-600">
+              Grade: {stock?.setup_grade ?? '—'} | R/R: {stock?.rr_ratio ?? '—'}
             </p>
           </div>
         </div>
 
-        <div className="mt-10 rounded-2xl border border-neutral-200 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Watchlist</h2>
-            <p className="text-sm text-neutral-500">{watchlist.length} records</p>
-          </div>
+        <div className="mt-8 flex gap-4">
+  <button
+    onClick={runEvaluation}
+    disabled={!market || !stock || saving}
+    className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
+  >
+    {saving ? 'Evaluating...' : 'Evaluate Setup'}
+  </button>
 
-          {watchlist.length === 0 ? (
-            <p className="text-neutral-600">No watchlist names yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-200 text-left text-neutral-500">
-                    <th className="py-3 pr-4">Ticker</th>
-                    <th className="py-3 pr-4">Company</th>
-                    <th className="py-3 pr-4">Setup</th>
-                    <th className="py-3 pr-4">Base</th>
-                    <th className="py-3 pr-4">Grade</th>
-                    <th className="py-3 pr-4">R/R</th>
-                    <th className="py-3 pr-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {watchlist.map((row) => (
-                    <tr key={row.id} className="border-b border-neutral-100">
-                      <td className="py-3 pr-4 font-medium">{row.ticker}</td>
-                      <td className="py-3 pr-4">{row.company_name ?? '—'}</td>
-                      <td className="py-3 pr-4">{row.setup_type}</td>
-                      <td className="py-3 pr-4">{row.base_pattern ?? '—'}</td>
-                      <td className="py-3 pr-4">{row.setup_grade ?? '—'}</td>
-                      <td className="py-3 pr-4">{row.rr_ratio ?? '—'}</td>
-                      <td className="py-3 pr-4">{row.action_status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+  <button
+    onClick={async () => {
+  if (!market || !stock) return
+
+  const tradePlan = generateTradePlan(market, stock, 100000)
+
+  // Save to DB
+  const { error } = await supabase.from('trade_plans').insert({
+    watchlist_id: stock.id,
+    plan_date: new Date().toISOString().slice(0, 10),
+    side: 'long',
+
+    portfolio_value: 100000,
+    risk_pct: tradePlan.risk_pct,
+    dollar_risk: tradePlan.dollar_risk,
+
+    entry_price: tradePlan.entry_price,
+    stop_price: tradePlan.stop_price,
+    risk_per_share: tradePlan.risk_per_share,
+
+    planned_shares: tradePlan.planned_shares,
+    position_value: tradePlan.position_value,
+
+    final_shares: tradePlan.final_shares,
+    final_position_value: tradePlan.final_position_value,
+
+    expected_rr: tradePlan.expected_rr,
+
+    approval_status: tradePlan.approval_status,
+    blocked_reason: tradePlan.blocked_reason,
+  })
+
+  if (error) {
+    console.error(error)
+    alert('Failed to save trade plan')
+    return
+  }
+
+  setPlan(tradePlan)
+  const { data: refreshedPlans } = await supabase
+  .from('trade_plans')
+  .select(
+    'id, plan_date, side, entry_price, stop_price, final_shares, final_position_value, expected_rr, approval_status, blocked_reason'
+  )
+  .order('created_at', { ascending: false })
+  .limit(10)
+
+setSavedPlans(refreshedPlans ?? [])
+}}
+    disabled={!market || !stock}
+    className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
+  >
+    Generate Trade Plan
+  </button>
+</div>
+
+        {result && (
+          <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+            <h2 className="text-lg font-semibold">Evaluation Result</h2>
+            <p className="mt-3">
+              <span className="font-medium">Verdict:</span> {result.verdict}
+            </p>
+            <p className="mt-2">
+              <span className="font-medium">Score:</span> {result.score_total}
+            </p>
+            <p className="mt-2">
+              <span className="font-medium">Fail reason:</span> {result.fail_reason ?? '—'}
+            </p>
+            <p className="mt-2">
+              <span className="font-medium">Notes:</span> {result.notes ?? '—'}
+            </p>
+          </div>
+        )}
+        {plan && (
+  <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+    <h2 className="text-lg font-semibold">Trade Plan</h2>
+    <p className="mt-3">
+      <span className="font-medium">Risk %:</span> {plan.risk_pct}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Dollar Risk:</span> {plan.dollar_risk}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Entry:</span> {plan.entry_price}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Stop:</span> {plan.stop_price}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Risk / Share:</span> {plan.risk_per_share}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Planned Shares:</span> {plan.planned_shares}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Final Shares:</span> {plan.final_shares}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Final Position Value:</span> {plan.final_position_value}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Expected R/R:</span> {plan.expected_rr}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Status:</span> {plan.approval_status}
+    </p>
+    <p className="mt-2">
+      <span className="font-medium">Blocked reason:</span> {plan.blocked_reason ?? '—'}
+    </p>
+  </div>
+)}
+<div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+  <div className="mb-4 flex items-center justify-between">
+    <h2 className="text-lg font-semibold">Saved Trade Plans</h2>
+    <p className="text-sm text-neutral-500">{savedPlans.length} records</p>
+  </div>
+
+  {savedPlans.length === 0 ? (
+    <p className="text-neutral-600">No saved trade plans yet.</p>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-neutral-200 text-left text-neutral-500">
+            <th className="py-3 pr-4">Plan Date</th>
+            <th className="py-3 pr-4">Side</th>
+            <th className="py-3 pr-4">Entry</th>
+            <th className="py-3 pr-4">Stop</th>
+            <th className="py-3 pr-4">Shares</th>
+            <th className="py-3 pr-4">Position Value</th>
+            <th className="py-3 pr-4">Expected R/R</th>
+            <th className="py-3 pr-4">Status</th>
+            <th className="py-3 pr-4">Blocked Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {savedPlans.map((row) => (
+            <tr key={row.id} className="border-b border-neutral-100">
+              <td className="py-3 pr-4">{row.plan_date}</td>
+              <td className="py-3 pr-4">{row.side}</td>
+              <td className="py-3 pr-4">{row.entry_price ?? '—'}</td>
+              <td className="py-3 pr-4">{row.stop_price ?? '—'}</td>
+              <td className="py-3 pr-4">{row.final_shares ?? '—'}</td>
+              <td className="py-3 pr-4">{row.final_position_value ?? '—'}</td>
+              <td className="py-3 pr-4">{row.expected_rr ?? '—'}</td>
+              <td className="py-3 pr-4">{row.approval_status}</td>
+              <td className="py-3 pr-4">{row.blocked_reason ?? '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
       </section>
     </main>
   )
