@@ -39,9 +39,6 @@ export function generateTradePlan(
 ): TradePlanOutput {
   const grade = stock.setup_grade ?? 'C'
 
-  // -----------------------
-  // Risk % based on grade
-  // -----------------------
   let riskPct = 0
 
   if (grade === 'A+') riskPct = 2
@@ -49,9 +46,6 @@ export function generateTradePlan(
   else if (grade === 'B') riskPct = 0.5
   else riskPct = 0.25
 
-  // -----------------------
-  // Market adjustment
-  // -----------------------
   if (market.market_phase === 'under_pressure') {
     riskPct *= 0.5
   }
@@ -73,22 +67,33 @@ export function generateTradePlan(
     }
   }
 
-  // -----------------------
-  // Entry & stop
-  // -----------------------
-  const entry =
-    stock.entry_zone_low ??
-    stock.pivot_price ??
-    0
-
+  const entry = stock.entry_zone_low ?? stock.pivot_price ?? 0
   const stop = stock.stop_price ?? 0
+  const target1 = stock.target_1_price ?? 0
 
-  if (!entry || !stop) {
+  if (!portfolioValue || portfolioValue <= 0) {
     return {
       risk_pct: riskPct,
       dollar_risk: 0,
       entry_price: 0,
       stop_price: 0,
+      risk_per_share: 0,
+      planned_shares: 0,
+      position_value: 0,
+      final_shares: 0,
+      final_position_value: 0,
+      expected_rr: 0,
+      approval_status: 'blocked',
+      blocked_reason: 'Invalid portfolio value',
+    }
+  }
+
+  if (!entry || !stop) {
+    return {
+      risk_pct: riskPct,
+      dollar_risk: 0,
+      entry_price: entry,
+      stop_price: stop,
       risk_per_share: 0,
       planned_shares: 0,
       position_value: 0,
@@ -119,21 +124,64 @@ export function generateTradePlan(
     }
   }
 
-  // -----------------------
-  // Dollar risk
-  // -----------------------
-  const dollarRisk = (portfolioValue * riskPct) / 100
+  if (!target1) {
+    return {
+      risk_pct: riskPct,
+      dollar_risk: 0,
+      entry_price: entry,
+      stop_price: stop,
+      risk_per_share: riskPerShare,
+      planned_shares: 0,
+      position_value: 0,
+      final_shares: 0,
+      final_position_value: 0,
+      expected_rr: 0,
+      approval_status: 'blocked',
+      blocked_reason: 'Missing target 1 price',
+    }
+  }
 
-  // -----------------------
-  // Shares
-  // -----------------------
+  if (target1 <= entry) {
+    return {
+      risk_pct: riskPct,
+      dollar_risk: 0,
+      entry_price: entry,
+      stop_price: stop,
+      risk_per_share: riskPerShare,
+      planned_shares: 0,
+      position_value: 0,
+      final_shares: 0,
+      final_position_value: 0,
+      expected_rr: 0,
+      approval_status: 'blocked',
+      blocked_reason: 'Invalid target placement',
+    }
+  }
+
+  const expectedRR = Number(((target1 - entry) / riskPerShare).toFixed(2))
+
+  if (expectedRR < 2) {
+    return {
+      risk_pct: riskPct,
+      dollar_risk: 0,
+      entry_price: entry,
+      stop_price: stop,
+      risk_per_share: riskPerShare,
+      planned_shares: 0,
+      position_value: 0,
+      final_shares: 0,
+      final_position_value: 0,
+      expected_rr: expectedRR,
+      approval_status: 'blocked',
+      blocked_reason: 'Reward/risk below minimum threshold',
+    }
+  }
+
+  const dollarRisk = Number(((portfolioValue * riskPct) / 100).toFixed(2))
+
   const plannedShares = Math.floor(dollarRisk / riskPerShare)
+  const positionValue = Number((plannedShares * entry).toFixed(2))
 
-  const positionValue = plannedShares * entry
-
-  // -----------------------
-  // Position cap (25%)
-  // -----------------------
   const maxPositionValue = (portfolioValue * 25) / 100
 
   let finalShares = plannedShares
@@ -141,24 +189,29 @@ export function generateTradePlan(
 
   if (positionValue > maxPositionValue) {
     finalShares = Math.floor(maxPositionValue / entry)
-    finalPositionValue = finalShares * entry
+    finalPositionValue = Number((finalShares * entry).toFixed(2))
   }
 
-  // -----------------------
-  // Event risk adjustment
-  // -----------------------
   if (stock.earnings_within_2_weeks || stock.binary_event_risk) {
     finalShares = Math.floor(finalShares * 0.5)
-    finalPositionValue = finalShares * entry
+    finalPositionValue = Number((finalShares * entry).toFixed(2))
   }
 
-  // -----------------------
-  // Expected RR
-  // -----------------------
-  let expectedRR = 0
-
-  if (stock.target_1_price) {
-    expectedRR = (stock.target_1_price - entry) / riskPerShare
+  if (finalShares <= 0 || finalPositionValue <= 0) {
+    return {
+      risk_pct: riskPct,
+      dollar_risk: dollarRisk,
+      entry_price: entry,
+      stop_price: stop,
+      risk_per_share: riskPerShare,
+      planned_shares: plannedShares,
+      position_value: positionValue,
+      final_shares: 0,
+      final_position_value: 0,
+      expected_rr: expectedRR,
+      approval_status: 'blocked',
+      blocked_reason: 'Position size too small after sizing rules',
+    }
   }
 
   return {

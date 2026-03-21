@@ -36,7 +36,7 @@ export function MarketSnapshotForm({ onSave }: Props) {
             type="date"
             value={snapshotDate}
             onChange={(e) => setSnapshotDate(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className="ui-input"
           />
         </div>
 
@@ -45,7 +45,7 @@ export function MarketSnapshotForm({ onSave }: Props) {
           <select
             value={marketPhase}
             onChange={(e) => setMarketPhase(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className="ui-select"
           >
             <option value="confirmed_uptrend">confirmed_uptrend</option>
             <option value="under_pressure">under_pressure</option>
@@ -60,19 +60,16 @@ export function MarketSnapshotForm({ onSave }: Props) {
           <input
             value={maxLongExposurePct}
             onChange={(e) => setMaxLongExposurePct(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className="ui-input"
             placeholder="100"
           />
         </div>
       </div>
 
       <div className="mt-4">
-        <button
-          onClick={handleSubmit}
-          className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
-        >
-          Save Market Snapshot
-        </button>
+<button onClick={handleSubmit} className="ui-btn-primary">
+  Save Market Snapshot
+</button>
       </div>
     </div>
   )

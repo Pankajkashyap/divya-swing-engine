@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { evaluateSetup } from '@/lib/evaluateSetup'
 import { generateTradePlan } from '@/lib/generateTradePlan'
+import { calculateExposure } from '@/lib/calculateExposure'
 import { AppHeader } from '@/components/AppHeader'
 import { DashboardMetrics } from '@/components/DashboardMetrics'
 import { PortfolioHeatCard } from '@/components/PortfolioHeatCard'
@@ -19,6 +20,7 @@ import { TradeManagementTable } from '@/components/TradeManagementTable'
 import { RuleAuditTable } from '@/components/RuleAuditTable'
 import { StopUpdateTable } from '@/components/StopUpdateTable'
 import { PartialExitTable } from '@/components/PartialExitTable'
+import { ExposurePreviewPanel } from '@/components/ExposurePreviewPanel'
 
 export type MarketSnapshot = {
   id: string
@@ -122,6 +124,11 @@ type RuleAuditRow = {
   notes: string | null
 }
 
+type TradeCreationMessage = {
+  type: 'success' | 'error' | 'info'
+  text: string
+}
+
 export default function HomePage() {
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [stock, setStock] = useState<WatchlistRow | null>(null)
@@ -135,6 +142,8 @@ export default function HomePage() {
   const [savedTrades, setSavedTrades] = useState<SavedTrade[]>([])
   const [ruleAuditRows, setRuleAuditRows] = useState<RuleAuditRow[]>([])
   const [portfolioValue, setPortfolioValue] = useState('100000')
+  const [tradeCreationMessage, setTradeCreationMessage] =
+    useState<TradeCreationMessage | null>(null)
 
   const loadDashboardData = async () => {
     const [
@@ -170,7 +179,7 @@ export default function HomePage() {
           'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, stop_price_current, target_1_price, target_2_price, exit_date, exit_price_actual, pnl_dollar, pnl_pct'
         )
         .order('created_at', { ascending: false })
-        .limit(20),
+        .limit(50),
       supabase
         .from('rule_results')
         .select(
@@ -208,7 +217,7 @@ export default function HomePage() {
       setLoading(false)
     }
 
-    load()
+    void load()
   }, [])
 
   const metrics = useMemo(() => {
@@ -216,24 +225,16 @@ export default function HomePage() {
       (trade) => trade.status === 'open' || trade.status === 'partial'
     )
     const closedTrades = savedTrades.filter((trade) => trade.status === 'closed')
-
     const totalRealizedPnl = closedTrades.reduce(
       (sum, trade) => sum + (trade.pnl_dollar ?? 0),
       0
     )
-
     const parsedPortfolioValue = Number(portfolioValue) || 0
 
-    const openPositionValue = openTrades.reduce((sum, trade) => {
-      const entry = trade.entry_price_actual ?? 0
-      const shares = trade.shares_entered ?? 0
-      return sum + entry * shares
-    }, 0)
-
-    const exposurePct =
-      parsedPortfolioValue > 0
-        ? Number(((openPositionValue / parsedPortfolioValue) * 100).toFixed(2))
-        : 0
+    const { openPositionValue, exposurePct } = calculateExposure(
+      openTrades,
+      parsedPortfolioValue
+    )
 
     const marketMaxExposurePct = market?.max_long_exposure_pct ?? 0
 
@@ -248,6 +249,34 @@ export default function HomePage() {
       marketMaxExposurePct,
     }
   }, [watchlist, savedTrades, portfolioValue, market])
+
+  const exposurePreview = useMemo(() => {
+    const portfolioValueNumber = Number(portfolioValue) || 0
+    const currentOpenPositionValue = metrics.openPositionValue
+    const newTradePositionValue = plan?.final_position_value ?? 0
+    const exposureLimitPct = Number(market?.max_long_exposure_pct ?? 0)
+
+    const hasValidPlan =
+      !!plan &&
+      plan.approval_status === 'approved' &&
+      plan.final_position_value > 0 &&
+      plan.expected_rr > 0
+
+    return {
+      portfolioValueNumber,
+      currentOpenPositionValue,
+      newTradePositionValue,
+      exposureLimitPct,
+      hasValidPlan,
+    }
+  }, [portfolioValue, metrics.openPositionValue, market, plan])
+
+  const tradeMessageClass =
+    tradeCreationMessage?.type === 'error'
+      ? 'mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800'
+      : tradeCreationMessage?.type === 'success'
+        ? 'mt-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-800'
+        : 'mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm leading-6 text-neutral-700'
 
   const runEvaluation = async () => {
     if (!market || !stock) return
@@ -450,7 +479,7 @@ export default function HomePage() {
       return
     }
 
-    if (!parsedExposure && parsedExposure !== 0) {
+    if (!Number.isFinite(parsedExposure)) {
       alert('Enter a valid max long exposure')
       return
     }
@@ -482,6 +511,8 @@ export default function HomePage() {
     entryZoneLow: string
     entryZoneHigh: string
     stopPrice: string
+    target1Price: string
+    target2Price: string
   }) => {
     if (!payload.ticker.trim()) {
       alert('Ticker is required')
@@ -499,6 +530,8 @@ export default function HomePage() {
         entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
         entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
         stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
+        target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
+        target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
         trend_template_pass: true,
         volume_dry_up_pass: true,
         status: 'watchlist',
@@ -515,12 +548,12 @@ export default function HomePage() {
       return
     }
 
-    const updatedWatchlist = [insertedRow, ...watchlist]
-    setWatchlist(updatedWatchlist)
+    setWatchlist((prev) => [insertedRow, ...prev])
     setStock(insertedRow)
     setResult(null)
     setPlan(null)
     setLatestTradePlanId(null)
+    setTradeCreationMessage(null)
   }
 
   const handleGenerateTradePlan = async () => {
@@ -566,6 +599,7 @@ export default function HomePage() {
 
     setPlan(tradePlan)
     setLatestTradePlanId(savedTradePlan?.id ?? null)
+    setTradeCreationMessage(null)
 
     const { data: refreshedPlans } = await supabase
       .from('trade_plans')
@@ -580,12 +614,108 @@ export default function HomePage() {
 
   const handleCreateTrade = async () => {
     if (!stock || !plan || !latestTradePlanId) {
-      alert('Generate a trade plan first')
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Generate a trade plan first before creating a trade.',
+      })
       return
     }
 
     if (plan.approval_status !== 'approved') {
-      alert('Only approved trade plans can create trades')
+      setTradeCreationMessage({
+        type: 'error',
+        text: `Trade blocked: ${plan.blocked_reason ?? 'trade plan is not approved.'}`,
+      })
+      return
+    }
+
+    if (!plan.expected_rr || plan.expected_rr <= 0) {
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Trade blocked: invalid trade plan (R/R calculation error).',
+      })
+      return
+    }
+
+    if (!plan.final_shares || plan.final_shares <= 0) {
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Trade blocked: invalid share sizing.',
+      })
+      return
+    }
+
+    if (!plan.entry_price || !plan.stop_price) {
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Trade blocked: missing entry or stop.',
+      })
+      return
+    }
+
+    if (plan.entry_price <= plan.stop_price) {
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Trade blocked: invalid stop placement.',
+      })
+      return
+    }
+
+    const portfolioValueNumber = Number(portfolioValue)
+    const newTradePositionValue = Number(plan.final_position_value)
+    const exposureLimitPct = Number(market?.max_long_exposure_pct ?? 0)
+
+    if (!Number.isFinite(portfolioValueNumber) || portfolioValueNumber <= 0) {
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Trade blocked: invalid portfolio value.',
+      })
+      return
+    }
+
+    if (!Number.isFinite(exposureLimitPct) || exposureLimitPct < 0) {
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Trade blocked: invalid market exposure limit.',
+      })
+      return
+    }
+
+    const { data: currentOpenTrades, error: exposureLoadError } = await supabase
+      .from('trades')
+      .select('entry_price_actual, shares_entered, status')
+      .in('status', ['open', 'partial'])
+
+    if (exposureLoadError) {
+      console.error(exposureLoadError)
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Could not verify current portfolio exposure.',
+      })
+      return
+    }
+
+    const {
+      openPositionValue: currentOpenPositionValue,
+      exposurePct: currentExposurePct,
+    } = calculateExposure(currentOpenTrades ?? [], portfolioValueNumber)
+
+    const postTradeExposurePct =
+      portfolioValueNumber > 0
+        ? Number(
+            (
+              ((currentOpenPositionValue + newTradePositionValue) /
+                portfolioValueNumber) *
+              100
+            ).toFixed(2)
+          )
+        : 0
+
+    if (postTradeExposurePct > exposureLimitPct) {
+      setTradeCreationMessage({
+        type: 'error',
+        text: `Trade blocked: exposure limit exceeded. Current exposure: ${currentExposurePct}%. Exposure after trade: ${postTradeExposurePct}%. Limit: ${exposureLimitPct}%.`,
+      })
       return
     }
 
@@ -607,7 +737,10 @@ export default function HomePage() {
 
     if (error) {
       console.error(error)
-      alert('Failed to create trade')
+      setTradeCreationMessage({
+        type: 'error',
+        text: 'Failed to create trade.',
+      })
       return
     }
 
@@ -617,7 +750,14 @@ export default function HomePage() {
       .eq('id', latestTradePlanId)
 
     await loadDashboardData()
-    alert('Trade created successfully')
+
+    setTradeCreationMessage({
+      type: 'success',
+      text: `Trade created successfully. Current exposure: ${currentExposurePct}%. Exposure after trade: ${postTradeExposurePct}%. Limit: ${exposureLimitPct}%.`,
+    })
+
+    setPlan(null)
+    setLatestTradePlanId(null)
   }
 
   const handleCloseTrade = async (tradeId: string, exitPrice: string) => {
@@ -692,93 +832,93 @@ export default function HomePage() {
     alert('Stop updated successfully')
   }
 
-const handlePartialExit = async (
-  tradeId: string,
-  exitPrice: string,
-  exitShares: string
-) => {
-  const parsedExitPrice = Number(exitPrice)
-  const parsedExitShares = Number(exitShares)
+  const handlePartialExit = async (
+    tradeId: string,
+    exitPrice: string,
+    exitShares: string
+  ) => {
+    const parsedExitPrice = Number(exitPrice)
+    const parsedExitShares = Number(exitShares)
 
-  if (!parsedExitPrice || parsedExitPrice <= 0) {
-    alert('Enter a valid exit price')
-    return
+    if (!parsedExitPrice || parsedExitPrice <= 0) {
+      alert('Enter a valid exit price')
+      return
+    }
+
+    if (!parsedExitShares || parsedExitShares <= 0) {
+      alert('Enter valid exit shares')
+      return
+    }
+
+    if (!Number.isInteger(parsedExitShares)) {
+      alert('Exit shares must be a whole number')
+      return
+    }
+
+    const trade = savedTrades.find((row) => row.id === tradeId)
+
+    if (!trade || !trade.entry_price_actual || !trade.shares_entered) {
+      alert('Trade data is incomplete')
+      return
+    }
+
+    if (parsedExitShares > trade.shares_entered) {
+      alert('Exit shares cannot exceed current shares')
+      return
+    }
+
+    let partialPnlDollar = 0
+    if (trade.side === 'long') {
+      partialPnlDollar =
+        (parsedExitPrice - trade.entry_price_actual) * parsedExitShares
+    } else {
+      partialPnlDollar =
+        (trade.entry_price_actual - parsedExitPrice) * parsedExitShares
+    }
+
+    const remainingShares = trade.shares_entered - parsedExitShares
+    const newStatus = remainingShares > 0 ? 'partial' : 'closed'
+    const finalPnlDollar =
+      (trade.pnl_dollar ?? 0) + Number(partialPnlDollar.toFixed(2))
+    const finalPnlPct =
+      ((parsedExitPrice - trade.entry_price_actual) / trade.entry_price_actual) *
+      100
+
+    const updatePayload: {
+      status: string
+      shares_entered: number
+      pnl_dollar: number
+      pnl_pct: number
+      exit_date?: string
+      exit_price_actual?: number
+      shares_exited?: number
+    } = {
+      status: newStatus,
+      shares_entered: remainingShares,
+      pnl_dollar: Number(finalPnlDollar.toFixed(2)),
+      pnl_pct: Number(finalPnlPct.toFixed(2)),
+    }
+
+    if (remainingShares === 0) {
+      updatePayload.exit_date = new Date().toISOString().slice(0, 10)
+      updatePayload.exit_price_actual = parsedExitPrice
+      updatePayload.shares_exited = parsedExitShares
+    }
+
+    const { error } = await supabase
+      .from('trades')
+      .update(updatePayload)
+      .eq('id', tradeId)
+
+    if (error) {
+      console.error(error)
+      alert('Failed to process partial exit')
+      return
+    }
+
+    await loadDashboardData()
+    alert('Partial exit processed successfully')
   }
-
-  if (!parsedExitShares || parsedExitShares <= 0) {
-    alert('Enter valid exit shares')
-    return
-  }
-
-  if (!Number.isInteger(parsedExitShares)) {
-    alert('Exit shares must be a whole number')
-    return
-  }
-
-  const trade = savedTrades.find((row) => row.id === tradeId)
-
-  if (!trade || !trade.entry_price_actual || !trade.shares_entered) {
-    alert('Trade data is incomplete')
-    return
-  }
-
-  if (parsedExitShares > trade.shares_entered) {
-    alert('Exit shares cannot exceed current shares')
-    return
-  }
-
-  let partialPnlDollar = 0
-  if (trade.side === 'long') {
-    partialPnlDollar =
-      (parsedExitPrice - trade.entry_price_actual) * parsedExitShares
-  } else {
-    partialPnlDollar =
-      (trade.entry_price_actual - parsedExitPrice) * parsedExitShares
-  }
-
-  const remainingShares = trade.shares_entered - parsedExitShares
-  const newStatus = remainingShares > 0 ? 'partial' : 'closed'
-  const finalPnlDollar =
-    (trade.pnl_dollar ?? 0) + Number(partialPnlDollar.toFixed(2))
-  const finalPnlPct =
-    ((parsedExitPrice - trade.entry_price_actual) / trade.entry_price_actual) *
-    100
-
-  const updatePayload: {
-    status: string
-    shares_entered: number
-    pnl_dollar: number
-    pnl_pct: number
-    exit_date?: string
-    exit_price_actual?: number
-    shares_exited?: number
-  } = {
-    status: newStatus,
-    shares_entered: remainingShares,
-    pnl_dollar: Number(finalPnlDollar.toFixed(2)),
-    pnl_pct: Number(finalPnlPct.toFixed(2)),
-  }
-
-  if (remainingShares === 0) {
-    updatePayload.exit_date = new Date().toISOString().slice(0, 10)
-    updatePayload.exit_price_actual = parsedExitPrice
-    updatePayload.shares_exited = parsedExitShares
-  }
-
-  const { error } = await supabase
-    .from('trades')
-    .update(updatePayload)
-    .eq('id', tradeId)
-
-  if (error) {
-    console.error(error)
-    alert('Failed to process partial exit')
-    return
-  }
-
-  await loadDashboardData()
-  alert('Partial exit processed successfully')
-}
 
   if (loading) {
     return <main className="p-10">Loading...</main>
@@ -790,8 +930,6 @@ const handlePartialExit = async (
         <AppHeader
           title="Setup Evaluator"
           subtitle="Market-first rule engine, trade planning, execution, and exposure control."
-          rightLinkHref="/weekly-review"
-          rightLinkLabel="Weekly Review"
         />
 
         <DashboardMetrics
@@ -819,16 +957,76 @@ const handlePartialExit = async (
 
         <AddWatchlistStockForm onAdd={handleAddWatchlistStock} />
 
-        <WatchlistSelectionTable
-          watchlist={watchlist}
-          stock={stock}
-          onSelect={(row) => {
-            setStock(row)
-            setResult(null)
-            setPlan(null)
-            setLatestTradePlanId(null)
-          }}
-        />
+<WatchlistSelectionTable
+  watchlist={watchlist}
+  stock={stock}
+  onSelect={(row) => {
+    setStock(row)
+    setResult(null)
+    setPlan(null)
+    setLatestTradePlanId(null)
+    setTradeCreationMessage(null)
+  }}
+  onUpdate={async (rowId, payload) => {
+    const { data: updatedRow, error } = await supabase
+      .from('watchlist')
+      .update({
+        company_name: payload.companyName.trim() || null,
+        setup_grade: payload.setupGrade,
+        rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
+        entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
+        entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
+        stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
+        target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
+        target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
+      })
+      .eq('id', rowId)
+      .select(
+        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
+      )
+      .single()
+
+    if (error) {
+      console.error(error)
+      alert('Failed to update watchlist row')
+      return
+    }
+
+    setWatchlist((prev) =>
+      prev.map((row) => (row.id === rowId ? updatedRow : row))
+    )
+
+    if (stock?.id === rowId) {
+      setStock(updatedRow)
+      setResult(null)
+      setPlan(null)
+      setLatestTradePlanId(null)
+      setTradeCreationMessage(null)
+    }
+  }}
+  onDelete={async (rowId, ticker) => {
+    const { error } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('id', rowId)
+
+    if (error) {
+      console.error(error)
+      alert(`Failed to delete watchlist row for ${ticker}`)
+      return
+    }
+
+    setWatchlist((prev) => prev.filter((row) => row.id !== rowId))
+
+    if (stock?.id === rowId) {
+      setStock(null)
+      setResult(null)
+      setPlan(null)
+      setLatestTradePlanId(null)
+      setTradeCreationMessage(null)
+    }
+  }}
+/>
 
         <TradeActionButtons
           canEvaluate={!!market && !!stock && !saving}
@@ -839,6 +1037,20 @@ const handlePartialExit = async (
           onGenerate={handleGenerateTradePlan}
           onCreateTrade={handleCreateTrade}
         />
+
+        <ExposurePreviewPanel
+          portfolioValue={exposurePreview.portfolioValueNumber}
+          currentOpenPositionValue={exposurePreview.currentOpenPositionValue}
+          newTradePositionValue={exposurePreview.newTradePositionValue}
+          exposureLimitPct={exposurePreview.exposureLimitPct}
+          hasValidPlan={exposurePreview.hasValidPlan}
+        />
+
+        {tradeCreationMessage ? (
+          <div className={tradeMessageClass}>
+            {tradeCreationMessage.text}
+          </div>
+        ) : null}
 
         <EvaluationPanel result={result} />
         <TradePlanPanel plan={plan} />

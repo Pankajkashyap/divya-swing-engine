@@ -62,7 +62,7 @@ export function StopUpdateTable({ savedTrades, onUpdateStop }: Props) {
                   <td className="py-3 pr-4">
                     <button
                       onClick={() => onUpdateStop(row.id, stopInputs[row.id] ?? '')}
-                      className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-medium"
+                      className="ui-btn-secondary px-3 py-1 text-xs"
                     >
                       Update Stop
                     </button>

@@ -85,7 +85,7 @@ export function PartialExitTable({ savedTrades, onPartialExit }: Props) {
                           exitShares[row.id] ?? ''
                         )
                       }
-                      className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-medium"
+                      className="ui-btn-secondary px-3 py-1 text-xs"
                     >
                       Partial Exit
                     </button>

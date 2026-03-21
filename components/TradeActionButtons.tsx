@@ -19,27 +19,15 @@ export function TradeActionButtons({
 }: Props) {
   return (
     <div className="mt-8 flex flex-wrap gap-4">
-      <button
-        onClick={onEvaluate}
-        disabled={!canEvaluate}
-        className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
-      >
+      <button onClick={onEvaluate} disabled={!canEvaluate} className="ui-btn-primary">
         {saving ? 'Evaluating...' : 'Evaluate Setup'}
       </button>
 
-      <button
-        onClick={onGenerate}
-        disabled={!canGenerate}
-        className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
-      >
+      <button onClick={onGenerate} disabled={!canGenerate} className="ui-btn-primary">
         Generate Trade Plan
       </button>
 
-      <button
-        onClick={onCreateTrade}
-        disabled={!canCreate}
-        className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
-      >
+      <button onClick={onCreateTrade} disabled={!canCreate} className="ui-btn-primary">
         Create Trade
       </button>
     </div>

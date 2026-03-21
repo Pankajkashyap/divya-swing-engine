@@ -83,7 +83,7 @@ export function TradeManagementTable({
                       {isOpen ? (
                         <button
                           onClick={() => onCloseTrade(row.id, exitPrices[row.id] ?? '')}
-                          className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-medium"
+                          className="ui-btn-secondary px-3 py-1 text-xs"
                         >
                           Close Trade
                         </button>

@@ -2,132 +2,107 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { WeeklyReviewSummary } from '@/components/WeeklyReviewSummary'
 import { AppHeader } from '@/components/AppHeader'
 
-type MarketSnapshot = {
-  id: string
-  market_phase: string
-}
-
-type TradeRow = {
+type Trade = {
   id: string
   ticker: string
+  side: string
   status: string
-  pnl_dollar: number | null
-  pnl_pct: number | null
   entry_date: string | null
   exit_date: string | null
+  entry_price_actual: number | null
   exit_price_actual: number | null
+  shares_entered: number | null
+  pnl_dollar: number | null
+  pnl_pct: number | null
 }
 
 export default function WeeklyReviewPage() {
-  const [market, setMarket] = useState<MarketSnapshot | null>(null)
-  const [trades, setTrades] = useState<TradeRow[]>([])
-  const [primaryFocus, setPrimaryFocus] = useState('')
-  const [biggestRuleIssue, setBiggestRuleIssue] = useState('')
-  const [nextWeekTriggers, setNextWeekTriggers] = useState('')
-  const [notes, setNotes] = useState('')
+  const [trades, setTrades] = useState<Trade[]>([])
   const [loading, setLoading] = useState(true)
 
+  // -----------------------
+  // LOAD DATA
+  // -----------------------
   useEffect(() => {
-    const loadData = async () => {
-      const [
-        { data: marketData, error: marketError },
-        { data: tradeData, error: tradeError },
-      ] = await Promise.all([
-        supabase
-          .from('market_snapshots')
-          .select('id, market_phase')
-          .order('snapshot_date', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from('trades')
-          .select(
-            'id, ticker, status, pnl_dollar, pnl_pct, entry_date, exit_date, exit_price_actual'
-          )
-          .order('created_at', { ascending: false })
-          .limit(100),
-      ])
+    const loadTrades = async () => {
+      const { data, error } = await supabase
+        .from('trades')
+        .select(
+          'id, ticker, side, status, entry_date, exit_date, entry_price_actual, exit_price_actual, shares_entered, pnl_dollar, pnl_pct'
+        )
+        .order('created_at', { ascending: false })
 
-      if (marketError) console.error('Market load error:', marketError)
-      if (tradeError) console.error('Trade load error:', tradeError)
+      if (error) {
+        console.error(error)
+        alert('Failed to load trades')
+      } else {
+        setTrades(data ?? [])
+      }
 
-      setMarket(marketData ?? null)
-      setTrades(tradeData ?? [])
       setLoading(false)
     }
 
-    loadData()
+    void loadTrades()
   }, [])
 
+  // -----------------------
+  // FILTER LAST 7 DAYS
+  // -----------------------
+  const last7DaysTrades = useMemo(() => {
+    const today = new Date()
+    const past = new Date()
+    past.setDate(today.getDate() - 7)
+
+    return trades.filter((t) => {
+      if (!t.exit_date) return false
+      const exitDate = new Date(t.exit_date)
+      return exitDate >= past && exitDate <= today
+    })
+  }, [trades])
+
+  // -----------------------
+  // METRICS
+  // -----------------------
   const metrics = useMemo(() => {
-    const openTrades = trades.filter(
-      (trade) => trade.status === 'open' || trade.status === 'partial'
-    )
+    const totalTrades = last7DaysTrades.length
 
-    const closedTrades = trades.filter((trade) => trade.status === 'closed')
+    const winners = last7DaysTrades.filter((t) => (t.pnl_dollar ?? 0) > 0)
+    const losers = last7DaysTrades.filter((t) => (t.pnl_dollar ?? 0) < 0)
 
-    const totalRealizedPnl = closedTrades.reduce(
-      (sum, trade) => sum + (trade.pnl_dollar ?? 0),
+    const winRate =
+      totalTrades > 0 ? (winners.length / totalTrades) * 100 : 0
+
+    const totalPnl = last7DaysTrades.reduce(
+      (sum, t) => sum + (t.pnl_dollar ?? 0),
       0
     )
 
-    const wins = closedTrades.filter((trade) => (trade.pnl_dollar ?? 0) > 0)
-    const losses = closedTrades.filter((trade) => (trade.pnl_dollar ?? 0) < 0)
-
     const avgWin =
-      wins.length > 0
-        ? wins.reduce((sum, trade) => sum + (trade.pnl_dollar ?? 0), 0) /
-          wins.length
+      winners.length > 0
+        ? winners.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0) /
+          winners.length
         : 0
 
     const avgLoss =
-      losses.length > 0
-        ? losses.reduce((sum, trade) => sum + (trade.pnl_dollar ?? 0), 0) /
-          losses.length
+      losers.length > 0
+        ? losers.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0) /
+          losers.length
         : 0
 
     return {
-      openTradesCount: openTrades.length,
-      closedTradesCount: closedTrades.length,
-      totalRealizedPnl: Number(totalRealizedPnl.toFixed(2)),
-      winsCount: wins.length,
-      lossesCount: losses.length,
-      avgWin: Number(avgWin.toFixed(2)),
-      avgLoss: Number(avgLoss.toFixed(2)),
-      closedTrades,
+      totalTrades,
+      winRate,
+      totalPnl,
+      avgWin,
+      avgLoss,
     }
-  }, [trades])
+  }, [last7DaysTrades])
 
-  const handleSaveWeeklyReview = async () => {
-    const today = new Date().toISOString().slice(0, 10)
-
-    const { error } = await supabase.from('weekly_reviews').insert({
-      week_ending: today,
-      market_phase: market?.market_phase ?? null,
-      open_positions_count: metrics.openTradesCount,
-      wins_count: metrics.winsCount,
-      losses_count: metrics.lossesCount,
-      weekly_pnl_dollar: metrics.totalRealizedPnl,
-      avg_win_r: metrics.avgWin,
-      avg_loss_r: metrics.avgLoss,
-      biggest_rule_violation: biggestRuleIssue || null,
-      next_week_triggers: nextWeekTriggers || null,
-      primary_focus: primaryFocus || null,
-      notes: notes || null,
-    })
-
-    if (error) {
-      console.error(error)
-      alert('Failed to save weekly review')
-      return
-    }
-
-    alert('Weekly review saved')
-  }
-
+  // -----------------------
+  // UI
+  // -----------------------
   if (loading) {
     return <main className="p-10">Loading weekly review...</main>
   }
@@ -137,120 +112,109 @@ export default function WeeklyReviewPage() {
       <section className="mx-auto max-w-6xl">
         <AppHeader
           title="Weekly Review"
-          subtitle="Review outcomes, performance, and next-week focus."
-          rightLinkHref="/"
-          rightLinkLabel="Back to Dashboard"
+          subtitle="Review your last 7 days of trading performance."
         />
 
-        <WeeklyReviewSummary
-          marketPhase={market?.market_phase ?? ''}
-          openTradesCount={metrics.openTradesCount}
-          closedTradesCount={metrics.closedTradesCount}
-          totalRealizedPnl={metrics.totalRealizedPnl}
-          winsCount={metrics.winsCount}
-          lossesCount={metrics.lossesCount}
-          avgWin={metrics.avgWin}
-          avgLoss={metrics.avgLoss}
-        />
+        {/* -----------------------
+            METRICS CARDS
+        ----------------------- */}
+        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+          <MetricCard label="Trades" value={metrics.totalTrades} />
+          <MetricCard
+            label="Win Rate"
+            value={`${metrics.winRate.toFixed(1)}%`}
+          />
+          <MetricCard
+            label="Total P&L"
+            value={`$${metrics.totalPnl.toFixed(2)}`}
+          />
+          <MetricCard
+            label="Avg Win"
+            value={`$${metrics.avgWin.toFixed(2)}`}
+          />
+          <MetricCard
+            label="Avg Loss"
+            value={`$${metrics.avgLoss.toFixed(2)}`}
+          />
+        </div>
 
-        <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
-          <h2 className="text-lg font-semibold">Closed Trades</h2>
+        {/* -----------------------
+            TABLE
+        ----------------------- */}
+        <div className="mt-8 overflow-x-auto rounded-2xl border">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-50">
+              <tr>
+                <th className="px-4 py-3 text-left">Ticker</th>
+                <th className="px-4 py-3 text-left">Entry</th>
+                <th className="px-4 py-3 text-left">Exit</th>
+                <th className="px-4 py-3 text-left">Shares</th>
+                <th className="px-4 py-3 text-left">P&L</th>
+                <th className="px-4 py-3 text-left">P&L %</th>
+              </tr>
+            </thead>
 
-          {metrics.closedTrades.length === 0 ? (
-            <p className="mt-4 text-neutral-600">No closed trades yet.</p>
-          ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-200 text-left text-neutral-500">
-                    <th className="py-3 pr-4">Ticker</th>
-                    <th className="py-3 pr-4">Entry Date</th>
-                    <th className="py-3 pr-4">Exit Date</th>
-                    <th className="py-3 pr-4">Exit Price</th>
-                    <th className="py-3 pr-4">P&amp;L $</th>
-                    <th className="py-3 pr-4">P&amp;L %</th>
+            <tbody>
+              {last7DaysTrades.map((trade) => {
+                const isWin = (trade.pnl_dollar ?? 0) > 0
+
+                return (
+                  <tr key={trade.id} className="border-t">
+                    <td className="px-4 py-3">{trade.ticker}</td>
+                    <td className="px-4 py-3">
+                      {trade.entry_price_actual}
+                    </td>
+                    <td className="px-4 py-3">
+                      {trade.exit_price_actual}
+                    </td>
+                    <td className="px-4 py-3">
+                      {trade.shares_entered}
+                    </td>
+                    <td
+                      className={`px-4 py-3 ${
+                        isWin ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
+                      {trade.pnl_dollar?.toFixed(2)}
+                    </td>
+                    <td
+                      className={`px-4 py-3 ${
+                        isWin ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
+                      {trade.pnl_pct?.toFixed(2)}%
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {metrics.closedTrades.map((trade) => (
-                    <tr key={trade.id} className="border-b border-neutral-100">
-                      <td className="py-3 pr-4 font-medium">{trade.ticker}</td>
-                      <td className="py-3 pr-4">{trade.entry_date ?? '—'}</td>
-                      <td className="py-3 pr-4">{trade.exit_date ?? '—'}</td>
-                      <td className="py-3 pr-4">
-                        {trade.exit_price_actual ?? '—'}
-                      </td>
-                      <td className="py-3 pr-4">{trade.pnl_dollar ?? '—'}</td>
-                      <td className="py-3 pr-4">{trade.pnl_pct ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                )
+              })}
+            </tbody>
+          </table>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
-          <h2 className="text-lg font-semibold">Weekly Review Notes</h2>
-
-          <div className="mt-4 grid gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium">
-                Primary Focus for Next Week
-              </label>
-              <input
-                value={primaryFocus}
-                onChange={(e) => setPrimaryFocus(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                placeholder="Focus on A-grade setups only"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium">
-                Biggest Rule Issue
-              </label>
-              <input
-                value={biggestRuleIssue}
-                onChange={(e) => setBiggestRuleIssue(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                placeholder="Entered too far from pivot"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium">
-                Next Week Triggers
-              </label>
-              <input
-                value={nextWeekTriggers}
-                onChange={(e) => setNextWeekTriggers(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                placeholder="Watch for confirmed_uptrend continuation"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium">Notes</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="min-h-32 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                placeholder="Weekly reflection..."
-              />
-            </div>
+        {last7DaysTrades.length === 0 && (
+          <div className="mt-6 text-sm text-neutral-500">
+            No trades closed in the last 7 days.
           </div>
-
-          <div className="mt-4">
-            <button
-              onClick={handleSaveWeeklyReview}
-              className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
-            >
-              Save Weekly Review
-            </button>
-          </div>
-        </div>
+        )}
       </section>
     </main>
+  )
+}
+
+// -----------------------
+// SMALL COMPONENT
+// -----------------------
+function MetricCard({
+  label,
+  value,
+}: {
+  label: string
+  value: string | number
+}) {
+  return (
+    <div className="rounded-2xl border p-4">
+      <div className="text-xs text-neutral-500">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
+    </div>
   )
 }
