@@ -16,6 +16,7 @@ import { TradePlanPanel } from '@/components/TradePlanPanel'
 import { SavedTradePlansTable } from '@/components/SavedTradePlansTable'
 import { MarketSnapshotForm } from '@/components/MarketSnapshotForm'
 import { TradeManagementTable } from '@/components/TradeManagementTable'
+import { RuleAuditTable } from '@/components/RuleAuditTable'
 
 export type MarketSnapshot = {
   id: string
@@ -107,6 +108,17 @@ export type SavedTrade = {
   pnl_pct: number | null
 }
 
+type RuleAuditRow = {
+  id: string
+  setup_evaluation_id: string
+  rule_code: string
+  rule_name: string
+  passed: boolean | null
+  actual_value_text: string | null
+  actual_value_numeric: number | null
+  notes: string | null
+}
+
 export default function HomePage() {
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [stock, setStock] = useState<WatchlistRow | null>(null)
@@ -118,6 +130,7 @@ export default function HomePage() {
   const [latestTradePlanId, setLatestTradePlanId] = useState<string | null>(null)
   const [savedPlans, setSavedPlans] = useState<SavedTradePlan[]>([])
   const [savedTrades, setSavedTrades] = useState<SavedTrade[]>([])
+  const [ruleAuditRows, setRuleAuditRows] = useState<RuleAuditRow[]>([])
   const [portfolioValue, setPortfolioValue] = useState('100000')
 
   const loadDashboardData = async () => {
@@ -126,6 +139,7 @@ export default function HomePage() {
       { data: watchlistData, error: watchlistError },
       { data: tradePlanData, error: tradePlanError },
       { data: tradeData, error: tradeError },
+      { data: ruleAuditData, error: ruleAuditError },
     ] = await Promise.all([
       supabase
         .from('market_snapshots')
@@ -154,12 +168,20 @@ export default function HomePage() {
         )
         .order('created_at', { ascending: false })
         .limit(20),
+      supabase
+        .from('rule_results')
+        .select(
+          'id, setup_evaluation_id, rule_code, rule_name, passed, actual_value_text, actual_value_numeric, notes'
+        )
+        .order('created_at', { ascending: false })
+        .limit(30),
     ])
 
     if (marketError) console.error('Market load error:', marketError)
     if (watchlistError) console.error('Watchlist load error:', watchlistError)
     if (tradePlanError) console.error('Trade plan load error:', tradePlanError)
     if (tradeError) console.error('Trade load error:', tradeError)
+    if (ruleAuditError) console.error('Rule audit load error:', ruleAuditError)
 
     const watchlistRows = watchlistData ?? []
 
@@ -174,6 +196,7 @@ export default function HomePage() {
     })
     setSavedPlans(tradePlanData ?? [])
     setSavedTrades(tradeData ?? [])
+    setRuleAuditRows(ruleAuditData ?? [])
   }
 
   useEffect(() => {
@@ -263,8 +286,132 @@ export default function HomePage() {
       return
     }
 
+    const evaluationId = savedEvaluation?.id ?? null
+
+    if (evaluationId) {
+      const ruleRows = [
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'MARKET_PHASE',
+          rule_name: 'Market Phase',
+          passed: evaluation.market_phase_pass,
+          actual_value_text: market.market_phase,
+          actual_value_numeric: null,
+          notes: 'Current market must allow new long entries',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'TREND_TEMPLATE',
+          rule_name: 'Trend Template',
+          passed: evaluation.trend_template_pass,
+          actual_value_text: stock.trend_template_pass === true ? 'true' : 'false',
+          actual_value_numeric: null,
+          notes: 'Stock must satisfy trend template gate',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'LIQUIDITY',
+          rule_name: 'Liquidity',
+          passed: evaluation.liquidity_pass,
+          actual_value_text: evaluation.liquidity_pass ? 'pass' : 'fail',
+          actual_value_numeric: null,
+          notes: 'Liquidity gate for trade execution quality',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'BASE_PATTERN',
+          rule_name: 'Base Pattern',
+          passed: evaluation.base_pattern_valid,
+          actual_value_text: evaluation.base_pattern_valid ? 'valid' : 'invalid',
+          actual_value_numeric: null,
+          notes: 'Pattern structure must be valid',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'VOLUME_PATTERN',
+          rule_name: 'Volume Pattern',
+          passed: evaluation.volume_pattern_valid,
+          actual_value_text: stock.volume_dry_up_pass === true ? 'true' : 'false',
+          actual_value_numeric: null,
+          notes: 'Dry-up / constructive volume behavior required',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'RS_CONFIRMATION',
+          rule_name: 'RS Confirmation',
+          passed: evaluation.rs_line_confirmed,
+          actual_value_text: evaluation.rs_line_confirmed ? 'pass' : 'fail',
+          actual_value_numeric: null,
+          notes: 'Relative strength should confirm leadership',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'ENTRY_NEAR_PIVOT',
+          rule_name: 'Entry Near Pivot',
+          passed: evaluation.entry_near_pivot_pass,
+          actual_value_text: evaluation.entry_near_pivot_pass ? 'pass' : 'fail',
+          actual_value_numeric: null,
+          notes: 'Entry should be near intended pivot / entry zone',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'BREAKOUT_VOLUME',
+          rule_name: 'Breakout Volume',
+          passed: evaluation.volume_breakout_pass,
+          actual_value_text: evaluation.volume_breakout_pass ? 'pass' : 'fail',
+          actual_value_numeric: null,
+          notes: 'Breakout should have enough volume confirmation',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'RR_RATIO',
+          rule_name: 'Reward / Risk',
+          passed: evaluation.rr_pass,
+          actual_value_text: null,
+          actual_value_numeric: evaluation.rr_ratio,
+          notes: 'Minimum 2:1 reward / risk required',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'SETUP_GRADE',
+          rule_name: 'Setup Grade',
+          passed: null,
+          actual_value_text: evaluation.setup_grade,
+          actual_value_numeric: null,
+          notes: 'Quality grade influences aggressiveness and sizing',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'EARNINGS_RISK',
+          rule_name: 'Earnings Risk',
+          passed: !evaluation.earnings_risk_flag,
+          actual_value_text: evaluation.earnings_risk_flag ? 'flagged' : 'clear',
+          actual_value_numeric: null,
+          notes: 'Earnings inside 2 weeks should reduce aggressiveness',
+        },
+        {
+          setup_evaluation_id: evaluationId,
+          rule_code: 'BINARY_EVENT_RISK',
+          rule_name: 'Binary Event Risk',
+          passed: !evaluation.binary_event_flag,
+          actual_value_text: evaluation.binary_event_flag ? 'flagged' : 'clear',
+          actual_value_numeric: null,
+          notes: 'Binary event risk should reduce size or delay entry',
+        },
+      ]
+
+      const { error: ruleInsertError } = await supabase
+        .from('rule_results')
+        .insert(ruleRows)
+
+      if (ruleInsertError) {
+        console.error(ruleInsertError)
+        alert('Evaluation saved, but failed to save rule audit rows')
+      }
+    }
+
     setResult({
-      id: savedEvaluation?.id ?? null,
+      id: evaluationId,
       verdict: evaluation.verdict,
       score_total: evaluation.score_total,
       fail_reason: evaluation.fail_reason,
@@ -284,6 +431,7 @@ export default function HomePage() {
       setup_grade: evaluation.setup_grade,
     })
 
+    await loadDashboardData()
     setSaving(false)
   }
 
@@ -583,6 +731,7 @@ export default function HomePage() {
           savedTrades={savedTrades}
           onCloseTrade={handleCloseTrade}
         />
+        <RuleAuditTable rows={ruleAuditRows} />
       </section>
     </main>
   )
