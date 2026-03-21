@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { evaluateSetup } from '@/lib/evaluateSetup'
@@ -482,12 +483,23 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
       <section className="mx-auto max-w-6xl">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500">
-          Divya Swing Engine
-        </p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight">
-          Setup Evaluator
-        </h1>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500">
+              Divya Swing Engine
+            </p>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight">
+              Setup Evaluator
+            </h1>
+          </div>
+
+          <Link
+            href="/weekly-review"
+            className="rounded-xl border border-neutral-900 px-4 py-2 text-sm font-medium"
+          >
+            Weekly Review
+          </Link>
+        </div>
 
         <MarketSummaryCards
           market={market}
