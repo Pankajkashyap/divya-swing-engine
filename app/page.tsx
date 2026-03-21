@@ -17,6 +17,7 @@ import { SavedTradePlansTable } from '@/components/SavedTradePlansTable'
 import { MarketSnapshotForm } from '@/components/MarketSnapshotForm'
 import { TradeManagementTable } from '@/components/TradeManagementTable'
 import { RuleAuditTable } from '@/components/RuleAuditTable'
+import { StopUpdateTable } from '@/components/StopUpdateTable'
 
 export type MarketSnapshot = {
   id: string
@@ -100,6 +101,7 @@ export type SavedTrade = {
   entry_price_actual: number | null
   shares_entered: number | null
   stop_price_initial: number | null
+  stop_price_current: number | null
   target_1_price: number | null
   target_2_price: number | null
   exit_date: string | null
@@ -164,7 +166,7 @@ export default function HomePage() {
       supabase
         .from('trades')
         .select(
-          'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, target_1_price, target_2_price, exit_date, exit_price_actual, pnl_dollar, pnl_pct'
+          'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, stop_price_current, target_1_price, target_2_price, exit_date, exit_price_actual, pnl_dollar, pnl_pct'
         )
         .order('created_at', { ascending: false })
         .limit(20),
@@ -664,6 +666,31 @@ export default function HomePage() {
     alert('Trade closed successfully')
   }
 
+  const handleUpdateStop = async (tradeId: string, newStopPrice: string) => {
+    const parsedStop = Number(newStopPrice)
+
+    if (!parsedStop || parsedStop <= 0) {
+      alert('Enter a valid stop price')
+      return
+    }
+
+    const { error } = await supabase
+      .from('trades')
+      .update({
+        stop_price_current: parsedStop,
+      })
+      .eq('id', tradeId)
+
+    if (error) {
+      console.error(error)
+      alert('Failed to update stop')
+      return
+    }
+
+    await loadDashboardData()
+    alert('Stop updated successfully')
+  }
+
   if (loading) {
     return <main className="p-10">Loading...</main>
   }
@@ -730,6 +757,10 @@ export default function HomePage() {
         <TradeManagementTable
           savedTrades={savedTrades}
           onCloseTrade={handleCloseTrade}
+        />
+        <StopUpdateTable
+          savedTrades={savedTrades}
+          onUpdateStop={handleUpdateStop}
         />
         <RuleAuditTable rows={ruleAuditRows} />
       </section>
