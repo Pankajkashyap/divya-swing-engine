@@ -11,8 +11,8 @@ import { TradeActionButtons } from '@/components/TradeActionButtons'
 import { EvaluationPanel } from '@/components/EvaluationPanel'
 import { TradePlanPanel } from '@/components/TradePlanPanel'
 import { SavedTradePlansTable } from '@/components/SavedTradePlansTable'
-import { OpenTradesTable } from '@/components/OpenTradesTable'
 import { MarketSnapshotForm } from '@/components/MarketSnapshotForm'
+import { TradeManagementTable } from '@/components/TradeManagementTable'
 
 export type MarketSnapshot = {
   id: string
@@ -98,6 +98,10 @@ export type SavedTrade = {
   stop_price_initial: number | null
   target_1_price: number | null
   target_2_price: number | null
+  exit_date: string | null
+  exit_price_actual: number | null
+  pnl_dollar: number | null
+  pnl_pct: number | null
 }
 
 export default function HomePage() {
@@ -143,10 +147,10 @@ export default function HomePage() {
       supabase
         .from('trades')
         .select(
-          'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, target_1_price, target_2_price'
+          'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, target_1_price, target_2_price, exit_date, exit_price_actual, pnl_dollar, pnl_pct'
         )
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(20),
     ])
 
     if (marketError) console.error('Market load error:', marketError)
@@ -420,27 +424,55 @@ export default function HomePage() {
       .update({ approval_status: 'executed' })
       .eq('id', latestTradePlanId)
 
-    const [{ data: refreshedTrades }, { data: refreshedPlans }] =
-      await Promise.all([
-        supabase
-          .from('trades')
-          .select(
-            'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, target_1_price, target_2_price'
-          )
-          .order('created_at', { ascending: false })
-          .limit(10),
-        supabase
-          .from('trade_plans')
-          .select(
-            'id, plan_date, side, entry_price, stop_price, final_shares, final_position_value, expected_rr, approval_status, blocked_reason'
-          )
-          .order('created_at', { ascending: false })
-          .limit(10),
-      ])
-
-    setSavedTrades(refreshedTrades ?? [])
-    setSavedPlans(refreshedPlans ?? [])
+    await loadDashboardData()
     alert('Trade created successfully')
+  }
+
+  const handleCloseTrade = async (tradeId: string, exitPrice: string) => {
+    const parsedExitPrice = Number(exitPrice)
+
+    if (!parsedExitPrice || parsedExitPrice <= 0) {
+      alert('Enter a valid exit price')
+      return
+    }
+
+    const trade = savedTrades.find((row) => row.id === tradeId)
+
+    if (!trade || !trade.entry_price_actual || !trade.shares_entered) {
+      alert('Trade data is incomplete')
+      return
+    }
+
+    let pnlDollar = 0
+    if (trade.side === 'long') {
+      pnlDollar = (parsedExitPrice - trade.entry_price_actual) * trade.shares_entered
+    } else {
+      pnlDollar = (trade.entry_price_actual - parsedExitPrice) * trade.shares_entered
+    }
+
+    const pnlPct =
+      ((parsedExitPrice - trade.entry_price_actual) / trade.entry_price_actual) * 100
+
+    const { error } = await supabase
+      .from('trades')
+      .update({
+        status: 'closed',
+        exit_date: new Date().toISOString().slice(0, 10),
+        exit_price_actual: parsedExitPrice,
+        shares_exited: trade.shares_entered,
+        pnl_dollar: Number(pnlDollar.toFixed(2)),
+        pnl_pct: Number(pnlPct.toFixed(2)),
+      })
+      .eq('id', tradeId)
+
+    if (error) {
+      console.error(error)
+      alert('Failed to close trade')
+      return
+    }
+
+    await loadDashboardData()
+    alert('Trade closed successfully')
   }
 
   if (loading) {
@@ -492,7 +524,10 @@ export default function HomePage() {
         <EvaluationPanel result={result} />
         <TradePlanPanel plan={plan} />
         <SavedTradePlansTable savedPlans={savedPlans} />
-        <OpenTradesTable savedTrades={savedTrades} />
+        <TradeManagementTable
+          savedTrades={savedTrades}
+          onCloseTrade={handleCloseTrade}
+        />
       </section>
     </main>
   )
