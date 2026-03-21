@@ -78,6 +78,7 @@ const [newRrRatio, setNewRrRatio] = useState('')
 const [newEntryZoneLow, setNewEntryZoneLow] = useState('')
 const [newEntryZoneHigh, setNewEntryZoneHigh] = useState('')
 const [newStopPrice, setNewStopPrice] = useState('')
+const [portfolioValue, setPortfolioValue] = useState('100000')
 
   useEffect(() => {
     const loadData = async () => {
@@ -224,7 +225,7 @@ setLoading(false)
           Setup Evaluator
         </h1>
 
-        <div className="mt-8 grid gap-6 md:grid-cols-2">
+                <div className="mt-8 grid gap-6 md:grid-cols-3">
           <div className="rounded-2xl border border-neutral-200 p-5">
             <h2 className="text-lg font-semibold">Market</h2>
             <p className="mt-3 text-sm text-neutral-600">
@@ -243,6 +244,19 @@ setLoading(false)
             <p className="mt-2 text-sm text-neutral-600">
               Grade: {stock?.setup_grade ?? '—'} | R/R: {stock?.rr_ratio ?? '—'}
             </p>
+          </div>
+
+          <div className="rounded-2xl border border-neutral-200 p-5">
+            <h2 className="text-lg font-semibold">Portfolio Value</h2>
+            <p className="mt-3 text-sm text-neutral-600">
+              Used for trade sizing
+            </p>
+            <input
+              value={portfolioValue}
+              onChange={(e) => setPortfolioValue(e.target.value)}
+              className="mt-2 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              placeholder="100000"
+            />
           </div>
         </div>
                 <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
@@ -407,15 +421,21 @@ setLoading(false)
     onClick={async () => {
   if (!market || !stock) return
 
-  const tradePlan = generateTradePlan(market, stock, 100000)
+const parsedPortfolioValue = Number(portfolioValue)
 
+if (!parsedPortfolioValue || parsedPortfolioValue <= 0) {
+  alert('Enter a valid portfolio value')
+  return
+}
+
+const tradePlan = generateTradePlan(market, stock, parsedPortfolioValue)
   // Save to DB
   const { error } = await supabase.from('trade_plans').insert({
     watchlist_id: stock.id,
     plan_date: new Date().toISOString().slice(0, 10),
     side: 'long',
 
-    portfolio_value: 100000,
+portfolio_value: parsedPortfolioValue,
     risk_pct: tradePlan.risk_pct,
     dollar_risk: tradePlan.dollar_risk,
 
