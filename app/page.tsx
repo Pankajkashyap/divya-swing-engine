@@ -18,6 +18,7 @@ import { MarketSnapshotForm } from '@/components/MarketSnapshotForm'
 import { TradeManagementTable } from '@/components/TradeManagementTable'
 import { RuleAuditTable } from '@/components/RuleAuditTable'
 import { StopUpdateTable } from '@/components/StopUpdateTable'
+import { PartialExitTable } from '@/components/PartialExitTable'
 
 export type MarketSnapshot = {
   id: string
@@ -691,6 +692,94 @@ export default function HomePage() {
     alert('Stop updated successfully')
   }
 
+const handlePartialExit = async (
+  tradeId: string,
+  exitPrice: string,
+  exitShares: string
+) => {
+  const parsedExitPrice = Number(exitPrice)
+  const parsedExitShares = Number(exitShares)
+
+  if (!parsedExitPrice || parsedExitPrice <= 0) {
+    alert('Enter a valid exit price')
+    return
+  }
+
+  if (!parsedExitShares || parsedExitShares <= 0) {
+    alert('Enter valid exit shares')
+    return
+  }
+
+  if (!Number.isInteger(parsedExitShares)) {
+    alert('Exit shares must be a whole number')
+    return
+  }
+
+  const trade = savedTrades.find((row) => row.id === tradeId)
+
+  if (!trade || !trade.entry_price_actual || !trade.shares_entered) {
+    alert('Trade data is incomplete')
+    return
+  }
+
+  if (parsedExitShares > trade.shares_entered) {
+    alert('Exit shares cannot exceed current shares')
+    return
+  }
+
+  let partialPnlDollar = 0
+  if (trade.side === 'long') {
+    partialPnlDollar =
+      (parsedExitPrice - trade.entry_price_actual) * parsedExitShares
+  } else {
+    partialPnlDollar =
+      (trade.entry_price_actual - parsedExitPrice) * parsedExitShares
+  }
+
+  const remainingShares = trade.shares_entered - parsedExitShares
+  const newStatus = remainingShares > 0 ? 'partial' : 'closed'
+  const finalPnlDollar =
+    (trade.pnl_dollar ?? 0) + Number(partialPnlDollar.toFixed(2))
+  const finalPnlPct =
+    ((parsedExitPrice - trade.entry_price_actual) / trade.entry_price_actual) *
+    100
+
+  const updatePayload: {
+    status: string
+    shares_entered: number
+    pnl_dollar: number
+    pnl_pct: number
+    exit_date?: string
+    exit_price_actual?: number
+    shares_exited?: number
+  } = {
+    status: newStatus,
+    shares_entered: remainingShares,
+    pnl_dollar: Number(finalPnlDollar.toFixed(2)),
+    pnl_pct: Number(finalPnlPct.toFixed(2)),
+  }
+
+  if (remainingShares === 0) {
+    updatePayload.exit_date = new Date().toISOString().slice(0, 10)
+    updatePayload.exit_price_actual = parsedExitPrice
+    updatePayload.shares_exited = parsedExitShares
+  }
+
+  const { error } = await supabase
+    .from('trades')
+    .update(updatePayload)
+    .eq('id', tradeId)
+
+  if (error) {
+    console.error(error)
+    alert('Failed to process partial exit')
+    return
+  }
+
+  await loadDashboardData()
+  alert('Partial exit processed successfully')
+}
+
   if (loading) {
     return <main className="p-10">Loading...</main>
   }
@@ -761,6 +850,10 @@ export default function HomePage() {
         <StopUpdateTable
           savedTrades={savedTrades}
           onUpdateStop={handleUpdateStop}
+        />
+        <PartialExitTable
+          savedTrades={savedTrades}
+          onPartialExit={handlePartialExit}
         />
         <RuleAuditTable rows={ruleAuditRows} />
       </section>
