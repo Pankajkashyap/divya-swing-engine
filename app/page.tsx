@@ -1,10 +1,11 @@
 'use client'
 
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { evaluateSetup } from '@/lib/evaluateSetup'
 import { generateTradePlan } from '@/lib/generateTradePlan'
+import { AppHeader } from '@/components/AppHeader'
+import { DashboardMetrics } from '@/components/DashboardMetrics'
 import { MarketSummaryCards } from '@/components/MarketSummaryCards'
 import { AddWatchlistStockForm } from '@/components/AddWatchlistStockForm'
 import { WatchlistSelectionTable } from '@/components/WatchlistSelectionTable'
@@ -182,6 +183,24 @@ export default function HomePage() {
 
     load()
   }, [])
+
+  const metrics = useMemo(() => {
+    const openTrades = savedTrades.filter(
+      (trade) => trade.status === 'open' || trade.status === 'partial'
+    )
+    const closedTrades = savedTrades.filter((trade) => trade.status === 'closed')
+    const totalRealizedPnl = closedTrades.reduce(
+      (sum, trade) => sum + (trade.pnl_dollar ?? 0),
+      0
+    )
+
+    return {
+      watchlistCount: watchlist.length,
+      openTradesCount: openTrades.length,
+      closedTradesCount: closedTrades.length,
+      totalRealizedPnl: Number(totalRealizedPnl.toFixed(2)),
+    }
+  }, [watchlist, savedTrades])
 
   const runEvaluation = async () => {
     if (!market || !stock) return
@@ -483,23 +502,19 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
       <section className="mx-auto max-w-6xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-neutral-500">
-              Divya Swing Engine
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">
-              Setup Evaluator
-            </h1>
-          </div>
+        <AppHeader
+          title="Setup Evaluator"
+          subtitle="Market-first rule engine, trade planning, and execution workflow."
+          rightLinkHref="/weekly-review"
+          rightLinkLabel="Weekly Review"
+        />
 
-          <Link
-            href="/weekly-review"
-            className="rounded-xl border border-neutral-900 px-4 py-2 text-sm font-medium"
-          >
-            Weekly Review
-          </Link>
-        </div>
+        <DashboardMetrics
+          watchlistCount={metrics.watchlistCount}
+          openTradesCount={metrics.openTradesCount}
+          closedTradesCount={metrics.closedTradesCount}
+          totalRealizedPnl={metrics.totalRealizedPnl}
+        />
 
         <MarketSummaryCards
           market={market}
