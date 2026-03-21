@@ -65,15 +65,23 @@ type SavedTradePlan = {
 export default function HomePage() {
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [stock, setStock] = useState<WatchlistRow | null>(null)
+  const [watchlist, setWatchlist] = useState<WatchlistRow[]>([])
   const [result, setResult] = useState<EvalResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [plan, setPlan] = useState<TradePlanResult | null>(null)
   const [savedPlans, setSavedPlans] = useState<SavedTradePlan[]>([])
+  const [newTicker, setNewTicker] = useState('')
+const [newCompanyName, setNewCompanyName] = useState('')
+const [newSetupGrade, setNewSetupGrade] = useState('A')
+const [newRrRatio, setNewRrRatio] = useState('')
+const [newEntryZoneLow, setNewEntryZoneLow] = useState('')
+const [newEntryZoneHigh, setNewEntryZoneHigh] = useState('')
+const [newStopPrice, setNewStopPrice] = useState('')
 
   useEffect(() => {
     const loadData = async () => {
-      const [{ data: marketData }, { data: stockData }, { data: tradePlanData }] =
+      const [{ data: marketData }, { data: watchlistData }, { data: tradePlanData }] =
   await Promise.all([
     supabase
       .from('market_snapshots')
@@ -82,13 +90,12 @@ export default function HomePage() {
       .limit(1)
       .maybeSingle(),
     supabase
-      .from('watchlist')
-      .select(
-        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
-      )
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  .from('watchlist')
+  .select(
+    'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
+  )
+  .order('created_at', { ascending: false })
+  .limit(20),
     supabase
       .from('trade_plans')
       .select(
@@ -98,8 +105,11 @@ export default function HomePage() {
       .limit(10),
   ])
 
-      setMarket(marketData ?? null)
-setStock(stockData ?? null)
+     const watchlistRows = watchlistData ?? []
+
+setMarket(marketData ?? null)
+setWatchlist(watchlistRows)
+setStock(watchlistRows[0] ?? null)
 setSavedPlans(tradePlanData ?? [])
 setLoading(false)
     }
@@ -152,6 +162,53 @@ setLoading(false)
 
     setSaving(false)
   }
+  const handleAddWatchlistStock = async () => {
+  if (!newTicker.trim()) {
+    alert('Ticker is required')
+    return
+  }
+
+  const { data: insertedRow, error } = await supabase
+    .from('watchlist')
+    .insert({
+      ticker: newTicker.trim().toUpperCase(),
+      company_name: newCompanyName.trim() || null,
+      setup_type: 'breakout',
+      setup_grade: newSetupGrade,
+      rr_ratio: newRrRatio ? Number(newRrRatio) : null,
+      entry_zone_low: newEntryZoneLow ? Number(newEntryZoneLow) : null,
+      entry_zone_high: newEntryZoneHigh ? Number(newEntryZoneHigh) : null,
+      stop_price: newStopPrice ? Number(newStopPrice) : null,
+      trend_template_pass: true,
+      volume_dry_up_pass: true,
+      status: 'watchlist',
+      action_status: 'watchlist',
+    })
+    .select(
+      'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
+    )
+    .single()
+
+  if (error) {
+    console.error(error)
+    alert('Failed to add watchlist stock')
+    return
+  }
+
+  const updatedWatchlist = [insertedRow, ...watchlist]
+  setWatchlist(updatedWatchlist)
+  setStock(insertedRow)
+
+  setNewTicker('')
+  setNewCompanyName('')
+  setNewSetupGrade('A')
+  setNewRrRatio('')
+  setNewEntryZoneLow('')
+  setNewEntryZoneHigh('')
+  setNewStopPrice('')
+  setResult(null)
+  setPlan(null)
+}
 
   if (loading) {
     return <main className="p-10">Loading...</main>
@@ -188,7 +245,155 @@ setLoading(false)
             </p>
           </div>
         </div>
+                <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+          <h2 className="text-lg font-semibold">Add Watchlist Stock</h2>
 
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Ticker</label>
+              <input
+                value={newTicker}
+                onChange={(e) => setNewTicker(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="NVDA"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Company Name</label>
+              <input
+                value={newCompanyName}
+                onChange={(e) => setNewCompanyName(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="NVIDIA Corp."
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Setup Grade</label>
+              <select
+                value={newSetupGrade}
+                onChange={(e) => setNewSetupGrade(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              >
+                <option value="A+">A+</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">R/R Ratio</label>
+              <input
+                value={newRrRatio}
+                onChange={(e) => setNewRrRatio(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="2.5"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Entry Zone Low</label>
+              <input
+                value={newEntryZoneLow}
+                onChange={(e) => setNewEntryZoneLow(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Entry Zone High</label>
+              <input
+                value={newEntryZoneHigh}
+                onChange={(e) => setNewEntryZoneHigh(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="105"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium">Stop Price</label>
+              <input
+                value={newStopPrice}
+                onChange={(e) => setNewStopPrice(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="95"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={handleAddWatchlistStock}
+              className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
+            >
+              Add to Watchlist
+            </button>
+          </div>
+        </div>
+        <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Watchlist Selection</h2>
+            <p className="text-sm text-neutral-500">{watchlist.length} records</p>
+          </div>
+
+          {watchlist.length === 0 ? (
+            <p className="text-neutral-600">No watchlist names available.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-200 text-left text-neutral-500">
+                    <th className="py-3 pr-4">Select</th>
+                    <th className="py-3 pr-4">Ticker</th>
+                    <th className="py-3 pr-4">Company</th>
+                    <th className="py-3 pr-4">Grade</th>
+                    <th className="py-3 pr-4">R/R</th>
+                    <th className="py-3 pr-4">Entry Zone</th>
+                    <th className="py-3 pr-4">Stop</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {watchlist.map((row) => {
+                    const isSelected = stock?.id === row.id
+
+                    return (
+                      <tr
+                        key={row.id}
+                        className={`border-b border-neutral-100 ${isSelected ? 'bg-neutral-50' : ''}`}
+                      >
+                        <td className="py-3 pr-4">
+                          <button
+                            onClick={() => {
+                              setStock(row)
+                              setResult(null)
+                              setPlan(null)
+                            }}
+                            className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-medium"
+                          >
+                            {isSelected ? 'Selected' : 'Select'}
+                          </button>
+                        </td>
+                        <td className="py-3 pr-4 font-medium">{row.ticker}</td>
+                        <td className="py-3 pr-4">{row.company_name ?? '—'}</td>
+                        <td className="py-3 pr-4">{row.setup_grade ?? '—'}</td>
+                        <td className="py-3 pr-4">{row.rr_ratio ?? '—'}</td>
+                        <td className="py-3 pr-4">
+                          {row.entry_zone_low ?? '—'}
+                          {' - '}
+                          {row.entry_zone_high ?? '—'}
+                        </td>
+                        <td className="py-3 pr-4">{row.stop_price ?? '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
         <div className="mt-8 flex gap-4">
   <button
     onClick={runEvaluation}
