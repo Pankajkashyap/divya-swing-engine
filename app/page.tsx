@@ -6,6 +6,7 @@ import { evaluateSetup } from '@/lib/evaluateSetup'
 import { generateTradePlan } from '@/lib/generateTradePlan'
 import { AppHeader } from '@/components/AppHeader'
 import { DashboardMetrics } from '@/components/DashboardMetrics'
+import { PortfolioHeatCard } from '@/components/PortfolioHeatCard'
 import { MarketSummaryCards } from '@/components/MarketSummaryCards'
 import { AddWatchlistStockForm } from '@/components/AddWatchlistStockForm'
 import { WatchlistSelectionTable } from '@/components/WatchlistSelectionTable'
@@ -189,18 +190,38 @@ export default function HomePage() {
       (trade) => trade.status === 'open' || trade.status === 'partial'
     )
     const closedTrades = savedTrades.filter((trade) => trade.status === 'closed')
+
     const totalRealizedPnl = closedTrades.reduce(
       (sum, trade) => sum + (trade.pnl_dollar ?? 0),
       0
     )
+
+    const parsedPortfolioValue = Number(portfolioValue) || 0
+
+    const openPositionValue = openTrades.reduce((sum, trade) => {
+      const entry = trade.entry_price_actual ?? 0
+      const shares = trade.shares_entered ?? 0
+      return sum + entry * shares
+    }, 0)
+
+    const exposurePct =
+      parsedPortfolioValue > 0
+        ? Number(((openPositionValue / parsedPortfolioValue) * 100).toFixed(2))
+        : 0
+
+    const marketMaxExposurePct = market?.max_long_exposure_pct ?? 0
 
     return {
       watchlistCount: watchlist.length,
       openTradesCount: openTrades.length,
       closedTradesCount: closedTrades.length,
       totalRealizedPnl: Number(totalRealizedPnl.toFixed(2)),
+      portfolioValue: parsedPortfolioValue,
+      openPositionValue: Number(openPositionValue.toFixed(2)),
+      exposurePct,
+      marketMaxExposurePct,
     }
-  }, [watchlist, savedTrades])
+  }, [watchlist, savedTrades, portfolioValue, market])
 
   const runEvaluation = async () => {
     if (!market || !stock) return
@@ -504,7 +525,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-6xl">
         <AppHeader
           title="Setup Evaluator"
-          subtitle="Market-first rule engine, trade planning, and execution workflow."
+          subtitle="Market-first rule engine, trade planning, execution, and exposure control."
           rightLinkHref="/weekly-review"
           rightLinkLabel="Weekly Review"
         />
@@ -514,6 +535,13 @@ export default function HomePage() {
           openTradesCount={metrics.openTradesCount}
           closedTradesCount={metrics.closedTradesCount}
           totalRealizedPnl={metrics.totalRealizedPnl}
+        />
+
+        <PortfolioHeatCard
+          portfolioValue={metrics.portfolioValue}
+          openPositionValue={metrics.openPositionValue}
+          exposurePct={metrics.exposurePct}
+          marketMaxExposurePct={metrics.marketMaxExposurePct}
         />
 
         <MarketSummaryCards
