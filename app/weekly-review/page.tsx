@@ -242,7 +242,7 @@ export default function WeeklyReviewPage() {
           <div className="mt-4">
             <button
               onClick={handleSaveWeeklyReview}
-              className="rounded-xl border border-neutral-900 px-5 py-3 text-sm font-medium"
+              className="ui-btn-primary"
             >
               Save Weekly Review
             </button>

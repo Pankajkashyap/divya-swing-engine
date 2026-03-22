@@ -233,6 +233,7 @@ export default function HomePage() {
     void load()
   }, [])
 
+
     useEffect(() => {
     if (typeof window === 'undefined') return
     window.localStorage.setItem('divya_portfolio_value', portfolioValue)
