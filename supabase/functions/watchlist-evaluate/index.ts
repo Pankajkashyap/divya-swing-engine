@@ -12,6 +12,8 @@ import {
   getUnresolvedPendingAction,
 } from '../_shared/pendingActions.ts'
 import { checkDedupe, recordNotification } from '../_shared/dedupe.ts'
+import { sendEmail } from '../_shared/email/resend.ts'
+import { tradeInstructionCard } from '../_shared/email/templates/tradeInstructionCard.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -26,6 +28,7 @@ type MarketSnapshot = {
 type WatchlistRow = {
   id: string
   ticker: string
+  company_name: string | null
   setup_grade: string | null
   trend_template_pass: boolean | null
   volume_dry_up_pass: boolean | null
@@ -82,6 +85,14 @@ type TradePlanOutput = {
   expected_rr: number
   approval_status: 'approved' | 'blocked'
   blocked_reason: string | null
+}
+
+type StockSummary = {
+  ticker: string
+  verdict: 'pass' | 'watch' | 'fail'
+  signalCreated: boolean
+  emailSent: boolean | null
+  emailFailReason: string | null
 }
 
 function jsonResponse(payload: unknown, status: number): Response {
@@ -458,7 +469,7 @@ Deno.serve(async (request: Request) => {
 
     const { data: userSettings, error: userSettingsError } = await supabase
       .from('user_settings')
-      .select('user_id, portfolio_value')
+      .select('user_id, portfolio_value, notification_email')
       .limit(1)
       .maybeSingle()
 
@@ -478,6 +489,10 @@ Deno.serve(async (request: Request) => {
 
     const userId = userSettings.user_id
     const portfolioValue = Number(userSettings.portfolio_value ?? 0)
+    const recipientEmail =
+      userSettings.notification_email ??
+      Deno.env.get('AUTHORIZED_USER_EMAIL') ??
+      null
 
     const { data: market, error: marketError } = await supabase
       .from('market_snapshots')
@@ -524,6 +539,7 @@ Deno.serve(async (request: Request) => {
       .select(`
         id,
         ticker,
+        company_name,
         setup_grade,
         trend_template_pass,
         volume_dry_up_pass,
@@ -601,9 +617,13 @@ Deno.serve(async (request: Request) => {
     let signalsCreated = 0
 
     const processedTickers: string[] = []
+    const stockSummaries: StockSummary[] = []
 
     for (const stock of watchlistBatch as WatchlistRow[]) {
       try {
+        let emailSent: boolean | null = null
+        let emailFailReason: string | null = null
+
         const priceData = await marketDataProvider.fetchPrice(stock.ticker)
 
         if (!priceData) {
@@ -674,6 +694,13 @@ Deno.serve(async (request: Request) => {
         if (evaluation.verdict === 'fail') failCount += 1
 
         if (evaluation.verdict !== 'pass') {
+          stockSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            signalCreated: false,
+            emailSent,
+            emailFailReason,
+          })
           continue
         }
 
@@ -718,6 +745,13 @@ Deno.serve(async (request: Request) => {
             console.error(
               `[watchlist-evaluate] Stage 1 failed for ${stock.ticker}: ${tradePlanInsertError?.message ?? 'Trade plan insert failed'}`
             )
+            stockSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              signalCreated: false,
+              emailSent,
+              emailFailReason,
+            })
             continue
           }
 
@@ -737,10 +771,24 @@ Deno.serve(async (request: Request) => {
           console.error(
             `[watchlist-evaluate] Stage 1 unexpected error for ${stock.ticker}: ${error instanceof Error ? error.message : String(error)}`
           )
+          stockSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            signalCreated: false,
+            emailSent,
+            emailFailReason,
+          })
           continue
         }
 
         if (!plan || !tradePlanId || plan.approval_status !== 'approved') {
+          stockSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            signalCreated: false,
+            emailSent,
+            emailFailReason,
+          })
           continue
         }
 
@@ -752,6 +800,13 @@ Deno.serve(async (request: Request) => {
           })
 
           if (existingPendingAction) {
+            stockSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              signalCreated: false,
+              emailSent,
+              emailFailReason,
+            })
             continue
           }
 
@@ -763,6 +818,13 @@ Deno.serve(async (request: Request) => {
           })
 
           if (!dedupeResult.allowed) {
+            stockSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              signalCreated: false,
+              emailSent,
+              emailFailReason,
+            })
             continue
           }
 
@@ -784,6 +846,7 @@ Deno.serve(async (request: Request) => {
               entry_zone_high: stock.entry_zone_high,
               stop_price: stock.stop_price,
               target_1_price: stock.target_1_price,
+              target_2_price: stock.target_2_price,
               expected_rr: plan.expected_rr,
             },
           })
@@ -792,6 +855,13 @@ Deno.serve(async (request: Request) => {
             console.error(
               `[watchlist-evaluate] Failed to create pending action for ${stock.ticker}: ${pendingActionResult.reason}`
             )
+            stockSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              signalCreated: false,
+              emailSent,
+              emailFailReason,
+            })
             continue
           }
 
@@ -803,6 +873,53 @@ Deno.serve(async (request: Request) => {
             pendingActionId: pendingActionResult.id,
             cooldownMinutes: 240,
           })
+
+          if (recipientEmail) {
+            const emailData = {
+              ticker: stock.ticker,
+              companyName: stock.company_name ?? undefined,
+              setupGrade: stock.setup_grade,
+              entryZoneLow: stock.entry_zone_low,
+              entryZoneHigh: stock.entry_zone_high,
+              stopPrice: stock.stop_price,
+              target1Price: stock.target_1_price,
+              target2Price: stock.target_2_price ?? undefined,
+              shares: plan.final_shares,
+              positionValue: plan.final_position_value,
+              expectedRR: plan.expected_rr,
+              riskPct: plan.risk_pct,
+              dollarRisk: plan.dollar_risk,
+              marketPhase: market.market_phase ?? 'unknown',
+              evaluatedAt: new Date().toISOString(),
+              appUrl: Deno.env.get('APP_BASE_URL') ?? '',
+            }
+
+            const { subject, html } = tradeInstructionCard(emailData)
+
+            const emailResult = await sendEmail(
+              { to: recipientEmail, subject, html },
+              {
+                apiKey: Deno.env.get('RESEND_API_KEY'),
+                fromEmail: Deno.env.get('RESEND_FROM_EMAIL'),
+              }
+            )
+
+            emailSent = emailResult.sent
+            emailFailReason = emailResult.sent ? null : emailResult.reason
+
+            if (!emailResult.sent) {
+              console.error(
+                `[watchlist-evaluate] Email failed for ${stock.ticker}:`,
+                emailResult.reason
+              )
+            }
+          } else {
+            emailSent = false
+            emailFailReason = 'No notification email configured'
+            console.error(
+              `[watchlist-evaluate] Email failed for ${stock.ticker}: No notification email configured`
+            )
+          }
 
           const { error: signalSentError } = await supabase
             .from('watchlist')
@@ -816,10 +933,24 @@ Deno.serve(async (request: Request) => {
           }
 
           signalsCreated += 1
+          stockSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            signalCreated: true,
+            emailSent,
+            emailFailReason,
+          })
         } catch (error) {
           console.error(
             `[watchlist-evaluate] Stage 2 unexpected error for ${stock.ticker}: ${error instanceof Error ? error.message : String(error)}`
           )
+          stockSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            signalCreated: false,
+            emailSent,
+            emailFailReason,
+          })
         }
       } catch (error) {
         console.error(
@@ -839,6 +970,7 @@ Deno.serve(async (request: Request) => {
         failCount,
         signalsCreated,
         processedTickers,
+        stockSummaries,
         windowKey,
         marketHours: isMarketHours(),
       },
