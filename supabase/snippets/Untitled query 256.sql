@@ -1,5 +1,6 @@
-select column_name 
-from information_schema.columns 
-where table_schema = 'public' 
-and table_name = 'trades' 
-and column_name in ('trade_state', 'shares_remaining');
+alter table public.user_settings
+  add column if not exists notification_email text null;
+
+update public.user_settings
+set notification_email = 'REPLACE_WITH_YOUR_EMAIL'
+where notification_email is null;
