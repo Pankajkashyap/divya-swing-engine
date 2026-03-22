@@ -10,220 +10,149 @@ const supabase =
     ? createClient(supabaseUrl, serviceRoleKey)
     : null
 
-export type CreatePendingActionParams = {
+export type DedupeCheckResult =
+  | { allowed: true }
+  | { allowed: false; reason: string; cooldownUntil?: string }
+
+export function buildDedupeKey(params: {
   userId: string
   ticker: string
-  actionType:
-    | 'buy_signal'
-    | 'stop_alert'
-    | 'target_alert'
-    | 'watchlist_review'
-    | 'manual_reconciliation'
-  urgency: 'urgent' | 'normal' | 'low'
-  title: string
-  message?: string
-  tradeId?: string
-  watchlistId?: string
-  tradePlanId?: string
-  payloadJson?: Record<string, unknown>
-  expiresAt?: string
+  triggerType: string
+  triggerState: string
+}): string {
+  return `${params.userId}:${params.ticker}:${params.triggerType}:${params.triggerState}`
 }
 
-export type PendingActionResult =
-  | { created: true; id: string }
-  | { created: false; reason: string }
-
-export async function createPendingAction(
-  params: CreatePendingActionParams
-): Promise<PendingActionResult> {
-  try {
-    if (!supabase) {
-      return { created: false, reason: 'Supabase environment not configured' }
-    }
-
-    const { data, error } = await supabase
-      .from('pending_actions')
-      .insert({
-        user_id: params.userId,
-        ticker: params.ticker,
-        action_type: params.actionType,
-        state: 'awaiting_confirmation',
-        urgency: params.urgency,
-        title: params.title,
-        message: params.message ?? null,
-        trade_id: params.tradeId ?? null,
-        watchlist_id: params.watchlistId ?? null,
-        trade_plan_id: params.tradePlanId ?? null,
-        payload_json: params.payloadJson ?? {},
-        created_at: new Date().toISOString(),
-        expires_at: params.expiresAt ?? null,
-      })
-      .select('id')
-      .single()
-
-    if (error || !data?.id) {
-      return {
-        created: false,
-        reason: error?.message ?? 'Failed to create pending action',
-      }
-    }
-
-    return { created: true, id: data.id }
-  } catch (error) {
-    return {
-      created: false,
-      reason: getErrorMessage(error),
-    }
-  }
-}
-
-export async function resolvePendingAction(params: {
-  id: string
-  resolvedState: 'executed' | 'dismissed' | 'expired'
-}): Promise<void> {
-  try {
-    if (!supabase) {
-      console.error(
-        '[pendingActions.resolvePendingAction] Supabase environment not configured'
-      )
-      return
-    }
-
-    const { error } = await supabase
-      .from('pending_actions')
-      .update({
-        state: params.resolvedState,
-        resolved_at: new Date().toISOString(),
-      })
-      .eq('id', params.id)
-
-    if (error) {
-      console.error(
-        '[pendingActions.resolvePendingAction] Update failed:',
-        error.message
-      )
-    }
-  } catch (error) {
-    console.error(
-      '[pendingActions.resolvePendingAction] Unexpected error:',
-      getErrorMessage(error)
-    )
-  }
-}
-
-export async function snoozePendingAction(params: {
-  id: string
-  snoozedUntil: string
-}): Promise<void> {
-  try {
-    if (!supabase) {
-      console.error(
-        '[pendingActions.snoozePendingAction] Supabase environment not configured'
-      )
-      return
-    }
-
-    const { error } = await supabase
-      .from('pending_actions')
-      .update({
-        state: 'snoozed',
-        snoozed_until: params.snoozedUntil,
-      })
-      .eq('id', params.id)
-
-    if (error) {
-      console.error(
-        '[pendingActions.snoozePendingAction] Update failed:',
-        error.message
-      )
-    }
-  } catch (error) {
-    console.error(
-      '[pendingActions.snoozePendingAction] Unexpected error:',
-      getErrorMessage(error)
-    )
-  }
-}
-
-export async function getUnresolvedPendingAction(params: {
+export async function checkDedupe(params: {
   userId: string
   ticker: string
-  actionType: string
-}): Promise<{ id: string } | null> {
+  triggerType: string
+  triggerState: string
+}): Promise<DedupeCheckResult> {
   try {
     if (!supabase) {
-      console.error(
-        '[pendingActions.getUnresolvedPendingAction] Supabase environment not configured'
-      )
-      return null
+      return { allowed: false, reason: 'Dedupe check failed' }
     }
 
+    const dedupeKey = buildDedupeKey(params)
+
     const { data, error } = await supabase
-      .from('pending_actions')
-      .select('id')
-      .eq('user_id', params.userId)
-      .eq('ticker', params.ticker)
-      .eq('action_type', params.actionType)
-      .in('state', ['awaiting_confirmation', 'snoozed'])
+      .from('notifications')
+      .select('cooldown_until')
+      .eq('dedupe_key', dedupeKey)
+      .is('resolved_at', null)
       .limit(1)
       .maybeSingle()
 
     if (error) {
-      console.error(
-        '[pendingActions.getUnresolvedPendingAction] Query failed:',
-        error.message
-      )
-      return null
+      return { allowed: false, reason: 'Dedupe check failed' }
     }
 
-    return data?.id ? { id: data.id } : null
-  } catch (error) {
-    console.error(
-      '[pendingActions.getUnresolvedPendingAction] Unexpected error:',
-      getErrorMessage(error)
-    )
-    return null
+    if (!data) {
+      return { allowed: true }
+    }
+
+    const cooldownUntil =
+      typeof data.cooldown_until === 'string' ? data.cooldown_until : null
+
+    if (cooldownUntil && new Date(cooldownUntil).getTime() > Date.now()) {
+      return {
+        allowed: false,
+        reason: 'Cooldown active',
+        cooldownUntil,
+      }
+    }
+
+    return { allowed: false, reason: 'Notification already active' }
+  } catch {
+    return { allowed: false, reason: 'Dedupe check failed' }
   }
 }
 
-export async function expireStaleActions(): Promise<number> {
+export async function recordNotification(params: {
+  userId: string
+  ticker: string
+  triggerType: string
+  triggerState: string
+  tradeId?: string
+  pendingActionId?: string
+  cooldownMinutes?: number
+}): Promise<void> {
   try {
     if (!supabase) {
       console.error(
-        '[pendingActions.expireStaleActions] Supabase environment not configured'
+        '[dedupe.recordNotification] Supabase environment not configured'
       )
-      return 0
+      return
     }
 
-    const nowIso = new Date().toISOString()
+    const dedupeKey = buildDedupeKey(params)
+    const now = new Date()
+    const cooldownUntil =
+      typeof params.cooldownMinutes === 'number'
+        ? new Date(
+            now.getTime() + params.cooldownMinutes * 60 * 1000
+          ).toISOString()
+        : null
 
-    const { data, error } = await supabase
-      .from('pending_actions')
-      .update({
-        state: 'expired',
-        resolved_at: nowIso,
-      })
-      .eq('action_type', 'buy_signal')
-      .not('expires_at', 'is', null)
-      .lt('expires_at', nowIso)
-      .not('state', 'in', '("executed","dismissed","expired")')
-      .select('id')
+    const { error } = await supabase.from('notifications').upsert(
+      {
+        user_id: params.userId,
+        ticker: params.ticker,
+        trigger_type: params.triggerType,
+        trigger_state: params.triggerState,
+        dedupe_key: dedupeKey,
+        trade_id: params.tradeId ?? null,
+        pending_action_id: params.pendingActionId ?? null,
+        sent_at: now.toISOString(),
+        cooldown_until: cooldownUntil,
+      },
+      { onConflict: 'dedupe_key' }
+    )
 
     if (error) {
       console.error(
-        '[pendingActions.expireStaleActions] Update failed:',
+        '[dedupe.recordNotification] Upsert failed:',
         error.message
       )
-      return 0
     }
-
-    return data?.length ?? 0
   } catch (error) {
     console.error(
-      '[pendingActions.expireStaleActions] Unexpected error:',
+      '[dedupe.recordNotification] Unexpected error:',
       getErrorMessage(error)
     )
-    return 0
+  }
+}
+
+export async function resolveNotification(params: {
+  dedupeKey: string
+}): Promise<void> {
+  try {
+    if (!supabase) {
+      console.error(
+        '[dedupe.resolveNotification] Supabase environment not configured'
+      )
+      return
+    }
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('dedupe_key', params.dedupeKey)
+
+    if (error) {
+      console.error(
+        '[dedupe.resolveNotification] Update failed:',
+        error.message
+      )
+    }
+  } catch (error) {
+    console.error(
+      '[dedupe.resolveNotification] Unexpected error:',
+      getErrorMessage(error)
+    )
   }
 }
 
