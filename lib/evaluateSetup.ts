@@ -11,7 +11,6 @@ export type WatchlistRow = {
   ticker: string
 
   setup_grade: string | null
-  rr_ratio: number | null
 
   trend_template_pass: boolean | null
   volume_dry_up_pass: boolean | null
@@ -45,11 +44,7 @@ export type EvaluateSetupResult = {
   earnings_risk_flag: boolean
   binary_event_flag: boolean
 
-  rr_pass: boolean
-  rr_ratio: number | null
-
   setup_grade: string | null
-
   fundamental_pass: boolean
 
   score_total: number
@@ -66,7 +61,6 @@ export function evaluateSetup(
   market: MarketSnapshot,
   stock: WatchlistRow
 ): EvaluateSetupResult {
-
   // =============================
   // FUNDAMENTALS CHECK
   // =============================
@@ -76,25 +70,25 @@ export function evaluateSetup(
 
   if ((stock.eps_growth_pct ?? 0) < 25) {
     fundamental_pass = false
-    fundamental_reasons.push("EPS growth < 25%")
+    fundamental_reasons.push('EPS growth < 25%')
   }
 
   if ((stock.revenue_growth_pct ?? 0) < 25) {
     fundamental_pass = false
-    fundamental_reasons.push("Revenue growth < 25%")
+    fundamental_reasons.push('Revenue growth < 25%')
   }
 
-  if (stock.acc_dist_rating === "D" || stock.acc_dist_rating === "E") {
+  if (stock.acc_dist_rating === 'D' || stock.acc_dist_rating === 'E') {
     fundamental_pass = false
-    fundamental_reasons.push("Weak institutional accumulation (A/D)")
+    fundamental_reasons.push('Weak institutional accumulation (A/D)')
   }
 
   if ((stock.industry_group_rank ?? 999) > 40) {
     fundamental_pass = false
-    fundamental_reasons.push("Industry group not in top 20%")
+    fundamental_reasons.push('Industry group not in top 20%')
   }
 
-  const fundamental_reason = fundamental_reasons.join(", ")
+  const fundamental_reason = fundamental_reasons.join(', ')
 
   // =============================
   // CORE RULES
@@ -120,13 +114,6 @@ export function evaluateSetup(
   const binary_event_flag = stock.binary_event_risk === true
 
   // =============================
-  // RISK / REWARD
-  // =============================
-
-  const rr_ratio = stock.rr_ratio ?? null
-  const rr_pass = rr_ratio !== null && rr_ratio >= 2
-
-  // =============================
   // SCORE CALCULATION
   // =============================
 
@@ -140,7 +127,6 @@ export function evaluateSetup(
   if (rs_line_confirmed) score_total++
   if (entry_near_pivot_pass) score_total++
   if (volume_breakout_pass) score_total++
-  if (rr_pass) score_total++
   if (fundamental_pass) score_total++
 
   // =============================
@@ -150,7 +136,6 @@ export function evaluateSetup(
   let verdict: 'pass' | 'watch' | 'fail' = 'pass'
   let fail_reason: string | null = null
 
-  // ❌ HARD FAIL CONDITIONS
   if (!fundamental_pass) {
     verdict = 'fail'
     fail_reason = fundamental_reason
@@ -161,10 +146,9 @@ export function evaluateSetup(
     fail_reason = 'Unfavorable market conditions'
   }
 
-  // ⚠️ WATCH CONDITIONS
   if (
     verdict !== 'fail' &&
-    (!rr_pass || earnings_risk_flag || binary_event_flag)
+    (earnings_risk_flag || binary_event_flag)
   ) {
     verdict = 'watch'
     fail_reason = 'Risk conditions not ideal'
@@ -187,16 +171,12 @@ export function evaluateSetup(
     earnings_risk_flag,
     binary_event_flag,
 
-    rr_pass,
-    rr_ratio,
-
     setup_grade: stock.setup_grade,
-
     fundamental_pass,
 
     score_total,
     verdict,
     fail_reason,
-    notes: null
+    notes: null,
   }
 }

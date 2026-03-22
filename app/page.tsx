@@ -49,12 +49,11 @@ export type WatchlistRow = {
   entry_near_pivot: boolean | null
   volume_breakout_confirmed: boolean | null
   liquidity_pass: boolean | null
-  // FUNDAMENTALS
-eps_growth_pct: number | null
-eps_accelerating: boolean | null
-revenue_growth_pct: number | null
-acc_dist_rating: string | null
-industry_group_rank: number | null
+  eps_growth_pct: number | null
+  eps_accelerating: boolean | null
+  revenue_growth_pct: number | null
+  acc_dist_rating: string | null
+  industry_group_rank: number | null
 }
 
 export type EvalResult = {
@@ -73,8 +72,6 @@ export type EvalResult = {
   volume_breakout_pass: boolean
   earnings_risk_flag: boolean
   binary_event_flag: boolean
-  rr_pass: boolean
-  rr_ratio: number | null
   setup_grade: string | null
   fundamental_pass: boolean
 }
@@ -174,7 +171,7 @@ export default function HomePage() {
       supabase
         .from('watchlist')
         .select(
-        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass,eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+          'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
         )
         .order('created_at', { ascending: false })
         .limit(20),
@@ -312,8 +309,6 @@ export default function HomePage() {
         volume_breakout_pass: evaluation.volume_breakout_pass,
         earnings_risk_flag: evaluation.earnings_risk_flag,
         binary_event_flag: evaluation.binary_event_flag,
-        rr_pass: evaluation.rr_pass,
-        rr_ratio: evaluation.rr_ratio,
         setup_grade: evaluation.setup_grade,
         score_total: evaluation.score_total,
         verdict: evaluation.verdict,
@@ -408,15 +403,6 @@ export default function HomePage() {
         },
         {
           setup_evaluation_id: evaluationId,
-          rule_code: 'RR_RATIO',
-          rule_name: 'Reward / Risk',
-          passed: evaluation.rr_pass,
-          actual_value_text: null,
-          actual_value_numeric: evaluation.rr_ratio,
-          notes: 'Minimum 2:1 reward / risk required',
-        },
-        {
-          setup_evaluation_id: evaluationId,
           rule_code: 'FUNDAMENTAL',
           rule_name: 'Fundamental Quality',
           passed: evaluation.fundamental_pass,
@@ -479,8 +465,6 @@ export default function HomePage() {
       volume_breakout_pass: evaluation.volume_breakout_pass,
       earnings_risk_flag: evaluation.earnings_risk_flag,
       binary_event_flag: evaluation.binary_event_flag,
-      rr_pass: evaluation.rr_pass,
-      rr_ratio: evaluation.rr_ratio,
       setup_grade: evaluation.setup_grade,
       fundamental_pass: evaluation.fundamental_pass,
     })
@@ -525,82 +509,82 @@ export default function HomePage() {
     alert('Market snapshot saved')
   }
 
-const handleAddWatchlistStock = async (payload: {
-  ticker: string
-  companyName: string
-  setupGrade: string
-  rrRatio: string
-  entryZoneLow: string
-  entryZoneHigh: string
-  stopPrice: string
-  target1Price: string
-  target2Price: string
-  trendTemplatePass: boolean
-  volumeDryUpPass: boolean
-  rsLineConfirmed: boolean
-  basePatternValid: boolean
-  entryNearPivot: boolean
-  volumeBreakoutConfirmed: boolean
-  liquidityPass: boolean
-  epsGrowth: string
-  epsAccelerating: boolean
-  revenueGrowth: string
-  accDistRating: string
-  industryRank: string
-}) => {
+  const handleAddWatchlistStock = async (payload: {
+    ticker: string
+    companyName: string
+    setupGrade: string
+    rrRatio: string
+    entryZoneLow: string
+    entryZoneHigh: string
+    stopPrice: string
+    target1Price: string
+    target2Price: string
+    trendTemplatePass: boolean
+    volumeDryUpPass: boolean
+    rsLineConfirmed: boolean
+    basePatternValid: boolean
+    entryNearPivot: boolean
+    volumeBreakoutConfirmed: boolean
+    liquidityPass: boolean
+    epsGrowth: string
+    epsAccelerating: boolean
+    revenueGrowth: string
+    accDistRating: string
+    industryRank: string
+  }) => {
+    if (!payload.ticker.trim()) {
+      alert('Ticker is required')
+      return
+    }
 
-  if (!payload.ticker.trim()) {
-    alert('Ticker is required')
-    return
+    const insertPayload = {
+      ticker: payload.ticker.trim().toUpperCase(),
+      company_name: payload.companyName.trim() || null,
+      setup_type: 'breakout',
+      setup_grade: payload.setupGrade,
+      rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
+      entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
+      entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
+      stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
+      target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
+      target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
+      trend_template_pass: payload.trendTemplatePass,
+      volume_dry_up_pass: payload.volumeDryUpPass,
+      rs_line_confirmed: payload.rsLineConfirmed,
+      base_pattern_valid: payload.basePatternValid,
+      entry_near_pivot: payload.entryNearPivot,
+      volume_breakout_confirmed: payload.volumeBreakoutConfirmed,
+      liquidity_pass: payload.liquidityPass,
+      eps_growth_pct: payload.epsGrowth ? Number(payload.epsGrowth) : null,
+      eps_accelerating: payload.epsAccelerating,
+      revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
+      acc_dist_rating: payload.accDistRating ?? null,
+      industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
+      status: 'watchlist',
+      action_status: 'watchlist',
+    }
+
+    const { data: insertedRow, error } = await supabase
+      .from('watchlist')
+      .insert(insertPayload)
+      .select(
+        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+      )
+      .single()
+
+    if (error) {
+      console.error(error)
+      alert('Failed to add watchlist stock')
+      return
+    }
+
+    setWatchlist((prev) => [insertedRow, ...prev])
+    setStock(insertedRow)
+    setResult(null)
+    setPlan(null)
+    setLatestTradePlanId(null)
+    setTradeCreationMessage(null)
   }
-const insertPayload = {
-  ticker: payload.ticker.trim().toUpperCase(),
-  company_name: payload.companyName.trim() || null,
-  setup_type: 'breakout',
-  setup_grade: payload.setupGrade,
-  rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
-  entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
-  entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
-  stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
-  target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
-  target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
-  trend_template_pass: payload.trendTemplatePass,
-  volume_dry_up_pass: payload.volumeDryUpPass,
-  rs_line_confirmed: payload.rsLineConfirmed,
-  base_pattern_valid: payload.basePatternValid,
-  entry_near_pivot: payload.entryNearPivot,
-  volume_breakout_confirmed: payload.volumeBreakoutConfirmed,
-  liquidity_pass: payload.liquidityPass,
-  eps_growth_pct: payload.epsGrowth ? Number(payload.epsGrowth) : null,
-  eps_accelerating: payload.epsAccelerating,
-  revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
-  acc_dist_rating: payload.accDistRating ?? null,
-  industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
-  status: 'watchlist',
-  action_status: 'watchlist',
-}
-
-  const { data: insertedRow, error } = await supabase
-    .from('watchlist')
-    .insert(insertPayload)
-    .select(
-    'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
-    )
-    .single()
-
-  if (error) {
-    console.error(error)
-    alert('Failed to add watchlist stock')
-    return
-  }
-
-  setWatchlist((prev) => [insertedRow, ...prev])
-  setStock(insertedRow)
-  setResult(null)
-  setPlan(null)
-  setLatestTradePlanId(null)
-  setTradeCreationMessage(null)
-}
 
   const handleGenerateTradePlan = async () => {
     if (!market || !stock) return
@@ -1003,76 +987,76 @@ const insertPayload = {
 
         <AddWatchlistStockForm onAdd={handleAddWatchlistStock} />
 
-<WatchlistSelectionTable
-  watchlist={watchlist}
-  stock={stock}
-  onSelect={(row) => {
-    setStock(row)
-    setResult(null)
-    setPlan(null)
-    setLatestTradePlanId(null)
-    setTradeCreationMessage(null)
-  }}
-  onUpdate={async (rowId, payload) => {
-    const { data: updatedRow, error } = await supabase
-      .from('watchlist')
-      .update({
-        company_name: payload.companyName.trim() || null,
-        setup_grade: payload.setupGrade,
-        rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
-        entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
-        entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
-        stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
-        target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
-        target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
-      })
-      .eq('id', rowId)
-      .select(
-      'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
-      )
-      .single()
+        <WatchlistSelectionTable
+          watchlist={watchlist}
+          stock={stock}
+          onSelect={(row) => {
+            setStock(row)
+            setResult(null)
+            setPlan(null)
+            setLatestTradePlanId(null)
+            setTradeCreationMessage(null)
+          }}
+          onUpdate={async (rowId, payload) => {
+            const { data: updatedRow, error } = await supabase
+              .from('watchlist')
+              .update({
+                company_name: payload.companyName.trim() || null,
+                setup_grade: payload.setupGrade,
+                rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
+                entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
+                entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
+                stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
+                target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
+                target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
+              })
+              .eq('id', rowId)
+              .select(
+                'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+              )
+              .single()
 
-    if (error) {
-      console.error(error)
-      alert('Failed to update watchlist row')
-      return
-    }
+            if (error) {
+              console.error(error)
+              alert('Failed to update watchlist row')
+              return
+            }
 
-    setWatchlist((prev) =>
-      prev.map((row) => (row.id === rowId ? updatedRow : row))
-    )
+            setWatchlist((prev) =>
+              prev.map((row) => (row.id === rowId ? updatedRow : row))
+            )
 
-    if (stock?.id === rowId) {
-      setStock(updatedRow)
-      setResult(null)
-      setPlan(null)
-      setLatestTradePlanId(null)
-      setTradeCreationMessage(null)
-    }
-  }}
-  onDelete={async (rowId, ticker) => {
-    const { error } = await supabase
-      .from('watchlist')
-      .delete()
-      .eq('id', rowId)
+            if (stock?.id === rowId) {
+              setStock(updatedRow)
+              setResult(null)
+              setPlan(null)
+              setLatestTradePlanId(null)
+              setTradeCreationMessage(null)
+            }
+          }}
+          onDelete={async (rowId, ticker) => {
+            const { error } = await supabase
+              .from('watchlist')
+              .delete()
+              .eq('id', rowId)
 
-    if (error) {
-      console.error(error)
-      alert(`Failed to delete watchlist row for ${ticker}`)
-      return
-    }
+            if (error) {
+              console.error(error)
+              alert(`Failed to delete watchlist row for ${ticker}`)
+              return
+            }
 
-    setWatchlist((prev) => prev.filter((row) => row.id !== rowId))
+            setWatchlist((prev) => prev.filter((row) => row.id !== rowId))
 
-    if (stock?.id === rowId) {
-      setStock(null)
-      setResult(null)
-      setPlan(null)
-      setLatestTradePlanId(null)
-      setTradeCreationMessage(null)
-    }
-  }}
-/>
+            if (stock?.id === rowId) {
+              setStock(null)
+              setResult(null)
+              setPlan(null)
+              setLatestTradePlanId(null)
+              setTradeCreationMessage(null)
+            }
+          }}
+        />
 
         <TradeActionButtons
           canEvaluate={!!market && !!stock && !saving}
