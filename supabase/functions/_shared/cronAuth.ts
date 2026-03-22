@@ -1,14 +1,37 @@
 // Server only — do not import in client components
 
-import { timingSafeEqual } from 'node:crypto'
-
 export type CronAuthResult =
   | { authorised: true }
   | { authorised: false; reason: string }
 
-export function validateCronSecret(request: Request): CronAuthResult {
+async function constantTimeEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder()
+  const aBytes = encoder.encode(a)
+  const bBytes = encoder.encode(b)
+
+  if (aBytes.length !== bBytes.length) {
+    return false
+  }
+
+  const aHashBuffer = await crypto.subtle.digest('SHA-256', aBytes)
+  const bHashBuffer = await crypto.subtle.digest('SHA-256', bBytes)
+
+  const aHash = new Uint8Array(aHashBuffer)
+  const bHash = new Uint8Array(bHashBuffer)
+
+  let diff = 0
+  for (let i = 0; i < aHash.length; i += 1) {
+    diff |= aHash[i] ^ bHash[i]
+  }
+
+  return diff === 0
+}
+
+export async function validateCronSecret(
+  request: Request
+): Promise<CronAuthResult> {
   try {
-    const configuredSecret = process.env.CRON_SECRET
+    const configuredSecret = Deno.env.get('CRON_SECRET')
 
     if (!configuredSecret) {
       return { authorised: false, reason: 'CRON_SECRET not configured' }
@@ -21,15 +44,7 @@ export function validateCronSecret(request: Request): CronAuthResult {
     }
 
     const expectedValue = `Bearer ${configuredSecret}`
-
-    const providedBuffer = Buffer.from(authorizationHeader)
-    const expectedBuffer = Buffer.from(expectedValue)
-
-    if (providedBuffer.length !== expectedBuffer.length) {
-      return { authorised: false, reason: 'Invalid cron secret' }
-    }
-
-    const isMatch = timingSafeEqual(providedBuffer, expectedBuffer)
+    const isMatch = await constantTimeEqual(authorizationHeader, expectedValue)
 
     if (!isMatch) {
       return { authorised: false, reason: 'Invalid cron secret' }

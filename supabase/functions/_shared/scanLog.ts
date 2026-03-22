@@ -1,6 +1,6 @@
 // Server only — do not import in client components
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 export type ScanLogStatus = 'started' | 'completed' | 'skipped' | 'failed'
 
@@ -16,42 +16,14 @@ export type ScanLogEntry = {
   finishedAt?: string
 }
 
-type StartScanLogParams = {
+export async function startScanLog(params: {
   userId: string
   jobType: string
   windowKey: string
   ticker?: string
   entityType?: string
   entityId?: string
-}
-
-type FinishScanLogParams = {
-  logId: string
-  status: ScanLogStatus
-  message?: string
-  changesJson?: Record<string, unknown>
-}
-
-type HasAlreadyProcessedParams = {
-  jobType: string
-  windowKey: string
-  ticker?: string
-}
-
-function getServiceRoleSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey)
-}
-
-export async function startScanLog(
-  params: StartScanLogParams
-): Promise<string | null> {
+}): Promise<string | null> {
   try {
     const supabase = getServiceRoleSupabaseClient()
 
@@ -60,20 +32,18 @@ export async function startScanLog(
       return null
     }
 
-    const payload = {
-      user_id: params.userId,
-      job_type: params.jobType,
-      window_key: params.windowKey,
-      ticker: params.ticker ?? null,
-      entity_type: params.entityType ?? null,
-      entity_id: params.entityId ?? null,
-      status: 'started' as ScanLogStatus,
-      started_at: new Date().toISOString(),
-    }
-
     const { data, error } = await supabase
       .from('scan_logs')
-      .insert(payload)
+      .insert({
+        user_id: params.userId,
+        job_type: params.jobType,
+        window_key: params.windowKey,
+        ticker: params.ticker ?? null,
+        entity_type: params.entityType ?? null,
+        entity_id: params.entityId ?? null,
+        status: 'started',
+        started_at: new Date().toISOString(),
+      })
       .select('id')
       .single()
 
@@ -84,15 +54,17 @@ export async function startScanLog(
 
     return data?.id ?? null
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error('[scanLog.startScanLog] Unexpected error:', message)
+    console.error('[scanLog.startScanLog] Unexpected error:', getErrorMessage(error))
     return null
   }
 }
 
-export async function finishScanLog(
-  params: FinishScanLogParams
-): Promise<void> {
+export async function finishScanLog(params: {
+  logId: string
+  status: ScanLogStatus
+  message?: string
+  changesJson?: Record<string, unknown>
+}): Promise<void> {
   try {
     const supabase = getServiceRoleSupabaseClient()
 
@@ -101,30 +73,29 @@ export async function finishScanLog(
       return
     }
 
-    const updatePayload = {
-      status: params.status,
-      message: params.message ?? null,
-      changes_json: params.changesJson ?? {},
-      finished_at: new Date().toISOString(),
-    }
-
     const { error } = await supabase
       .from('scan_logs')
-      .update(updatePayload)
+      .update({
+        status: params.status,
+        message: params.message ?? null,
+        changes_json: params.changesJson ?? {},
+        finished_at: new Date().toISOString(),
+      })
       .eq('id', params.logId)
 
     if (error) {
       console.error('[scanLog.finishScanLog] Update failed:', error.message)
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error('[scanLog.finishScanLog] Unexpected error:', message)
+    console.error('[scanLog.finishScanLog] Unexpected error:', getErrorMessage(error))
   }
 }
 
-export async function hasAlreadyProcessed(
-  params: HasAlreadyProcessedParams
-): Promise<boolean> {
+export async function hasAlreadyProcessed(params: {
+  jobType: string
+  windowKey: string
+  ticker?: string
+}): Promise<boolean> {
   try {
     const supabase = getServiceRoleSupabaseClient()
 
@@ -156,8 +127,26 @@ export async function hasAlreadyProcessed(
 
     return !!data
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.error('[scanLog.hasAlreadyProcessed] Unexpected error:', message)
+    console.error(
+      '[scanLog.hasAlreadyProcessed] Unexpected error:',
+      getErrorMessage(error)
+    )
     return false
   }
+}
+
+function getServiceRoleSupabaseClient() {
+  const supabaseUrl = Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey)
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
 }

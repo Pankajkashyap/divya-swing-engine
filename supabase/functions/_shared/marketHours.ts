@@ -1,6 +1,9 @@
 // Server only — do not import in client components
 
-import { toZonedTime, formatInTimeZone } from 'date-fns-tz'
+import {
+  formatInTimeZone,
+  toZonedTime,
+} from 'npm:date-fns-tz@3.2.0'
 
 export type MarketWindow =
   | 'pre_market'
@@ -16,8 +19,6 @@ function getEtParts(now: Date) {
   return {
     zoned,
     dayOfWeek: zoned.getDay(),
-    hours: zoned.getHours(),
-    minutes: zoned.getMinutes(),
     totalMinutes: zoned.getHours() * 60 + zoned.getMinutes(),
   }
 }

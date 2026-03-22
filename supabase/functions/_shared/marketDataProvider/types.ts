@@ -1,3 +1,5 @@
+// Server only — do not import in client components
+
 export type PriceData = {
   ticker: string
   price: number
