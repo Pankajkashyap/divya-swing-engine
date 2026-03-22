@@ -13,7 +13,7 @@ import {
 } from '../_shared/scanLog.ts'
 import { marketDataProvider } from '../_shared/marketDataProvider/index.ts'
 
-const supabaseUrl = Deno.env.get('NEXT_PUBLIC_SUPABASE_URL')
+const supabaseUrl = Deno.env.get('SUPABASE_URL')
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
 const supabase =
@@ -69,8 +69,7 @@ Deno.serve(async (request: Request) => {
   let logId: string | null = null
 
   try {
-    // Step 1 — Validate cron auth
-    const authResult = await validateCronSecret(request)
+    const authResult = validateCronSecret(request)
 
     if (!authResult.authorised) {
       return jsonResponse(
@@ -86,7 +85,6 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    // Step 2 — Get user ID from user_settings
     const { data: userSettings, error: settingsError } = await supabase
       .from('user_settings')
       .select('user_id, timezone')
@@ -95,7 +93,10 @@ Deno.serve(async (request: Request) => {
 
     if (settingsError) {
       return jsonResponse(
-        { success: false, reason: 'Failed to load user settings' },
+        {
+          success: false,
+          reason: `Failed to load user settings: ${settingsError.message}`,
+        },
         500
       )
     }
@@ -108,11 +109,8 @@ Deno.serve(async (request: Request) => {
     }
 
     const userId = userSettings.user_id
-
-    // Step 3 — Compute cadence window key
     const windowKey = getCadenceWindowKey('market-scan')
 
-    // Step 4 — Idempotency check
     const alreadyProcessed = await hasAlreadyProcessed({
       jobType: 'market-scan',
       windowKey,
@@ -125,14 +123,12 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    // Step 5 — Start scan log
     logId = await startScanLog({
       userId,
       jobType: 'market-scan',
       windowKey,
     })
 
-    // Step 6 — Fetch market index data
     const marketIndex = await marketDataProvider.fetchMarketIndex()
 
     if (!marketIndex) {
@@ -148,7 +144,6 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    // Step 8 — Read last known market phase
     const { data: latestSnapshot, error: latestSnapshotError } = await supabase
       .from('market_snapshots')
       .select('market_phase')
@@ -160,7 +155,6 @@ Deno.serve(async (request: Request) => {
       ? null
       : latestSnapshot?.market_phase ?? null
 
-    // Step 7 — Determine market phase
     const marketWindow = getMarketWindow()
     const newPhase = determineMarketPhase({
       spyPrice: marketIndex.spyPrice,
@@ -169,7 +163,6 @@ Deno.serve(async (request: Request) => {
       lastKnownPhase: lastPhase,
     })
 
-    // Step 9 — Upsert market snapshot
     const snapshotDate = getTodayDateString()
     const scanTimestamp = new Date().toISOString()
 
@@ -190,7 +183,7 @@ Deno.serve(async (request: Request) => {
       await safeFinishScanLog({
         logId,
         status: 'failed',
-        message: 'Snapshot upsert failed',
+        message: `Snapshot upsert failed: ${upsertError.message}`,
       })
 
       return jsonResponse(
@@ -199,10 +192,8 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    // Step 10 — Detect phase change
     const phaseChanged = lastPhase !== null && lastPhase !== newPhase
 
-    // Step 11 — Finish scan log
     await safeFinishScanLog({
       logId,
       status: 'completed',
@@ -216,7 +207,6 @@ Deno.serve(async (request: Request) => {
       },
     })
 
-    // Step 12 — Return response
     return jsonResponse(
       {
         success: true,
