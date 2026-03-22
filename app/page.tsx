@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { evaluateSetup } from '@/lib/evaluateSetup'
 import { generateTradePlan } from '@/lib/generateTradePlan'
@@ -150,11 +150,9 @@ export default function HomePage() {
   const [savedPlans, setSavedPlans] = useState<SavedTradePlan[]>([])
   const [savedTrades, setSavedTrades] = useState<SavedTrade[]>([])
   const [ruleAuditRows, setRuleAuditRows] = useState<RuleAuditRow[]>([])
-    const [portfolioValue, setPortfolioValue] = useState(() => {
-    if (typeof window === 'undefined') return '100000'
-    const savedValue = window.localStorage.getItem('divya_portfolio_value')
-    return savedValue || '100000'
-  })
+  const [portfolioValue, setPortfolioValue] = useState('100000')
+  const hasLoadedSettings = useRef(false)
+  const skipNextPortfolioSync = useRef(false)
   const [tradeCreationMessage, setTradeCreationMessage] =
     useState<TradeCreationMessage | null>(null)
 
@@ -227,16 +225,69 @@ export default function HomePage() {
   useEffect(() => {
     const load = async () => {
       await loadDashboardData()
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: settingsRow, error: settingsError } = await supabase
+          .from('user_settings')
+          .select('portfolio_value')
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle()
+
+        if (settingsError) {
+          console.error('User settings load error:', settingsError)
+        } else if (settingsRow?.portfolio_value != null) {
+          skipNextPortfolioSync.current = true
+          setPortfolioValue(String(settingsRow.portfolio_value))
+        }
+      }
+
+      hasLoadedSettings.current = true
       setLoading(false)
     }
 
     void load()
   }, [])
 
+  useEffect(() => {
+    if (!hasLoadedSettings.current) return
 
-    useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem('divya_portfolio_value', portfolioValue)
+    if (skipNextPortfolioSync.current) {
+      skipNextPortfolioSync.current = false
+      return
+    }
+
+    const parsedPortfolioValue = Number(portfolioValue)
+
+    if (!Number.isFinite(parsedPortfolioValue) || parsedPortfolioValue <= 0) {
+      return
+    }
+
+    const savePortfolioValue = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      const { error } = await supabase.from('user_settings').upsert(
+        {
+          user_id: user.id,
+          portfolio_value: parsedPortfolioValue,
+        },
+        { onConflict: 'user_id' }
+      )
+
+      if (error) {
+        console.error('User settings save error:', error)
+      }
+    }
+
+    void savePortfolioValue()
   }, [portfolioValue])
 
   const metrics = useMemo(() => {
@@ -300,6 +351,12 @@ export default function HomePage() {
   const runEvaluation = async () => {
     if (!market || !stock) return
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
+
     setSaving(true)
 
     const evaluation = evaluateSetup(market, stock)
@@ -307,6 +364,7 @@ export default function HomePage() {
     const { data: savedEvaluation, error } = await supabase
       .from('setup_evaluations')
       .insert({
+        user_id: user.id,
         watchlist_id: stock.id,
         evaluation_date: new Date().toISOString().slice(0, 10),
         market_phase_pass: evaluation.market_phase_pass,
@@ -340,6 +398,7 @@ export default function HomePage() {
     if (evaluationId) {
       const ruleRows = [
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'MARKET_PHASE',
           rule_name: 'Market Phase',
@@ -349,6 +408,7 @@ export default function HomePage() {
           notes: 'Current market must allow new long entries',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'TREND_TEMPLATE',
           rule_name: 'Trend Template',
@@ -358,6 +418,7 @@ export default function HomePage() {
           notes: 'Stock must satisfy trend template gate',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'LIQUIDITY',
           rule_name: 'Liquidity',
@@ -367,6 +428,7 @@ export default function HomePage() {
           notes: 'Liquidity gate for trade execution quality',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'BASE_PATTERN',
           rule_name: 'Base Pattern',
@@ -376,6 +438,7 @@ export default function HomePage() {
           notes: 'Pattern structure must be valid',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'VOLUME_PATTERN',
           rule_name: 'Volume Pattern',
@@ -385,6 +448,7 @@ export default function HomePage() {
           notes: 'Dry-up / constructive volume behavior required',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'RS_CONFIRMATION',
           rule_name: 'RS Confirmation',
@@ -394,6 +458,7 @@ export default function HomePage() {
           notes: 'Relative strength should confirm leadership',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'ENTRY_NEAR_PIVOT',
           rule_name: 'Entry Near Pivot',
@@ -403,6 +468,7 @@ export default function HomePage() {
           notes: 'Entry should be near intended pivot / entry zone',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'BREAKOUT_VOLUME',
           rule_name: 'Breakout Volume',
@@ -412,6 +478,7 @@ export default function HomePage() {
           notes: 'Breakout should have enough volume confirmation',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'FUNDAMENTAL',
           rule_name: 'Fundamental Quality',
@@ -421,6 +488,7 @@ export default function HomePage() {
           notes: 'EPS growth, revenue growth, A/D rating, and industry rank must meet thresholds',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'SETUP_GRADE',
           rule_name: 'Setup Grade',
@@ -430,6 +498,7 @@ export default function HomePage() {
           notes: 'Quality grade influences aggressiveness and sizing',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'EARNINGS_RISK',
           rule_name: 'Earnings Risk',
@@ -439,6 +508,7 @@ export default function HomePage() {
           notes: 'Earnings inside 2 weeks should reduce aggressiveness',
         },
         {
+          user_id: user.id,
           setup_evaluation_id: evaluationId,
           rule_code: 'BINARY_EVENT_RISK',
           rule_name: 'Binary Event Risk',
@@ -490,6 +560,12 @@ export default function HomePage() {
   }) => {
     const parsedExposure = Number(payload.maxLongExposurePct)
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
+
     if (!payload.snapshotDate) {
       alert('Snapshot date is required')
       return
@@ -502,6 +578,7 @@ export default function HomePage() {
 
     const { error } = await supabase.from('market_snapshots').upsert(
       {
+        user_id: user.id,
         snapshot_date: payload.snapshotDate,
         market_phase: payload.marketPhase,
         max_long_exposure_pct: parsedExposure,
@@ -547,8 +624,14 @@ export default function HomePage() {
       alert('Ticker is required')
       return
     }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
 
     const insertPayload = {
+      user_id: user.id,
       ticker: payload.ticker.trim().toUpperCase(),
       company_name: payload.companyName.trim() || null,
       setup_type: 'breakout',
@@ -600,6 +683,11 @@ export default function HomePage() {
 
   const handleGenerateTradePlan = async () => {
     if (!market || !stock) return
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
 
     if (!result) {
       alert('Evaluate the setup before generating a trade plan')
@@ -623,6 +711,7 @@ export default function HomePage() {
     const { data: savedTradePlan, error } = await supabase
       .from('trade_plans')
       .insert({
+        user_id: user.id,
         watchlist_id: stock.id,
         plan_date: new Date().toISOString().slice(0, 10),
         side: 'long',
@@ -712,6 +801,11 @@ export default function HomePage() {
       })
       return
     }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
 
     const portfolioValueNumber = Number(portfolioValue)
     const newTradePositionValue = Number(plan.final_position_value)
@@ -772,6 +866,7 @@ export default function HomePage() {
     }
 
     const { error } = await supabase.from('trades').insert({
+      user_id: user.id,
       trade_plan_id: latestTradePlanId,
       ticker: stock.ticker,
       side: 'long',

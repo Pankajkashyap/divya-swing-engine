@@ -104,7 +104,14 @@ export default function WeeklyReviewPage() {
   const handleSaveWeeklyReview = async () => {
     const today = new Date().toISOString().slice(0, 10)
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
+
     const { error } = await supabase.from('weekly_reviews').insert({
+      user_id: user.id,
       week_ending: today,
       market_phase: market?.market_phase ?? null,
       open_positions_count: metrics.openTradesCount,
@@ -135,9 +142,10 @@ export default function WeeklyReviewPage() {
   return (
     <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
       <section className="mx-auto max-w-6xl">
+      
       <AppHeader
-      title="Weekly Review"
-      subtitle="Review outcomes, performance, and next-week focus."
+        title="Weekly Review"
+        subtitle="Review outcomes, performance, and next-week focus."
       />
 
         <WeeklyReviewSummary
