@@ -39,7 +39,7 @@ export function SavedTradePlansTable({ savedPlans }: Props) {
                   <td className="py-3 pr-4">{row.stop_price ?? '—'}</td>
                   <td className="py-3 pr-4">{row.final_shares ?? '—'}</td>
                   <td className="py-3 pr-4">{row.final_position_value ?? '—'}</td>
-                  <td className="py-3 pr-4">{row.expected_rr ?? '—'}</td>
+                  <td className="py-3 pr-4">{row.expected_rr !== null && row.expected_rr !== undefined? Number(row.expected_rr).toFixed(2): '—'}</td>
                   <td className="py-3 pr-4">{row.approval_status}</td>
                   <td className="py-3 pr-4">{row.blocked_reason ?? '—'}</td>
                 </tr>
