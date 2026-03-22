@@ -600,6 +600,16 @@ export default function HomePage() {
   const handleGenerateTradePlan = async () => {
     if (!market || !stock) return
 
+    if (!result) {
+      alert('Evaluate the setup before generating a trade plan')
+      return
+    }
+
+    if (result.verdict === 'fail') {
+      alert('This setup failed evaluation and cannot generate a trade plan')
+      return
+    }
+
     const parsedPortfolioValue = Number(portfolioValue)
 
     if (!parsedPortfolioValue || parsedPortfolioValue <= 0) {
@@ -1094,7 +1104,12 @@ export default function HomePage() {
 
         <TradeActionButtons
           canEvaluate={!!market && !!stock && !saving}
-          canGenerate={!!market && !!stock}
+          canGenerate={
+            !!market &&
+            !!stock &&
+            !!result &&
+            result.verdict !== 'fail'
+          }
           canCreate={!!stock &&!!plan &&!!latestTradePlanId &&plan.approval_status === 'approved'}
           saving={saving}
           onEvaluate={runEvaluation}
