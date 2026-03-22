@@ -3,19 +3,18 @@
 --
 -- Before running this migration:
 -- 1. Replace <PROJECT_REF> with your actual Supabase project reference
--- 2. Replace REPLACE_WITH_REAL_CRON_SECRET with your actual CRON_SECRET value
+-- 2. Ensure a Vault secret named 'divya_cron_secret' already exists
+--
+-- Create the Vault secret separately if needed:
+-- select vault.create_secret('YOUR_REAL_CRON_SECRET', 'divya_cron_secret');
 --
 -- These jobs are idempotent — the Edge Functions use window-key deduplication
 -- so duplicate triggers within the same cadence window are safe.
 
 create extension if not exists pg_net;
 
--- Set cron secret as a database config parameter
--- Replace REPLACE_WITH_REAL_CRON_SECRET before running this migration.
-alter database postgres set app.cron_secret = '7f9c2d1a-market-scan-prod-x8Qp29Lm';
-
 -- Remove existing jobs if re-running this migration
-select cron.unschedule(jobname)
+select cron.unschedule(jobid)
 from cron.job
 where jobname like 'divya-%';
 
@@ -31,10 +30,17 @@ select cron.schedule(
   '30 13 * * 1-5',
   $$
   select net.http_post(
-    url := 'https://tbxvccwbhnrcantntkhy.supabase.co/functions/v1/market-scan',
+    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/market-scan',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -49,7 +55,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/market-scan',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -71,7 +84,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/market-scan',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -86,7 +106,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/market-scan',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -108,7 +135,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/market-scan',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -123,7 +157,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/market-scan',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -145,7 +186,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/watchlist-evaluate',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -160,7 +208,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/watchlist-evaluate',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -182,7 +237,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/watchlist-evaluate',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
@@ -197,7 +259,14 @@ select cron.schedule(
     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/watchlist-evaluate',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.cron_secret')
+      'Authorization', (
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'divya_cron_secret'
+          limit 1
+        )
+      )
     ),
     body := '{}'::jsonb
   );
