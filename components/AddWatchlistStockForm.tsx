@@ -260,6 +260,12 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
       setEntryNearPivot(false)
       setVolumeBreakoutConfirmed(false)
       setLiquidityPass(true)
+      
+      setEpsGrowth('')
+      setEpsAccelerating(false)
+      setRevenueGrowth('')
+      setAccDistRating('A')
+      setIndustryRank('')
 
       setErrors({})
     } finally {
@@ -398,6 +404,71 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             <p className="mt-1 text-xs text-red-600">{errors.target2Price}</p>
           ) : null}
         </div>
+                <div>
+          <label className="mb-1 block text-sm font-medium">EPS Growth %</label>
+          <input
+            value={epsGrowth}
+            onChange={(e) => setEpsGrowth(e.target.value)}
+            className="ui-input"
+            placeholder="25"
+            type="number"
+            step="0.1"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">Revenue Growth %</label>
+          <input
+            value={revenueGrowth}
+            onChange={(e) => setRevenueGrowth(e.target.value)}
+            className="ui-input"
+            placeholder="25"
+            type="number"
+            step="0.1"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Accumulation / Distribution Rating
+          </label>
+          <select
+            value={accDistRating}
+            onChange={(e) => setAccDistRating(e.target.value)}
+            className="ui-select"
+          >
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">Industry Group Rank</label>
+          <input
+            value={industryRank}
+            onChange={(e) => setIndustryRank(e.target.value)}
+            className="ui-input"
+            placeholder="1-197"
+            type="number"
+            min="1"
+            max="197"
+            step="1"
+          />
+        </div>
+          <div className="md:col-span-2">
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={epsAccelerating}
+              onChange={(e) => setEpsAccelerating(e.target.checked)}
+              className="mt-1"
+            />
+            <span>EPS Accelerating</span>
+          </label>
+        </div>
       </div>
 
       <div className="mt-6 rounded-xl border border-neutral-200 p-4">
@@ -472,6 +543,15 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               className="mt-1"
             />
             <span>Liquidity passes</span>
+          </label>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={epsAccelerating}
+              onChange={(e) => setEpsAccelerating(e.target.checked)}
+              className="mt-1"
+            />
+            <span>EPS accelerating</span>
           </label>
         </div>
       </div>
