@@ -27,7 +27,7 @@ export function MarketSummaryCards({
           {stock?.ticker} — {stock?.company_name ?? '—'}
         </p>
         <p className="mt-2 text-sm text-neutral-600">
-          Grade: {stock?.setup_grade ?? '—'} | R/R: {stock?.rr_ratio ?? '—'}
+          Grade: {stock?.setup_grade ?? '—'}
         </p>
       </div>
 
