@@ -544,15 +544,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             />
             <span>Liquidity passes</span>
           </label>
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              checked={epsAccelerating}
-              onChange={(e) => setEpsAccelerating(e.target.checked)}
-              className="mt-1"
-            />
-            <span>EPS accelerating</span>
-          </label>
         </div>
       </div>
 
