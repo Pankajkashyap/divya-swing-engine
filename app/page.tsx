@@ -44,6 +44,17 @@ export type WatchlistRow = {
   stop_price: number | null
   target_1_price: number | null
   target_2_price: number | null
+  rs_line_confirmed: boolean | null
+  base_pattern_valid: boolean | null
+  entry_near_pivot: boolean | null
+  volume_breakout_confirmed: boolean | null
+  liquidity_pass: boolean | null
+  // FUNDAMENTALS
+eps_growth_pct: number | null
+eps_accelerating: boolean | null
+revenue_growth_pct: number | null
+acc_dist_rating: string | null
+industry_group_rank: number | null
 }
 
 export type EvalResult = {
@@ -162,7 +173,7 @@ export default function HomePage() {
       supabase
         .from('watchlist')
         .select(
-          'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
+        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass,eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
         )
         .order('created_at', { ascending: false })
         .limit(20),
@@ -503,58 +514,77 @@ export default function HomePage() {
     alert('Market snapshot saved')
   }
 
-  const handleAddWatchlistStock = async (payload: {
-    ticker: string
-    companyName: string
-    setupGrade: string
-    rrRatio: string
-    entryZoneLow: string
-    entryZoneHigh: string
-    stopPrice: string
-    target1Price: string
-    target2Price: string
-  }) => {
-    if (!payload.ticker.trim()) {
-      alert('Ticker is required')
-      return
-    }
+const handleAddWatchlistStock = async (payload: {
+  ticker: string
+  companyName: string
+  setupGrade: string
+  rrRatio: string
+  entryZoneLow: string
+  entryZoneHigh: string
+  stopPrice: string
+  target1Price: string
+  target2Price: string
+  trendTemplatePass: boolean
+  volumeDryUpPass: boolean
+  rsLineConfirmed: boolean
+  basePatternValid: boolean
+  entryNearPivot: boolean
+  volumeBreakoutConfirmed: boolean
+  liquidityPass: boolean
+}) => {
 
-    const { data: insertedRow, error } = await supabase
-      .from('watchlist')
-      .insert({
-        ticker: payload.ticker.trim().toUpperCase(),
-        company_name: payload.companyName.trim() || null,
-        setup_type: 'breakout',
-        setup_grade: payload.setupGrade,
-        rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
-        entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
-        entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
-        stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
-        target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
-        target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
-        trend_template_pass: true,
-        volume_dry_up_pass: true,
-        status: 'watchlist',
-        action_status: 'watchlist',
-      })
-      .select(
-        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
-      )
-      .single()
-
-    if (error) {
-      console.error(error)
-      alert('Failed to add watchlist stock')
-      return
-    }
-
-    setWatchlist((prev) => [insertedRow, ...prev])
-    setStock(insertedRow)
-    setResult(null)
-    setPlan(null)
-    setLatestTradePlanId(null)
-    setTradeCreationMessage(null)
+  if (!payload.ticker.trim()) {
+    alert('Ticker is required')
+    return
   }
+const insertPayload = {
+  ticker: payload.ticker.trim().toUpperCase(),
+  company_name: payload.companyName.trim() || null,
+  setup_type: 'breakout',
+  setup_grade: payload.setupGrade,
+  rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
+  entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
+  entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
+  stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
+  target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
+  target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
+  trend_template_pass: payload.trendTemplatePass,
+  volume_dry_up_pass: payload.volumeDryUpPass,
+  rs_line_confirmed: payload.rsLineConfirmed,
+  base_pattern_valid: payload.basePatternValid,
+  entry_near_pivot: payload.entryNearPivot,
+  volume_breakout_confirmed: payload.volumeBreakoutConfirmed,
+  liquidity_pass: payload.liquidityPass,
+  eps_growth_pct: payload.epsGrowth ? Number(payload.epsGrowth) : null,
+eps_accelerating: payload.epsAccelerating,
+revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
+acc_dist_rating: payload.accDistRating ?? null,
+industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
+  status: 'watchlist',
+  action_status: 'watchlist',
+}
+
+  const { data: insertedRow, error } = await supabase
+    .from('watchlist')
+    .insert(insertPayload)
+    .select(
+      'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass'
+    )
+    .single()
+
+  if (error) {
+    console.error(error)
+    alert('Failed to add watchlist stock')
+    return
+  }
+
+  setWatchlist((prev) => [insertedRow, ...prev])
+  setStock(insertedRow)
+  setResult(null)
+  setPlan(null)
+  setLatestTradePlanId(null)
+  setTradeCreationMessage(null)
+}
 
   const handleGenerateTradePlan = async () => {
     if (!market || !stock) return
@@ -982,8 +1012,8 @@ export default function HomePage() {
       })
       .eq('id', rowId)
       .select(
-        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
-      )
+      'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass'
+       )
       .single()
 
     if (error) {

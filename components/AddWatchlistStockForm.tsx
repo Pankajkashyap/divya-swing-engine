@@ -13,6 +13,18 @@ type Props = {
     stopPrice: string
     target1Price: string
     target2Price: string
+    trendTemplatePass: boolean
+    volumeDryUpPass: boolean
+    rsLineConfirmed: boolean
+    basePatternValid: boolean
+    entryNearPivot: boolean
+    volumeBreakoutConfirmed: boolean
+    liquidityPass: boolean
+    epsGrowth: string
+    epsAccelerating: boolean
+    revenueGrowth: string
+    accDistRating: string
+    industryRank: string
   }) => void | Promise<void>
 }
 
@@ -37,6 +49,21 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
   const [stopPrice, setStopPrice] = useState('')
   const [target1Price, setTarget1Price] = useState('')
   const [target2Price, setTarget2Price] = useState('')
+
+  const [trendTemplatePass, setTrendTemplatePass] = useState(false)
+  const [volumeDryUpPass, setVolumeDryUpPass] = useState(false)
+  const [rsLineConfirmed, setRsLineConfirmed] = useState(false)
+  const [basePatternValid, setBasePatternValid] = useState(false)
+  const [entryNearPivot, setEntryNearPivot] = useState(false)
+  const [volumeBreakoutConfirmed, setVolumeBreakoutConfirmed] = useState(false)
+  const [liquidityPass, setLiquidityPass] = useState(true)
+
+  const [epsGrowth, setEpsGrowth] = useState('')
+  const [epsAccelerating, setEpsAccelerating] = useState(false)
+  const [revenueGrowth, setRevenueGrowth] = useState('')
+  const [accDistRating, setAccDistRating] = useState('A')
+  const [industryRank, setIndustryRank] = useState('')
+
   const [errors, setErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -191,6 +218,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
     setSubmitting(true)
 
     try {
+
       await onAdd({
         ticker,
         companyName,
@@ -201,6 +229,18 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         stopPrice,
         target1Price,
         target2Price,
+        trendTemplatePass,
+        volumeDryUpPass,
+        rsLineConfirmed,
+        basePatternValid,
+        entryNearPivot,
+        volumeBreakoutConfirmed,
+        liquidityPass,
+        epsGrowth,
+        epsAccelerating,
+        revenueGrowth,
+        accDistRating,
+        industryRank,
       })
 
       setTicker('')
@@ -212,6 +252,15 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
       setStopPrice('')
       setTarget1Price('')
       setTarget2Price('')
+
+      setTrendTemplatePass(false)
+      setVolumeDryUpPass(false)
+      setRsLineConfirmed(false)
+      setBasePatternValid(false)
+      setEntryNearPivot(false)
+      setVolumeBreakoutConfirmed(false)
+      setLiquidityPass(true)
+
       setErrors({})
     } finally {
       setSubmitting(false)
@@ -351,8 +400,85 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
       </div>
 
+      <div className="mt-6 rounded-xl border border-neutral-200 p-4">
+        <h3 className="text-sm font-semibold">Rule Confirmation</h3>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={trendTemplatePass}
+              onChange={(e) => setTrendTemplatePass(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Trend Template passes all 8 criteria</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={volumeDryUpPass}
+              onChange={(e) => setVolumeDryUpPass(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Volume dry-up confirmed at pivot</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={rsLineConfirmed}
+              onChange={(e) => setRsLineConfirmed(e.target.checked)}
+              className="mt-1"
+            />
+            <span>RS line confirmed</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={basePatternValid}
+              onChange={(e) => setBasePatternValid(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Base pattern valid</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={entryNearPivot}
+              onChange={(e) => setEntryNearPivot(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Entry near pivot</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={volumeBreakoutConfirmed}
+              onChange={(e) => setVolumeBreakoutConfirmed(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Volume breakout confirmed</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={liquidityPass}
+              onChange={(e) => setLiquidityPass(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Liquidity passes</span>
+          </label>
+        </div>
+      </div>
+
       <div className="mt-5 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
         <h3 className="text-sm font-semibold">Live Setup Preview</h3>
+
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <div>
             <p className="text-xs text-neutral-500">Risk / Share</p>
