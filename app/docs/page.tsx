@@ -57,14 +57,14 @@ export default function DocsPage() {
 <div className="flex gap-2">
   <Link
     href="/"
-    className="inline-flex items-center whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+    className="ui-link-pill-idle"
   >
     Dashboard
   </Link>
 
   <Link
     href="/weekly-review"
-    className="inline-flex items-center whitespace-nowrap rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+    className="ui-link-pill-idle"
   >
     Weekly Review
   </Link>
