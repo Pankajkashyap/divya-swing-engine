@@ -150,7 +150,11 @@ export default function HomePage() {
   const [savedPlans, setSavedPlans] = useState<SavedTradePlan[]>([])
   const [savedTrades, setSavedTrades] = useState<SavedTrade[]>([])
   const [ruleAuditRows, setRuleAuditRows] = useState<RuleAuditRow[]>([])
-  const [portfolioValue, setPortfolioValue] = useState('100000')
+    const [portfolioValue, setPortfolioValue] = useState(() => {
+    if (typeof window === 'undefined') return '100000'
+    const savedValue = window.localStorage.getItem('divya_portfolio_value')
+    return savedValue || '100000'
+  })
   const [tradeCreationMessage, setTradeCreationMessage] =
     useState<TradeCreationMessage | null>(null)
 
@@ -228,6 +232,11 @@ export default function HomePage() {
 
     void load()
   }, [])
+
+    useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('divya_portfolio_value', portfolioValue)
+  }, [portfolioValue])
 
   const metrics = useMemo(() => {
     const openTrades = savedTrades.filter(
@@ -895,8 +904,11 @@ export default function HomePage() {
       return
     }
 
-    if (parsedExitShares > trade.shares_entered) {
-      alert('Exit shares cannot exceed current shares')
+    const currentOpenShares =
+      trade.shares_entered - (trade.shares_exited ?? 0)
+
+    if (parsedExitShares > currentOpenShares) {
+      alert('Exit shares cannot exceed current open shares')
       return
     }
 
@@ -910,22 +922,14 @@ export default function HomePage() {
     }
 
     const alreadyExited = trade.shares_exited ?? 0
-    const totalEntered = trade.shares_entered
-    const remainingBeforeExit = totalEntered - alreadyExited
-
-    if (parsedExitShares > remainingBeforeExit) {
-      alert('Exit shares cannot exceed current open shares')
-      return
-    }
-
     const newSharesExited = alreadyExited + parsedExitShares
-    const remainingShares = totalEntered - newSharesExited
+    const remainingShares = currentOpenShares - parsedExitShares
     const newStatus = remainingShares > 0 ? 'partial' : 'closed'
     const finalPnlDollar =
       (trade.pnl_dollar ?? 0) + Number(partialPnlDollar.toFixed(2))
+    const originalCostBasis = trade.entry_price_actual * trade.shares_entered
     const finalPnlPct =
-      ((parsedExitPrice - trade.entry_price_actual) / trade.entry_price_actual) *
-      100
+      originalCostBasis > 0 ? (finalPnlDollar / originalCostBasis) * 100 : 0
 
     const updatePayload: {
       status: string
@@ -944,7 +948,7 @@ export default function HomePage() {
     if (remainingShares === 0) {
       updatePayload.exit_date = new Date().toISOString().slice(0, 10)
       updatePayload.exit_price_actual = parsedExitPrice
-      updatePayload.shares_exited = parsedExitShares
+      updatePayload.shares_exited = newSharesExited
     }
 
     const { error } = await supabase
@@ -1079,7 +1083,7 @@ export default function HomePage() {
         <TradeActionButtons
           canEvaluate={!!market && !!stock && !saving}
           canGenerate={!!market && !!stock}
-          canCreate={!!stock && !!plan && !!latestTradePlanId}
+          canCreate={!!stock &&!!plan &&!!latestTradePlanId &&plan.approval_status === 'approved'}
           saving={saving}
           onEvaluate={runEvaluation}
           onGenerate={handleGenerateTradePlan}

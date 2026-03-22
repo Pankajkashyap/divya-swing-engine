@@ -129,30 +129,60 @@ export function evaluateSetup(
   if (volume_breakout_pass) score_total++
   if (fundamental_pass) score_total++
 
-  // =============================
-  // VERDICT LOGIC
-  // =============================
+// =============================
+// VERDICT LOGIC
+// =============================
 
-  let verdict: 'pass' | 'watch' | 'fail' = 'pass'
-  let fail_reason: string | null = null
+let verdict: 'pass' | 'watch' | 'fail' = 'pass'
+let fail_reason: string | null = null
 
-  if (!fundamental_pass) {
-    verdict = 'fail'
-    fail_reason = fundamental_reason
+if (!market_phase_pass) {
+  verdict = 'fail'
+  fail_reason = 'Unfavorable market conditions'
+} else if (!trend_template_pass) {
+  verdict = 'fail'
+  fail_reason = 'Trend template not satisfied'
+} else if (!liquidity_pass) {
+  verdict = 'fail'
+  fail_reason = 'Liquidity gate failed'
+} else if (!base_pattern_valid) {
+  verdict = 'fail'
+  fail_reason = 'No valid base pattern'
+} else if (!rs_line_confirmed) {
+  verdict = 'fail'
+  fail_reason = 'RS line not confirming'
+} else if (!fundamental_pass) {
+  verdict = 'fail'
+  fail_reason = fundamental_reason
+} else {
+  const softFailLabels: string[] = []
+
+  if (!volume_pattern_valid) {
+    softFailLabels.push('Volume dry-up not confirmed')
   }
 
-  if (!market_phase_pass) {
-    verdict = 'fail'
-    fail_reason = 'Unfavorable market conditions'
+  if (!entry_near_pivot_pass) {
+    softFailLabels.push('Entry near pivot not confirmed')
   }
 
-  if (
-    verdict !== 'fail' &&
-    (earnings_risk_flag || binary_event_flag)
-  ) {
+  if (!volume_breakout_pass) {
+    softFailLabels.push('Breakout volume not confirmed')
+  }
+
+  if (softFailLabels.length >= 2) {
     verdict = 'watch'
-    fail_reason = 'Risk conditions not ideal'
+    fail_reason = softFailLabels.join(' and ')
   }
+
+  if (earnings_risk_flag || binary_event_flag) {
+    if (verdict === 'watch' && fail_reason) {
+      fail_reason = `${fail_reason}; Risk conditions not ideal`
+    } else {
+      verdict = 'watch'
+      fail_reason = 'Risk conditions not ideal'
+    }
+  }
+}
 
   // =============================
   // RETURN
