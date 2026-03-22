@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 type Props = {
   title: string
@@ -10,12 +11,20 @@ type Props = {
 
 export function AppHeader({ title, subtitle }: Props) {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createSupabaseBrowserClient()
 
   const navItems = [
     { label: 'Dashboard', href: '/' },
     { label: 'Weekly Review', href: '/weekly-review' },
     { label: 'Docs', href: '/docs' },
   ]
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <header className="mb-10">
@@ -37,24 +46,34 @@ export function AppHeader({ title, subtitle }: Props) {
             ) : null}
           </div>
 
-          <nav className="flex flex-wrap items-center gap-2">
-            {navItems.map((item) => {
-              const isActive =
-                item.href === '/'
-                  ? pathname === '/'
-                  : pathname.startsWith(item.href)
+          <div className="flex flex-wrap items-center gap-2">
+            <nav className="flex flex-wrap items-center gap-2">
+              {navItems.map((item) => {
+                const isActive =
+                  item.href === '/'
+                    ? pathname === '/'
+                    : pathname.startsWith(item.href)
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={isActive ? 'ui-link-pill-active' : 'ui-link-pill-idle'}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={isActive ? 'ui-link-pill-active' : 'ui-link-pill-idle'}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="ui-btn-secondary"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     </header>
