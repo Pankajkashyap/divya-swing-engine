@@ -17,6 +17,13 @@ type Props = {
       stopPrice: string
       target1Price: string
       target2Price: string
+      earningsWithin2Weeks: boolean
+      binaryEventRisk: boolean
+      epsGrowth: string
+      epsAccelerating: boolean
+      revenueGrowth: string
+      accDistRating: string
+      industryRank: string
     }
   ) => void | Promise<void>
   onDelete: (rowId: string, ticker: string) => void | Promise<void>
@@ -113,6 +120,13 @@ export function WatchlistSelectionTable({
   const [stopPrice, setStopPrice] = useState('')
   const [target1Price, setTarget1Price] = useState('')
   const [target2Price, setTarget2Price] = useState('')
+  const [earningsWithin2Weeks, setEarningsWithin2Weeks] = useState(false)
+  const [binaryEventRisk, setBinaryEventRisk] = useState(false)
+  const [epsGrowth, setEpsGrowth] = useState('')
+  const [epsAccelerating, setEpsAccelerating] = useState(false)
+  const [revenueGrowth, setRevenueGrowth] = useState('')
+  const [accDistRating, setAccDistRating] = useState('A')
+  const [industryRank, setIndustryRank] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
   const [savingEdit, setSavingEdit] = useState(false)
 
@@ -126,6 +140,13 @@ export function WatchlistSelectionTable({
     setStopPrice(editingRow.stop_price?.toString() ?? '')
     setTarget1Price(editingRow.target_1_price?.toString() ?? '')
     setTarget2Price(editingRow.target_2_price?.toString() ?? '')
+    setEarningsWithin2Weeks(editingRow.earnings_within_2_weeks ?? false)
+    setBinaryEventRisk(editingRow.binary_event_risk ?? false)
+    setEpsGrowth(editingRow.eps_growth_pct?.toString() ?? '')
+    setEpsAccelerating(editingRow.eps_accelerating ?? false)
+    setRevenueGrowth(editingRow.revenue_growth_pct?.toString() ?? '')
+    setAccDistRating(editingRow.acc_dist_rating ?? 'A')
+    setIndustryRank(editingRow.industry_group_rank?.toString() ?? '')
     setErrors({})
   }, [editingRow])
 
@@ -284,6 +305,13 @@ export function WatchlistSelectionTable({
         stopPrice,
         target1Price,
         target2Price,
+        earningsWithin2Weeks,
+        binaryEventRisk,
+        epsGrowth,
+        epsAccelerating,
+        revenueGrowth,
+        accDistRating,
+        industryRank,
       })
 
       setEditingRow(null)
@@ -508,6 +536,98 @@ export function WatchlistSelectionTable({
                 {errors.target2Price ? (
                   <p className="mt-1 text-xs text-red-600">{errors.target2Price}</p>
                 ) : null}
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  EPS Growth %
+                </label>
+                <input
+                  value={epsGrowth}
+                  onChange={(e) => setEpsGrowth(e.target.value)}
+                  className="ui-input"
+                  type="number"
+                  step="0.1"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Revenue Growth %
+                </label>
+                <input
+                  value={revenueGrowth}
+                  onChange={(e) => setRevenueGrowth(e.target.value)}
+                  className="ui-input"
+                  type="number"
+                  step="0.1"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Accumulation / Distribution Rating
+                </label>
+                <select
+                  value={accDistRating}
+                  onChange={(e) => setAccDistRating(e.target.value)}
+                  className="ui-select"
+                >
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Industry Group Rank
+                </label>
+                <input
+                  value={industryRank}
+                  onChange={(e) => setIndustryRank(e.target.value)}
+                  className="ui-input"
+                  type="number"
+                  min="1"
+                  max="197"
+                  step="1"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={epsAccelerating}
+                    onChange={(e) => setEpsAccelerating(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>EPS Accelerating</span>
+                </label>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={earningsWithin2Weeks}
+                    onChange={(e) => setEarningsWithin2Weeks(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>Earnings within 2 weeks</span>
+                </label>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="flex items-start gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={binaryEventRisk}
+                    onChange={(e) => setBinaryEventRisk(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <span>Binary event risk</span>
+                </label>
               </div>
             </div>
 

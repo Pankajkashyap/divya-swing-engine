@@ -19,6 +19,8 @@ type Props = {
     entryNearPivot: boolean
     volumeBreakoutConfirmed: boolean
     liquidityPass: boolean
+    earningsWithin2Weeks: boolean
+    binaryEventRisk: boolean
     epsGrowth: string
     epsAccelerating: boolean
     revenueGrowth: string
@@ -54,6 +56,8 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
   const [entryNearPivot, setEntryNearPivot] = useState(false)
   const [volumeBreakoutConfirmed, setVolumeBreakoutConfirmed] = useState(false)
   const [liquidityPass, setLiquidityPass] = useState(true)
+  const [earningsWithin2Weeks, setEarningsWithin2Weeks] = useState(false)
+  const [binaryEventRisk, setBinaryEventRisk] = useState(false)
 
   const [epsGrowth, setEpsGrowth] = useState('')
   const [epsAccelerating, setEpsAccelerating] = useState(false)
@@ -225,6 +229,8 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         entryNearPivot,
         volumeBreakoutConfirmed,
         liquidityPass,
+        earningsWithin2Weeks,
+        binaryEventRisk,
         epsGrowth,
         epsAccelerating,
         revenueGrowth,
@@ -248,7 +254,9 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
       setEntryNearPivot(false)
       setVolumeBreakoutConfirmed(false)
       setLiquidityPass(true)
-      
+      setEarningsWithin2Weeks(false)
+      setBinaryEventRisk(false)
+
       setEpsGrowth('')
       setEpsAccelerating(false)
       setRevenueGrowth('')
@@ -516,6 +524,25 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               className="mt-1"
             />
             <span>Liquidity passes</span>
+          </label>
+                    <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={earningsWithin2Weeks}
+              onChange={(e) => setEarningsWithin2Weeks(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Earnings within 2 weeks</span>
+          </label>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={binaryEventRisk}
+              onChange={(e) => setBinaryEventRisk(e.target.checked)}
+              className="mt-1"
+            />
+            <span>Binary event risk</span>
           </label>
         </div>
       </div>

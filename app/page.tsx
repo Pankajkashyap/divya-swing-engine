@@ -115,6 +115,7 @@ export type SavedTrade = {
   stop_price_current: number | null
   target_1_price: number | null
   target_2_price: number | null
+  shares_exited: number | null
   exit_date: string | null
   exit_price_actual: number | null
   pnl_dollar: number | null
@@ -184,7 +185,7 @@ export default function HomePage() {
       supabase
         .from('trades')
         .select(
-          'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, stop_price_current, target_1_price, target_2_price, exit_date, exit_price_actual, pnl_dollar, pnl_pct'
+          'id, ticker, side, status, entry_date, entry_price_actual, shares_entered, stop_price_initial, stop_price_current, target_1_price, target_2_price, shares_exited, exit_date, exit_price_actual, pnl_dollar, pnl_pct'
         )
         .order('created_at', { ascending: false })
         .limit(50),
@@ -524,6 +525,8 @@ export default function HomePage() {
     entryNearPivot: boolean
     volumeBreakoutConfirmed: boolean
     liquidityPass: boolean
+    earningsWithin2Weeks: boolean
+    binaryEventRisk: boolean
     epsGrowth: string
     epsAccelerating: boolean
     revenueGrowth: string
@@ -552,6 +555,8 @@ export default function HomePage() {
       entry_near_pivot: payload.entryNearPivot,
       volume_breakout_confirmed: payload.volumeBreakoutConfirmed,
       liquidity_pass: payload.liquidityPass,
+      earnings_within_2_weeks: payload.earningsWithin2Weeks,
+      binary_event_risk: payload.binaryEventRisk,
       eps_growth_pct: payload.epsGrowth ? Number(payload.epsGrowth) : null,
       eps_accelerating: payload.epsAccelerating,
       revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
@@ -754,6 +759,7 @@ export default function HomePage() {
       entry_date: new Date().toISOString().slice(0, 10),
       entry_price_actual: plan.entry_price,
       shares_entered: plan.final_shares,
+      shares_exited: 0,
       stop_price_initial: plan.stop_price,
       stop_price_current: plan.stop_price,
       target_1_price: stock.target_1_price,
@@ -903,7 +909,17 @@ export default function HomePage() {
         (trade.entry_price_actual - parsedExitPrice) * parsedExitShares
     }
 
-    const remainingShares = trade.shares_entered - parsedExitShares
+    const alreadyExited = trade.shares_exited ?? 0
+    const totalEntered = trade.shares_entered
+    const remainingBeforeExit = totalEntered - alreadyExited
+
+    if (parsedExitShares > remainingBeforeExit) {
+      alert('Exit shares cannot exceed current open shares')
+      return
+    }
+
+    const newSharesExited = alreadyExited + parsedExitShares
+    const remainingShares = totalEntered - newSharesExited
     const newStatus = remainingShares > 0 ? 'partial' : 'closed'
     const finalPnlDollar =
       (trade.pnl_dollar ?? 0) + Number(partialPnlDollar.toFixed(2))
@@ -913,15 +929,14 @@ export default function HomePage() {
 
     const updatePayload: {
       status: string
-      shares_entered: number
+      shares_exited: number
       pnl_dollar: number
       pnl_pct: number
       exit_date?: string
       exit_price_actual?: number
-      shares_exited?: number
     } = {
       status: newStatus,
-      shares_entered: remainingShares,
+      shares_exited: newSharesExited,
       pnl_dollar: Number(finalPnlDollar.toFixed(2)),
       pnl_pct: Number(finalPnlPct.toFixed(2)),
     }
@@ -1005,6 +1020,13 @@ export default function HomePage() {
                 stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
                 target_1_price: payload.target1Price ? Number(payload.target1Price) : null,
                 target_2_price: payload.target2Price ? Number(payload.target2Price) : null,
+                earnings_within_2_weeks: payload.earningsWithin2Weeks,
+                binary_event_risk: payload.binaryEventRisk,
+                eps_growth_pct: payload.epsGrowth ? Number(payload.epsGrowth) : null,
+                eps_accelerating: payload.epsAccelerating,
+                revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
+                acc_dist_rating: payload.accDistRating ?? null,
+                industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
               })
               .eq('id', rowId)
               .select(
