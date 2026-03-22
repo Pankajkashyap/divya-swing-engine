@@ -125,6 +125,16 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
                 <td className="py-3 pr-4">Current R/R: {result.rr_ratio ?? '—'}</td>
               </tr>
+              
+              <tr className="border-b border-neutral-100">
+                <td className="py-3 pr-4">Fundamental Quality</td>
+                <td className="py-3 pr-4">
+                  {result.fundamental_pass ? 'Pass' : 'Fail'}
+                </td>
+                <td className="py-3 pr-4">
+                  EPS growth, revenue growth, A/D rating, and industry rank must meet thresholds
+                </td>
+              </tr>
 
               <tr className="border-b border-neutral-100">
                 <td className="py-3 pr-4">Setup Grade</td>

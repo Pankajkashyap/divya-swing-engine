@@ -76,6 +76,7 @@ export type EvalResult = {
   rr_pass: boolean
   rr_ratio: number | null
   setup_grade: string | null
+  fundamental_pass: boolean
 }
 
 export type TradePlanResult = {
@@ -416,6 +417,15 @@ export default function HomePage() {
         },
         {
           setup_evaluation_id: evaluationId,
+          rule_code: 'FUNDAMENTAL',
+          rule_name: 'Fundamental Quality',
+          passed: evaluation.fundamental_pass,
+          actual_value_text: evaluation.fundamental_pass ? 'pass' : 'fail',
+          actual_value_numeric: null,
+          notes: 'EPS growth, revenue growth, A/D rating, and industry rank must meet thresholds',
+        },
+        {
+          setup_evaluation_id: evaluationId,
           rule_code: 'SETUP_GRADE',
           rule_name: 'Setup Grade',
           passed: null,
@@ -472,6 +482,7 @@ export default function HomePage() {
       rr_pass: evaluation.rr_pass,
       rr_ratio: evaluation.rr_ratio,
       setup_grade: evaluation.setup_grade,
+      fundamental_pass: evaluation.fundamental_pass,
     })
 
     await loadDashboardData()
@@ -531,6 +542,11 @@ const handleAddWatchlistStock = async (payload: {
   entryNearPivot: boolean
   volumeBreakoutConfirmed: boolean
   liquidityPass: boolean
+  epsGrowth: string
+  epsAccelerating: boolean
+  revenueGrowth: string
+  accDistRating: string
+  industryRank: string
 }) => {
 
   if (!payload.ticker.trim()) {
@@ -556,10 +572,10 @@ const insertPayload = {
   volume_breakout_confirmed: payload.volumeBreakoutConfirmed,
   liquidity_pass: payload.liquidityPass,
   eps_growth_pct: payload.epsGrowth ? Number(payload.epsGrowth) : null,
-eps_accelerating: payload.epsAccelerating,
-revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
-acc_dist_rating: payload.accDistRating ?? null,
-industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
+  eps_accelerating: payload.epsAccelerating,
+  revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
+  acc_dist_rating: payload.accDistRating ?? null,
+  industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
   status: 'watchlist',
   action_status: 'watchlist',
 }
@@ -568,7 +584,7 @@ industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
     .from('watchlist')
     .insert(insertPayload)
     .select(
-      'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass'
+    'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
     )
     .single()
 
@@ -1012,8 +1028,8 @@ industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
       })
       .eq('id', rowId)
       .select(
-      'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass'
-       )
+      'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+      )
       .single()
 
     if (error) {
