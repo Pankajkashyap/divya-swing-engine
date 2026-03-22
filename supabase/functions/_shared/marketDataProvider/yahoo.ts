@@ -1,6 +1,6 @@
 // Server only — do not import in client components
 
-import yahooFinance from 'npm:yahoo-finance2'
+import YahooFinance from 'npm:yahoo-finance2'
 import { mapQuoteToPrice, mapSummaryToFundamentals } from './mapper.ts'
 import type {
   FundamentalsData,
@@ -8,6 +8,8 @@ import type {
   MarketIndexData,
   PriceData,
 } from './types.ts'
+
+const yahooFinance = new YahooFinance()
 
 type YahooQuoteLike = {
   regularMarketPrice?: number | null
