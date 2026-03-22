@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
@@ -13,15 +13,19 @@ type Props = {
 export function AppHeader({ title, subtitle }: Props) {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createSupabaseBrowserClient()
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [pendingCount, setPendingCount] = useState<number>(0)
 
   useEffect(() => {
+    let cancelled = false
+
     const loadPendingCount = async () => {
       const { count, error } = await supabase
         .from('pending_actions')
         .select('id', { count: 'exact', head: true })
         .eq('state', 'awaiting_confirmation')
+
+      if (cancelled) return
 
       if (error) {
         console.error('Pending count load error:', error)
@@ -32,6 +36,10 @@ export function AppHeader({ title, subtitle }: Props) {
     }
 
     void loadPendingCount()
+
+    return () => {
+      cancelled = true
+    }
   }, [pathname, supabase])
 
   const navItems = [

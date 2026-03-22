@@ -103,7 +103,6 @@ export default function InboxPage() {
     }
 
     const rows = (data ?? []) as PendingAction[]
-
     const sorted = rows.sort((a, b) => {
       const urgencyDiff = urgencyOrder[a.urgency] - urgencyOrder[b.urgency]
       if (urgencyDiff !== 0) return urgencyDiff
@@ -128,57 +127,18 @@ export default function InboxPage() {
     setNotifications((data ?? []) as NotificationLog[])
   }, [])
 
+  const loadPageData = useCallback(async () => {
+    setLoading(true)
+    await Promise.all([loadPendingActions(), loadNotifications()])
+    setLoading(false)
+  }, [loadNotifications, loadPendingActions])
+
   useEffect(() => {
     let cancelled = false
 
     const run = async () => {
-      const pendingPromise = supabase
-        .from('pending_actions')
-        .select(
-          'id, ticker, action_type, state, urgency, title, message, payload_json, trade_id, watchlist_id, trade_plan_id, created_at, expires_at, snoozed_until'
-        )
-        .eq('state', 'awaiting_confirmation')
-        .order('created_at', { ascending: false })
-
-      const notificationsPromise = supabase
-        .from('notifications')
-        .select('id, ticker, trigger_type, trigger_state, sent_at, resolved_at')
-        .order('sent_at', { ascending: false })
-        .limit(20)
-
-      const [
-        { data: pendingData, error: pendingError },
-        { data: notificationsData, error: notificationsError },
-      ] = await Promise.all([pendingPromise, notificationsPromise])
-
-      if (cancelled) return
-
-      if (pendingError) {
-        console.error('Pending actions load error:', pendingError)
-      } else {
-        const urgencyOrder: Record<PendingAction['urgency'], number> = {
-          urgent: 0,
-          normal: 1,
-          low: 2,
-        }
-
-        const rows = (pendingData ?? []) as PendingAction[]
-        const sorted = rows.sort((a, b) => {
-          const urgencyDiff = urgencyOrder[a.urgency] - urgencyOrder[b.urgency]
-          if (urgencyDiff !== 0) return urgencyDiff
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        })
-
-        setPendingActions(sorted)
-      }
-
-      if (notificationsError) {
-        console.error('Notifications load error:', notificationsError)
-      } else {
-        setNotifications((notificationsData ?? []) as NotificationLog[])
-      }
-
-      setLoading(false)
+      await Promise.all([loadPendingActions(), loadNotifications()])
+      if (!cancelled) setLoading(false)
     }
 
     void run()
@@ -186,7 +146,7 @@ export default function InboxPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loadNotifications, loadPendingActions])
 
   const pendingCountLabel = useMemo(() => {
     return `${pendingActions.length} pending`
@@ -376,8 +336,7 @@ export default function InboxPage() {
     }
 
     setBuyDialogAction(null)
-    await loadPendingActions()
-    await loadNotifications()
+    await Promise.all([loadPendingActions(), loadNotifications()])
     setExecutingId(null)
   }
 
@@ -533,8 +492,7 @@ export default function InboxPage() {
     }
 
     setSellDialogAction(null)
-    await loadPendingActions()
-    await loadNotifications()
+    await Promise.all([loadPendingActions(), loadNotifications()])
     setExecutingId(null)
   }
 
