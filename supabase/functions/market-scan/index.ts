@@ -70,7 +70,7 @@ Deno.serve(async (request: Request) => {
 
   try {
     // Step 1 — Validate cron auth
-    const authResult = validateCronSecret(request)
+    const authResult = await validateCronSecret(request)
 
     if (!authResult.authorised) {
       return jsonResponse(
