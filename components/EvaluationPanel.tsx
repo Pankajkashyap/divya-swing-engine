@@ -17,7 +17,7 @@ export function EvaluationPanel({ result }: Props) {
         <span className="font-medium">Verdict:</span> {result.verdict}
       </p>
       <p className="mt-2">
-        <span className="font-medium">Score:</span> {result.score_total}
+        <span className="font-medium">Score:</span> {result.score_total}<span className="font-medium">/9</span>
       </p>
       <p className="mt-2">
         <span className="font-medium">Decision reason:</span>{' '}
