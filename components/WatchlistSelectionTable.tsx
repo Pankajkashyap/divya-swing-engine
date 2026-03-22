@@ -12,7 +12,6 @@ type Props = {
     payload: {
       companyName: string
       setupGrade: string
-      rrRatio: string
       entryZoneLow: string
       entryZoneHigh: string
       stopPrice: string
@@ -29,7 +28,6 @@ type FieldErrors = {
   stopPrice?: string
   target1Price?: string
   target2Price?: string
-  rrRatio?: string
   form?: string
 }
 
@@ -110,7 +108,6 @@ export function WatchlistSelectionTable({
   const [editingRow, setEditingRow] = useState<WatchlistRow | null>(null)
   const [companyName, setCompanyName] = useState('')
   const [setupGrade, setSetupGrade] = useState('A')
-  const [rrRatio, setRrRatio] = useState('')
   const [entryZoneLow, setEntryZoneLow] = useState('')
   const [entryZoneHigh, setEntryZoneHigh] = useState('')
   const [stopPrice, setStopPrice] = useState('')
@@ -124,7 +121,6 @@ export function WatchlistSelectionTable({
 
     setCompanyName(editingRow.company_name ?? '')
     setSetupGrade(editingRow.setup_grade ?? 'A')
-    setRrRatio(editingRow.rr_ratio?.toString() ?? '')
     setEntryZoneLow(editingRow.entry_zone_low?.toString() ?? '')
     setEntryZoneHigh(editingRow.entry_zone_high?.toString() ?? '')
     setStopPrice(editingRow.stop_price?.toString() ?? '')
@@ -174,7 +170,6 @@ export function WatchlistSelectionTable({
     const stop = Number(stopPrice)
     const target1 = Number(target1Price)
     const target2 = Number(target2Price)
-    const rr = Number(rrRatio)
 
     if (!entryZoneLow || !Number.isFinite(low) || low <= 0) {
       nextErrors.entryZoneLow = 'Enter a valid Entry Zone Low.'
@@ -232,12 +227,6 @@ export function WatchlistSelectionTable({
       }
     }
 
-    if (rrRatio) {
-      if (!Number.isFinite(rr) || rr <= 0) {
-        nextErrors.rrRatio = 'R/R Ratio must be a valid positive number.'
-      }
-    }
-
     if (
       Number.isFinite(low) &&
       low > 0 &&
@@ -290,7 +279,6 @@ export function WatchlistSelectionTable({
       await onUpdate(editingRow.id, {
         companyName,
         setupGrade,
-        rrRatio,
         entryZoneLow,
         entryZoneHigh,
         stopPrice,
@@ -336,7 +324,6 @@ export function WatchlistSelectionTable({
                   <th>Company</th>
                   <th>Quality</th>
                   <th>Grade</th>
-                  <th>R/R</th>
                   <th>Entry Zone</th>
                   <th>Stop</th>
                 </tr>
@@ -395,7 +382,6 @@ export function WatchlistSelectionTable({
                         </span>
                       </td>
                       <td>{row.setup_grade ?? '—'}</td>
-                      <td>{row.rr_ratio ?? '—'}</td>
                       <td>
                         {row.entry_zone_low ?? '—'} - {row.entry_zone_high ?? '—'}
                       </td>
@@ -452,20 +438,6 @@ export function WatchlistSelectionTable({
                   <option value="B">B</option>
                   <option value="C">C</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium">R/R Ratio</label>
-                <input
-                  value={rrRatio}
-                  onChange={(e) => setRrRatio(e.target.value)}
-                  className="ui-input"
-                  type="number"
-                  step="0.1"
-                />
-                {errors.rrRatio ? (
-                  <p className="mt-1 text-xs text-red-600">{errors.rrRatio}</p>
-                ) : null}
               </div>
 
               <div>

@@ -7,7 +7,6 @@ type Props = {
     ticker: string
     companyName: string
     setupGrade: string
-    rrRatio: string
     entryZoneLow: string
     entryZoneHigh: string
     stopPrice: string
@@ -35,7 +34,6 @@ type FieldErrors = {
   stopPrice?: string
   target1Price?: string
   target2Price?: string
-  rrRatio?: string
   form?: string
 }
 
@@ -43,7 +41,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
   const [ticker, setTicker] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [setupGrade, setSetupGrade] = useState('A')
-  const [rrRatio, setRrRatio] = useState('')
   const [entryZoneLow, setEntryZoneLow] = useState('')
   const [entryZoneHigh, setEntryZoneHigh] = useState('')
   const [stopPrice, setStopPrice] = useState('')
@@ -114,7 +111,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
     const stop = Number(stopPrice)
     const target1 = Number(target1Price)
     const target2 = Number(target2Price)
-    const rr = Number(rrRatio)
 
     if (!ticker.trim()) {
       nextErrors.ticker = 'Ticker is required.'
@@ -177,12 +173,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
       }
     }
 
-    if (rrRatio) {
-      if (!Number.isFinite(rr) || rr <= 0) {
-        nextErrors.rrRatio = 'R/R Ratio must be a valid positive number.'
-      }
-    }
-
     if (
       Number.isFinite(low) &&
       low > 0 &&
@@ -223,7 +213,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         ticker,
         companyName,
         setupGrade,
-        rrRatio,
         entryZoneLow,
         entryZoneHigh,
         stopPrice,
@@ -246,7 +235,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
       setTicker('')
       setCompanyName('')
       setSetupGrade('A')
-      setRrRatio('')
       setEntryZoneLow('')
       setEntryZoneHigh('')
       setStopPrice('')
@@ -313,21 +301,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             <option value="B">B</option>
             <option value="C">C</option>
           </select>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium">R/R Ratio</label>
-          <input
-            value={rrRatio}
-            onChange={(e) => setRrRatio(e.target.value)}
-            className="ui-input"
-            placeholder="2.5"
-            type="number"
-            step="0.1"
-          />
-          {errors.rrRatio ? (
-            <p className="mt-1 text-xs text-red-600">{errors.rrRatio}</p>
-          ) : null}
         </div>
 
         <div>

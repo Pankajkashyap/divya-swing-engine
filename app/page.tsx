@@ -35,7 +35,6 @@ export type WatchlistRow = {
   setup_grade: string | null
   trend_template_pass: boolean | null
   volume_dry_up_pass: boolean | null
-  rr_ratio: number | null
   earnings_within_2_weeks: boolean | null
   binary_event_risk: boolean | null
   pivot_price: number | null
@@ -171,7 +170,7 @@ export default function HomePage() {
       supabase
         .from('watchlist')
         .select(
-          'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+          'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
         )
         .order('created_at', { ascending: false })
         .limit(20),
@@ -513,7 +512,6 @@ export default function HomePage() {
     ticker: string
     companyName: string
     setupGrade: string
-    rrRatio: string
     entryZoneLow: string
     entryZoneHigh: string
     stopPrice: string
@@ -542,7 +540,6 @@ export default function HomePage() {
       company_name: payload.companyName.trim() || null,
       setup_type: 'breakout',
       setup_grade: payload.setupGrade,
-      rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
       entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
       entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
       stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
@@ -568,7 +565,7 @@ export default function HomePage() {
       .from('watchlist')
       .insert(insertPayload)
       .select(
-        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+        'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
       )
       .single()
 
@@ -1003,7 +1000,6 @@ export default function HomePage() {
               .update({
                 company_name: payload.companyName.trim() || null,
                 setup_grade: payload.setupGrade,
-                rr_ratio: payload.rrRatio ? Number(payload.rrRatio) : null,
                 entry_zone_low: payload.entryZoneLow ? Number(payload.entryZoneLow) : null,
                 entry_zone_high: payload.entryZoneHigh ? Number(payload.entryZoneHigh) : null,
                 stop_price: payload.stopPrice ? Number(payload.stopPrice) : null,
@@ -1012,7 +1008,7 @@ export default function HomePage() {
               })
               .eq('id', rowId)
               .select(
-                'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, rr_ratio, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+                'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
               )
               .single()
 
