@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
@@ -13,9 +14,29 @@ export function AppHeader({ title, subtitle }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
+  const [pendingCount, setPendingCount] = useState<number>(0)
+
+  useEffect(() => {
+    const loadPendingCount = async () => {
+      const { count, error } = await supabase
+        .from('pending_actions')
+        .select('id', { count: 'exact', head: true })
+        .eq('state', 'awaiting_confirmation')
+
+      if (error) {
+        console.error('Pending count load error:', error)
+        return
+      }
+
+      setPendingCount(count ?? 0)
+    }
+
+    void loadPendingCount()
+  }, [pathname, supabase])
 
   const navItems = [
     { label: 'Dashboard', href: '/' },
+    { label: 'Inbox', href: '/inbox', badge: pendingCount },
     { label: 'Weekly Review', href: '/weekly-review' },
     { label: 'Docs', href: '/docs' },
   ]
@@ -60,7 +81,14 @@ export function AppHeader({ title, subtitle }: Props) {
                     href={item.href}
                     className={isActive ? 'ui-link-pill-active' : 'ui-link-pill-idle'}
                   >
-                    {item.label}
+                    <span className="inline-flex items-center gap-2">
+                      {item.label}
+                      {'badge' in item && item.badge && item.badge > 0 ? (
+                        <span className="rounded-full border border-neutral-300 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-700">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </span>
                   </Link>
                 )
               })}
