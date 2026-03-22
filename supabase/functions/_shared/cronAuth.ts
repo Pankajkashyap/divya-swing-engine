@@ -4,7 +4,7 @@ export type CronAuthResult =
   | { authorised: true }
   | { authorised: false; reason: string }
 
-async function constantTimeEqual(a: string, b: string): Promise<boolean> {
+function constantTimeEqual(a: string, b: string): boolean {
   const encoder = new TextEncoder()
   const aBytes = encoder.encode(a)
   const bBytes = encoder.encode(b)
@@ -13,23 +13,15 @@ async function constantTimeEqual(a: string, b: string): Promise<boolean> {
     return false
   }
 
-  const aHashBuffer = await crypto.subtle.digest('SHA-256', aBytes)
-  const bHashBuffer = await crypto.subtle.digest('SHA-256', bBytes)
-
-  const aHash = new Uint8Array(aHashBuffer)
-  const bHash = new Uint8Array(bHashBuffer)
-
   let diff = 0
-  for (let i = 0; i < aHash.length; i += 1) {
-    diff |= aHash[i] ^ bHash[i]
+  for (let i = 0; i < aBytes.length; i += 1) {
+    diff |= aBytes[i] ^ bBytes[i]
   }
 
   return diff === 0
 }
 
-export async function validateCronSecret(
-  request: Request
-): Promise<CronAuthResult> {
+export function validateCronSecret(request: Request): CronAuthResult {
   try {
     const configuredSecret = Deno.env.get('CRON_SECRET')
 
@@ -44,9 +36,8 @@ export async function validateCronSecret(
     }
 
     const expectedValue = `Bearer ${configuredSecret}`
-    const isMatch = await constantTimeEqual(authorizationHeader, expectedValue)
 
-    if (!isMatch) {
+    if (!constantTimeEqual(authorizationHeader, expectedValue)) {
       return { authorised: false, reason: 'Invalid cron secret' }
     }
 

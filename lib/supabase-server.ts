@@ -2,16 +2,19 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { NextRequest, NextResponse } from 'next/server'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseUrlEnv = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKeyEnv = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-if (!supabaseUrl) {
+if (!supabaseUrlEnv) {
   throw new Error('Missing env var: NEXT_PUBLIC_SUPABASE_URL')
 }
 
-if (!supabaseAnonKey) {
+if (!supabaseAnonKeyEnv) {
   throw new Error('Missing env var: NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
+
+const supabaseUrl: string = supabaseUrlEnv
+const supabaseAnonKey: string = supabaseAnonKeyEnv
 
 type CookieToSet = {
   name: string
@@ -34,7 +37,7 @@ export async function createSupabaseServerClient() {
           })
         } catch {
           // Server Components may not allow setting cookies directly.
-          // Middleware handles refresh-related cookie writes.
+          // Proxy handles refresh-related cookie writes.
         }
       },
     },
