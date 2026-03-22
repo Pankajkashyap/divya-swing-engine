@@ -127,11 +127,6 @@ export default function InboxPage() {
     setNotifications((data ?? []) as NotificationLog[])
   }, [])
 
-  const loadPageData = useCallback(async () => {
-    setLoading(true)
-    await Promise.all([loadPendingActions(), loadNotifications()])
-    setLoading(false)
-  }, [loadNotifications, loadPendingActions])
 
   useEffect(() => {
     let cancelled = false
