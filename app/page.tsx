@@ -724,7 +724,7 @@ export default function HomePage() {
 
     const { data: currentOpenTrades, error: exposureLoadError } = await supabase
       .from('trades')
-      .select('entry_price_actual, shares_entered, status')
+      .select('entry_price_actual, shares_entered, shares_exited, status')
       .in('status', ['open', 'partial'])
 
     if (exposureLoadError) {
@@ -817,15 +817,27 @@ export default function HomePage() {
       return
     }
 
-    let pnlDollar = 0
-    if (trade.side === 'long') {
-      pnlDollar = (parsedExitPrice - trade.entry_price_actual) * trade.shares_entered
-    } else {
-      pnlDollar = (trade.entry_price_actual - parsedExitPrice) * trade.shares_entered
+    const alreadyExited = trade.shares_exited ?? 0
+    const remainingShares = trade.shares_entered - alreadyExited
+
+    if (remainingShares <= 0) {
+      alert('No open shares remain on this trade')
+      return
     }
 
+    let closePnlDollar = 0
+    if (trade.side === 'long') {
+      closePnlDollar =
+        (parsedExitPrice - trade.entry_price_actual) * remainingShares
+    } else {
+      closePnlDollar =
+        (trade.entry_price_actual - parsedExitPrice) * remainingShares
+    }
+
+    const finalPnlDollar = (trade.pnl_dollar ?? 0) + Number(closePnlDollar.toFixed(2))
+    const originalCostBasis = trade.entry_price_actual * trade.shares_entered
     const pnlPct =
-      ((parsedExitPrice - trade.entry_price_actual) / trade.entry_price_actual) * 100
+      originalCostBasis > 0 ? (finalPnlDollar / originalCostBasis) * 100 : 0
 
     const { error } = await supabase
       .from('trades')
@@ -834,7 +846,7 @@ export default function HomePage() {
         exit_date: new Date().toISOString().slice(0, 10),
         exit_price_actual: parsedExitPrice,
         shares_exited: trade.shares_entered,
-        pnl_dollar: Number(pnlDollar.toFixed(2)),
+        pnl_dollar: Number(finalPnlDollar.toFixed(2)),
         pnl_pct: Number(pnlPct.toFixed(2)),
       })
       .eq('id', tradeId)
