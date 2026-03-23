@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 
-const AUTHORIZED_EMAIL = 'pnkjkshp80@gmail.com'
+const AUTHORIZED_EMAIL = process.env.NEXT_PUBLIC_AUTHORIZED_EMAIL ?? ''
 
 export default function LoginPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
@@ -34,12 +34,17 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-        },
-      })
+const redirectTo =
+  typeof window !== 'undefined'
+    ? `${window.location.origin}/auth/callback`
+    : `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+
+const { error } = await supabase.auth.signInWithOtp({
+  email: normalizedEmail,
+  options: {
+    emailRedirectTo: redirectTo,
+  },
+})
 
       if (error) {
         setErrorMessage(error.message)
