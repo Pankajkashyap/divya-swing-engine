@@ -14,10 +14,11 @@ import {
 import { checkDedupe, recordNotification } from '../_shared/dedupe.ts'
 import { sendEmail } from '../_shared/email/resend.ts'
 import { tradeInstructionCard } from '../_shared/email/templates/tradeInstructionCard.ts'
+import { edgeConfig } from '../_shared/config.ts'
 
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  edgeConfig.SUPABASE_URL,
+  edgeConfig.SUPABASE_SERVICE_ROLE_KEY
 )
 
 type MarketSnapshot = {
@@ -491,7 +492,7 @@ Deno.serve(async (request: Request) => {
     const portfolioValue = Number(userSettings.portfolio_value ?? 0)
     const recipientEmail =
       userSettings.notification_email ??
-      Deno.env.get('AUTHORIZED_USER_EMAIL') ??
+      edgeConfig.AUTHORIZED_USER_EMAIL ??
       null
 
     const { data: market, error: marketError } = await supabase
@@ -891,7 +892,7 @@ Deno.serve(async (request: Request) => {
               dollarRisk: plan.dollar_risk,
               marketPhase: market.market_phase ?? 'unknown',
               evaluatedAt: new Date().toISOString(),
-              appUrl: Deno.env.get('APP_BASE_URL') ?? '',
+              appUrl: edgeConfig.APP_BASE_URL ?? '',
             }
 
             const { subject, html } = tradeInstructionCard(emailData)
@@ -899,8 +900,8 @@ Deno.serve(async (request: Request) => {
             const emailResult = await sendEmail(
               { to: recipientEmail, subject, html },
               {
-                apiKey: Deno.env.get('RESEND_API_KEY'),
-                fromEmail: Deno.env.get('RESEND_FROM_EMAIL'),
+                apiKey: edgeConfig.RESEND_API_KEY,
+                fromEmail: edgeConfig.RESEND_FROM_EMAIL,
               }
             )
 

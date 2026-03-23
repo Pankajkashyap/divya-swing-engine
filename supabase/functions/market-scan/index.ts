@@ -12,9 +12,10 @@ import {
   hasAlreadyProcessed,
 } from '../_shared/scanLog.ts'
 import { marketDataProvider } from '../_shared/marketDataProvider/index.ts'
+import { edgeConfig } from '../_shared/config.ts'
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const supabaseUrl = edgeConfig.SUPABASE_URL
+const serviceRoleKey = edgeConfig.SUPABASE_SERVICE_ROLE_KEY
 
 const supabase =
   supabaseUrl && serviceRoleKey

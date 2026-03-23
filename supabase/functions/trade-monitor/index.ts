@@ -14,10 +14,11 @@ import { checkDedupe, recordNotification } from '../_shared/dedupe.ts'
 import { sendEmail } from '../_shared/email/resend.ts'
 import { stopAlert } from '../_shared/email/templates/stopAlert.ts'
 import { targetAlert } from '../_shared/email/templates/targetAlert.ts'
+import { edgeConfig } from '../_shared/config.ts'
 
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  edgeConfig.SUPABASE_URL,
+  edgeConfig.SUPABASE_SERVICE_ROLE_KEY
 )
 
 type UserSettingsRow = {
@@ -128,7 +129,7 @@ Deno.serve(async (request: Request) => {
 
     const recipientEmail =
       settings.notification_email ??
-      Deno.env.get('AUTHORIZED_USER_EMAIL') ??
+      edgeConfig.AUTHORIZED_USER_EMAIL ??
       null
 
     if (!recipientEmail) {
@@ -338,14 +339,14 @@ Deno.serve(async (request: Request) => {
                     estimatedLoss: Number(estimatedLoss.toFixed(2)),
                     estimatedLossPct: Number(estimatedLossPct.toFixed(2)),
                     tradeId: trade.id,
-                    appUrl: Deno.env.get('APP_BASE_URL') ?? '',
+                    appUrl: edgeConfig.APP_BASE_URL ?? '',
                   })
 
                   const emailResult = await sendEmail(
                     { to: recipientEmail, subject, html },
                     {
-                      apiKey: Deno.env.get('RESEND_API_KEY'),
-                      fromEmail: Deno.env.get('RESEND_FROM_EMAIL'),
+                      apiKey: edgeConfig.RESEND_API_KEY,
+                      fromEmail: edgeConfig.RESEND_FROM_EMAIL,
                     }
                   )
 
@@ -442,14 +443,14 @@ Deno.serve(async (request: Request) => {
                     estimatedGain: Number(estimatedGain.toFixed(2)),
                     estimatedGainPct: Number(estimatedGainPct.toFixed(2)),
                     tradeId: trade.id,
-                    appUrl: Deno.env.get('APP_BASE_URL') ?? '',
+                    appUrl: edgeConfig.APP_BASE_URL ?? '',
                   })
 
                   const emailResult = await sendEmail(
                     { to: recipientEmail, subject, html },
                     {
-                      apiKey: Deno.env.get('RESEND_API_KEY'),
-                      fromEmail: Deno.env.get('RESEND_FROM_EMAIL'),
+                      apiKey: edgeConfig.RESEND_API_KEY,
+                      fromEmail: edgeConfig.RESEND_FROM_EMAIL,
                     }
                   )
 
@@ -546,14 +547,14 @@ Deno.serve(async (request: Request) => {
                     estimatedGain: Number(estimatedGain.toFixed(2)),
                     estimatedGainPct: Number(estimatedGainPct.toFixed(2)),
                     tradeId: trade.id,
-                    appUrl: Deno.env.get('APP_BASE_URL') ?? '',
+                    appUrl: edgeConfig.APP_BASE_URL ?? '',
                   })
 
                   const emailResult = await sendEmail(
                     { to: recipientEmail, subject, html },
                     {
-                      apiKey: Deno.env.get('RESEND_API_KEY'),
-                      fromEmail: Deno.env.get('RESEND_FROM_EMAIL'),
+                      apiKey: edgeConfig.RESEND_API_KEY,
+                      fromEmail: edgeConfig.RESEND_FROM_EMAIL,
                     }
                   )
 

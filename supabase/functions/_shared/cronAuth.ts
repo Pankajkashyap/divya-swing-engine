@@ -1,5 +1,7 @@
 // Server only — do not import in client components
 
+import { edgeConfig } from '../config.ts'
+
 export type CronAuthResult =
   | { authorised: true }
   | { authorised: false; reason: string }
@@ -23,7 +25,7 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 export function validateCronSecret(request: Request): CronAuthResult {
   try {
-    const configuredSecret = Deno.env.get('CRON_SECRET')
+    const configuredSecret = edgeConfig.CRON_SECRET
 
     if (!configuredSecret) {
       return { authorised: false, reason: 'CRON_SECRET not configured' }
