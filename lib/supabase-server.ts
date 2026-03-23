@@ -1,20 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { NextRequest, NextResponse } from 'next/server'
-
-const supabaseUrlEnv = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKeyEnv = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-if (!supabaseUrlEnv) {
-  throw new Error('Missing env var: NEXT_PUBLIC_SUPABASE_URL')
-}
-
-if (!supabaseAnonKeyEnv) {
-  throw new Error('Missing env var: NEXT_PUBLIC_SUPABASE_ANON_KEY')
-}
-
-const supabaseUrl: string = supabaseUrlEnv
-const supabaseAnonKey: string = supabaseAnonKeyEnv
+import { appConfig } from '@/lib/config'
 
 type CookieToSet = {
   name: string
@@ -25,40 +12,48 @@ type CookieToSet = {
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies()
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll()
+  return createServerClient(
+    appConfig.supabaseUrl,
+    appConfig.supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options)
+            })
+          } catch {
+            // Server Components may not allow setting cookies directly.
+            // Proxy handles refresh-related cookie writes.
+          }
+        },
       },
-      setAll(cookiesToSet: CookieToSet[]) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options)
-          })
-        } catch {
-          // Server Components may not allow setting cookies directly.
-          // Proxy handles refresh-related cookie writes.
-        }
-      },
-    },
-  })
+    }
+  )
 }
 
 export function createSupabaseMiddlewareClient(
   request: NextRequest,
   response: NextResponse
 ) {
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll()
+  return createServerClient(
+    appConfig.supabaseUrl,
+    appConfig.supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
+            response.cookies.set(name, value, options)
+          })
+        },
       },
-      setAll(cookiesToSet: CookieToSet[]) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          request.cookies.set(name, value)
-          response.cookies.set(name, value, options)
-        })
-      },
-    },
-  })
+    }
+  )
 }

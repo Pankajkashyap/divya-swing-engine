@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { appConfig } from '@/lib/config'
 
 const AUTHORIZED_EMAIL = process.env.NEXT_PUBLIC_AUTHORIZED_EMAIL ?? ''
 
@@ -37,7 +38,7 @@ export default function LoginPage() {
 const redirectTo =
   typeof window !== 'undefined'
     ? `${window.location.origin}/auth/callback`
-    : `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+    : `${appConfig.appUrl}/auth/callback`
 
 const { error } = await supabase.auth.signInWithOtp({
   email: normalizedEmail,
