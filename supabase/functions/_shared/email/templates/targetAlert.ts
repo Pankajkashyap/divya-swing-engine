@@ -1,5 +1,8 @@
 // Server only — do not import in client components
 
+import { edgeConfig } from '../../config.ts'
+
+
 export type TargetAlertData = {
   ticker: string
   currentPrice: number
@@ -29,7 +32,7 @@ function fmtPercent(value: number) {
 }
 
 function inboxUrl(appUrl?: string) {
-  return `${appUrl ?? Deno.env.get('NEXT_PUBLIC_APP_URL') ?? ''}/inbox`
+  return `${appUrl ?? edgeConfig.NEXT_PUBLIC_APP_URL ?? ''}/inbox`
 }
 
 function layout(title: string, body: string) {

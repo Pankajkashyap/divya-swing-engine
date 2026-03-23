@@ -1,3 +1,4 @@
+
 export type DailyDigestData = {
   date: string
   marketPhase: string
