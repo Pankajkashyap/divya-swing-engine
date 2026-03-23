@@ -4,7 +4,6 @@ import { FormEvent, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { appConfig } from '@/lib/config'
 
-const AUTHORIZED_EMAIL = process.env.NEXT_PUBLIC_AUTHORIZED_EMAIL ?? ''
 
 export default function LoginPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
@@ -24,11 +23,6 @@ export default function LoginPage() {
 
     if (!normalizedEmail) {
       setErrorMessage('Please enter your email address.')
-      return
-    }
-
-    if (normalizedEmail !== AUTHORIZED_EMAIL.toLowerCase()) {
-      setErrorMessage('This email is not authorized for this app.')
       return
     }
 
