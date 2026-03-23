@@ -1,7 +1,7 @@
 // Server only — do not import in client components
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { edgeConfig } from './_shared/config.ts'
+import { edgeConfig } from './config.ts'
 
 const supabaseUrl = edgeConfig.supabaseUrl
 const serviceRoleKey = edgeConfig.supabaseServiceRoleKey
