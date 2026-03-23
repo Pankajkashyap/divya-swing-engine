@@ -16,5 +16,20 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/login', requestUrl.origin))
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const allowedEmail = (process.env.AUTHORIZED_EMAIL ?? '')
+    .trim()
+    .toLowerCase()
+
+  const userEmail = (user?.email ?? '').trim().toLowerCase()
+
+  if (!allowedEmail || !userEmail || userEmail !== allowedEmail) {
+    await supabase.auth.signOut()
+    return NextResponse.redirect(new URL('/login', requestUrl.origin))
+  }
+
   return NextResponse.redirect(new URL('/', requestUrl.origin))
 }
