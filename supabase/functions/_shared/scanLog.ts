@@ -1,7 +1,7 @@
 // Server only — do not import in client components
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { edgeConfig } from '../_shared/config.ts'
+import { edgeConfig } from './_shared/config.ts'
 
 
 export type ScanLogStatus = 'started' | 'completed' | 'skipped' | 'failed'
@@ -138,8 +138,8 @@ export async function hasAlreadyProcessed(params: {
 }
 
 function getServiceRoleSupabaseClient() {
-  const supabaseUrl = edgeConfig.SUPABASE_URL
-  const serviceRoleKey = edgeConfig.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = edgeConfig.supabaseUrl
+  const serviceRoleKey = edgeConfig.supabaseServiceRoleKey
 
   if (!supabaseUrl || !serviceRoleKey) {
     return null

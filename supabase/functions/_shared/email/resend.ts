@@ -17,8 +17,8 @@ export async function sendEmail(
   options?: { apiKey?: string; fromEmail?: string }
 ): Promise<SendEmailResult> {
   try {
-    const apiKey = options?.apiKey ?? edgeConfig.RESEND_API_KEY
-    const fromEmail = options?.fromEmail ?? edgeConfig.RESEND_FROM_EMAIL
+    const apiKey = options?.apiKey ?? edgeConfig.resendApiKey
+    const fromEmail = options?.fromEmail ?? edgeConfig.resendFromEmail
 
     if (!apiKey) {
       return { sent: false, reason: 'RESEND_API_KEY is not configured' }

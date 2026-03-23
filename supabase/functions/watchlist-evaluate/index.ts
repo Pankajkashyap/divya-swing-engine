@@ -17,8 +17,8 @@ import { tradeInstructionCard } from '../_shared/email/templates/tradeInstructio
 import { edgeConfig } from '../_shared/config.ts'
 
 const supabase = createClient(
-  edgeConfig.SUPABASE_URL,
-  edgeConfig.SUPABASE_SERVICE_ROLE_KEY
+  edgeConfig.supabaseUrl,
+  edgeConfig.supabaseServiceRoleKey
 )
 
 type MarketSnapshot = {
@@ -492,7 +492,7 @@ Deno.serve(async (request: Request) => {
     const portfolioValue = Number(userSettings.portfolio_value ?? 0)
     const recipientEmail =
       userSettings.notification_email ??
-      edgeConfig.AUTHORIZED_USER_EMAIL ??
+      edgeConfig.authorizedUserEmail ??
       null
 
     const { data: market, error: marketError } = await supabase
@@ -892,7 +892,7 @@ Deno.serve(async (request: Request) => {
               dollarRisk: plan.dollar_risk,
               marketPhase: market.market_phase ?? 'unknown',
               evaluatedAt: new Date().toISOString(),
-              appUrl: edgeConfig.APP_BASE_URL ?? '',
+              appUrl: edgeConfig.appBaseUrl ?? '',
             }
 
             const { subject, html } = tradeInstructionCard(emailData)
@@ -900,8 +900,8 @@ Deno.serve(async (request: Request) => {
             const emailResult = await sendEmail(
               { to: recipientEmail, subject, html },
               {
-                apiKey: edgeConfig.RESEND_API_KEY,
-                fromEmail: edgeConfig.RESEND_FROM_EMAIL,
+                apiKey: edgeConfig.resendApiKey,
+                fromEmail: edgeConfig.resendFromEmail,
               }
             )
 

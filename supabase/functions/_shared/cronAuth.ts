@@ -1,6 +1,6 @@
 // Server only — do not import in client components
 
-import { edgeConfig } from '../config.ts'
+import { edgeConfig } from './config.ts'
 
 export type CronAuthResult =
   | { authorised: true }

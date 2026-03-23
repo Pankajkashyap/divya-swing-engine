@@ -14,8 +14,8 @@ import {
 import { marketDataProvider } from '../_shared/marketDataProvider/index.ts'
 import { edgeConfig } from '../_shared/config.ts'
 
-const supabaseUrl = edgeConfig.SUPABASE_URL
-const serviceRoleKey = edgeConfig.SUPABASE_SERVICE_ROLE_KEY
+const supabaseUrl = edgeConfig.supabaseUrl
+const serviceRoleKey = edgeConfig.supabaseServiceRoleKey
 
 const supabase =
   supabaseUrl && serviceRoleKey
