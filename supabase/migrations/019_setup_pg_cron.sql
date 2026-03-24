@@ -11,7 +11,7 @@
 -- These jobs are idempotent — the Edge Functions use window-key deduplication
 -- so duplicate triggers within the same cadence window are safe.
 
-create extension if not exists pg_net;
+create extension if not exists "pg_net" with schema "public";
 create extension if not exists pg_cron;
 
 DO $$
