@@ -1,115 +1,5 @@
 create extension if not exists pgcrypto;
 
-create or replace function public.expire_stale_buy_signals()
-returns integer
-language plpgsql
-as $$
-declare
-  v_count integer;
-begin
-  update public.pending_actions
-  set state = 'expired',
-      resolved_at = coalesce(resolved_at, now())
-  where action_type = 'buy_signal'
-    and expires_at is not null
-    and expires_at < now()
-    and state not in ('executed', 'dismissed', 'expired');
-
-  get diagnostics v_count = row_count;
-  return v_count;
-end;
-$$;
-
-create or replace function public.get_open_pending_actions_count(p_user_id uuid)
-returns integer
-language sql
-stable
-as $$
-  select count(*)::integer
-  from public.pending_actions
-  where user_id = p_user_id
-    and state = 'awaiting_confirmation';
-$$;
-
-create or replace function public.get_single_user_id()
-returns uuid
-language plpgsql
-security definer
-as $$
-declare
-  v_user_id uuid;
-begin
-  select user_id
-  into v_user_id
-  from public.user_settings
-  limit 1;
-
-  if v_user_id is null then
-    raise exception 'No user_id found in public.user_settings';
-  end if;
-
-  return v_user_id;
-end;
-$$;
-
-create or replace function public.mark_notification_resolved(p_dedupe_key text)
-returns integer
-language plpgsql
-as $$
-declare
-  v_count integer;
-begin
-  update public.notifications
-  set resolved_at = now()
-  where dedupe_key = p_dedupe_key
-    and resolved_at is null;
-
-  get diagnostics v_count = row_count;
-  return v_count;
-end;
-$$;
-
-create or replace function public.rls_auto_enable()
-returns event_trigger
-language plpgsql
-security definer
-set search_path to 'pg_catalog'
-as $$
-declare
-  cmd record;
-begin
-  for cmd in
-    select *
-    from pg_event_trigger_ddl_commands()
-    where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-      and object_type in ('table', 'partitioned table')
-  loop
-    if cmd.schema_name is not null
-       and cmd.schema_name in ('public')
-       and cmd.schema_name not in ('pg_catalog', 'information_schema')
-       and cmd.schema_name not like 'pg_toast%'
-       and cmd.schema_name not like 'pg_temp%' then
-      begin
-        execute format('alter table if exists %s enable row level security', cmd.object_identity);
-      exception
-        when others then
-          null;
-      end;
-    end if;
-  end loop;
-end;
-$$;
-
-create or replace function public.touch_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
-
 create table if not exists public.execution_log (
   id uuid default gen_random_uuid() not null,
   user_id uuid not null,
@@ -780,6 +670,117 @@ create policy weekly_reviews_delete_own on public.weekly_reviews for delete usin
 create policy weekly_reviews_insert_own on public.weekly_reviews for insert with check (auth.uid() = user_id);
 create policy weekly_reviews_select_own on public.weekly_reviews for select using (auth.uid() = user_id);
 create policy weekly_reviews_update_own on public.weekly_reviews for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create or replace function public.expire_stale_buy_signals()
+returns integer
+language plpgsql
+as $$
+declare
+  v_count integer;
+begin
+  update public.pending_actions
+  set state = 'expired',
+      resolved_at = coalesce(resolved_at, now())
+  where action_type = 'buy_signal'
+    and expires_at is not null
+    and expires_at < now()
+    and state not in ('executed', 'dismissed', 'expired');
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+create or replace function public.get_open_pending_actions_count(p_user_id uuid)
+returns integer
+language sql
+stable
+as $$
+  select count(*)::integer
+  from public.pending_actions
+  where user_id = p_user_id
+    and state = 'awaiting_confirmation';
+$$;
+
+create or replace function public.mark_notification_resolved(p_dedupe_key text)
+returns integer
+language plpgsql
+as $$
+declare
+  v_count integer;
+begin
+  update public.notifications
+  set resolved_at = now()
+  where dedupe_key = p_dedupe_key
+    and resolved_at is null;
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+create or replace function public.get_single_user_id()
+returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_user_id uuid;
+begin
+  select user_id
+  into v_user_id
+  from public.user_settings
+  limit 1;
+
+  if v_user_id is null then
+    raise exception 'No user_id found in public.user_settings';
+  end if;
+
+  return v_user_id;
+end;
+$$;
+
+
+create or replace function public.rls_auto_enable()
+returns event_trigger
+language plpgsql
+security definer
+set search_path to 'pg_catalog'
+as $$
+declare
+  cmd record;
+begin
+  for cmd in
+    select *
+    from pg_event_trigger_ddl_commands()
+    where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      and object_type in ('table', 'partitioned table')
+  loop
+    if cmd.schema_name is not null
+       and cmd.schema_name in ('public')
+       and cmd.schema_name not in ('pg_catalog', 'information_schema')
+       and cmd.schema_name not like 'pg_toast%'
+       and cmd.schema_name not like 'pg_temp%' then
+      begin
+        execute format('alter table if exists %s enable row level security', cmd.object_identity);
+      exception
+        when others then
+          null;
+      end;
+    end if;
+  end loop;
+end;
+$$;
+
+create or replace function public.touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
 grant all on function public.expire_stale_buy_signals() to anon, authenticated, service_role;
 grant all on function public.get_open_pending_actions_count(uuid) to anon, authenticated, service_role;
