@@ -347,6 +347,32 @@ export default function HomePage() {
       : tradeCreationMessage?.type === 'success'
         ? 'mt-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-800'
         : 'mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm leading-6 text-neutral-700'
+const evaluateSetupBlockReason = !market
+  ? 'Save a market snapshot to enable setup evaluation.'
+  : !stock
+    ? 'Select a valid watchlist stock to enable setup evaluation.'
+    : saving
+      ? 'Evaluation in progress...'
+      : null
+
+const generateTradePlanBlockReason = !market
+  ? 'Save a market snapshot before generating a trade plan.'
+  : !stock
+    ? 'Select a valid watchlist stock before generating a trade plan.'
+    : !result
+      ? 'Evaluate the selected setup before generating a trade plan.'
+      : result.verdict === 'fail'
+        ? 'This setup failed evaluation, so a trade plan cannot be generated.'
+        : null
+
+const createTradeBlockReason = !stock
+  ? 'Select a valid watchlist stock before creating a trade.'
+  : !plan || !latestTradePlanId
+    ? 'Generate an approved trade plan before creating a trade.'
+    : plan.approval_status !== 'approved'
+      ? `Trade blocked: ${plan.blocked_reason ?? 'trade plan is not approved.'}`
+      : null
+
 
   const runEvaluation = async () => {
     if (!market || !stock) return
@@ -1198,20 +1224,28 @@ export default function HomePage() {
           }}
         />
 
-        <TradeActionButtons
-          canEvaluate={!!market && !!stock && !saving}
-          canGenerate={
-            !!market &&
-            !!stock &&
-            !!result &&
-            result.verdict !== 'fail'
-          }
-          canCreate={!!stock &&!!plan &&!!latestTradePlanId &&plan.approval_status === 'approved'}
-          saving={saving}
-          onEvaluate={runEvaluation}
-          onGenerate={handleGenerateTradePlan}
-          onCreateTrade={handleCreateTrade}
-        />
+       <TradeActionButtons
+  canEvaluate={!!market && !!stock && !saving}
+  canGenerate={
+    !!market &&
+    !!stock &&
+    !!result &&
+    result.verdict !== 'fail'
+  }
+  canCreate={
+    !!stock &&
+    !!plan &&
+    !!latestTradePlanId &&
+    plan.approval_status === 'approved'
+  }
+  saving={saving}
+  evaluateBlockReason={evaluateSetupBlockReason}
+  generateBlockReason={generateTradePlanBlockReason}
+  createBlockReason={createTradeBlockReason}
+  onEvaluate={runEvaluation}
+  onGenerate={handleGenerateTradePlan}
+  onCreateTrade={handleCreateTrade}
+/>
 
         <ExposurePreviewPanel
           portfolioValue={exposurePreview.portfolioValueNumber}
