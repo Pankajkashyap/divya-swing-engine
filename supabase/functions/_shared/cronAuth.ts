@@ -25,7 +25,7 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 export function validateCronSecret(request: Request): CronAuthResult {
   try {
-    const configuredSecret = edgeConfig.CRON_SECRET
+    const configuredSecret = edgeConfig.cronSecret
 
     if (!configuredSecret) {
       return { authorised: false, reason: 'CRON_SECRET not configured' }
