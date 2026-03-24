@@ -4,7 +4,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 import { validateCronSecret } from '../_shared/cronAuth.ts'
 import { getCadenceWindowKey } from '../_shared/marketHours.ts'
-import { startScanLog, finishScanLog, hasAlreadyProcessed } from '../_shared/scanLog.ts'
+import {
+  startScanLog,
+  finishScanLog,
+  hasAlreadyProcessed,
+} from '../_shared/scanLog.ts'
 import { marketDataProvider } from '../_shared/marketDataProvider/index.ts'
 import {
   createPendingAction,
@@ -35,7 +39,7 @@ type TradeRow = {
   trade_state: 'open' | 'partial' | 'closed' | null
   entry_price_actual: number | null
   shares_entered: number | null
-  shares_remaining: number | null
+  shares_exited: number | null
   stop_price_current: number | null
   target_1_price: number | null
   target_2_price: number | null
@@ -78,7 +82,9 @@ async function safeFinishScanLog(params: {
 }
 
 function sharesHeldForTrade(trade: TradeRow): number {
-  return Number(trade.shares_remaining ?? trade.shares_entered ?? 0)
+  const entered = Number(trade.shares_entered ?? 0)
+  const exited = Number(trade.shares_exited ?? 0)
+  return Math.max(entered - exited, 0)
 }
 
 Deno.serve(async (request: Request) => {
@@ -128,9 +134,7 @@ Deno.serve(async (request: Request) => {
     }
 
     const recipientEmail =
-      settings.notification_email ??
-      edgeConfig.authorizedUserEmail ??
-      null
+      settings.notification_email ?? edgeConfig.authorizedUserEmail ?? null
 
     if (!recipientEmail) {
       console.warn(
@@ -168,7 +172,7 @@ Deno.serve(async (request: Request) => {
         trade_state,
         entry_price_actual,
         shares_entered,
-        shares_remaining,
+        shares_exited,
         stop_price_current,
         target_1_price,
         target_2_price,
