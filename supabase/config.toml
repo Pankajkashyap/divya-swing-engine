@@ -394,3 +394,22 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./declarative"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+
+[functions.market-scan]
+verify_jwt = false
+
+[functions.watchlist-evaluate]
+verify_jwt = false
+
+[functions.trade-monitor]
+verify_jwt = false
+
+[functions.expire-pending-actions]
+verify_jwt = false
+
+[functions.fundamentals-refresh]
+verify_jwt = false
+
+[functions.watchlist-review]
+verify_jwt = false
