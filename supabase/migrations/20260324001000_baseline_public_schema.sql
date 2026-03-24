@@ -1,5 +1,67 @@
 create extension if not exists pgcrypto;
 
+create or replace function public.get_single_user_id()
+returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_user_id uuid;
+begin
+  select user_id
+  into v_user_id
+  from public.user_settings
+  limit 1;
+
+  if v_user_id is null then
+    raise exception 'No user_id found in public.user_settings';
+  end if;
+
+  return v_user_id;
+end;
+$$;
+
+create or replace function public.rls_auto_enable()
+returns event_trigger
+language plpgsql
+security definer
+set search_path to 'pg_catalog'
+as $$
+declare
+  cmd record;
+begin
+  for cmd in
+    select *
+    from pg_event_trigger_ddl_commands()
+    where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      and object_type in ('table', 'partitioned table')
+  loop
+    if cmd.schema_name is not null
+       and cmd.schema_name in ('public')
+       and cmd.schema_name not in ('pg_catalog', 'information_schema')
+       and cmd.schema_name not like 'pg_toast%'
+       and cmd.schema_name not like 'pg_temp%' then
+      begin
+        execute format('alter table if exists %s enable row level security', cmd.object_identity);
+      exception
+        when others then
+          null;
+      end;
+    end if;
+  end loop;
+end;
+$$;
+
+create or replace function public.touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 create table if not exists public.execution_log (
   id uuid default gen_random_uuid() not null,
   user_id uuid not null,
@@ -716,69 +778,6 @@ begin
 
   get diagnostics v_count = row_count;
   return v_count;
-end;
-$$;
-
-create or replace function public.get_single_user_id()
-returns uuid
-language plpgsql
-security definer
-as $$
-declare
-  v_user_id uuid;
-begin
-  select user_id
-  into v_user_id
-  from public.user_settings
-  limit 1;
-
-  if v_user_id is null then
-    raise exception 'No user_id found in public.user_settings';
-  end if;
-
-  return v_user_id;
-end;
-$$;
-
-
-create or replace function public.rls_auto_enable()
-returns event_trigger
-language plpgsql
-security definer
-set search_path to 'pg_catalog'
-as $$
-declare
-  cmd record;
-begin
-  for cmd in
-    select *
-    from pg_event_trigger_ddl_commands()
-    where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-      and object_type in ('table', 'partitioned table')
-  loop
-    if cmd.schema_name is not null
-       and cmd.schema_name in ('public')
-       and cmd.schema_name not in ('pg_catalog', 'information_schema')
-       and cmd.schema_name not like 'pg_toast%'
-       and cmd.schema_name not like 'pg_temp%' then
-      begin
-        execute format('alter table if exists %s enable row level security', cmd.object_identity);
-      exception
-        when others then
-          null;
-      end;
-    end if;
-  end loop;
-end;
-$$;
-
-create or replace function public.touch_updated_at()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  return new;
 end;
 $$;
 
