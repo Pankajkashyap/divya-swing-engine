@@ -9,10 +9,7 @@ function requireEnv(name: string, value: string | undefined): string {
 
 export const edgeConfig = {
   supabaseUrl: requireEnv('SUPABASE_URL', Deno.env.get('SUPABASE_URL')),
-  supabaseServiceRoleKey: requireEnv(
-    'SUPABASE_SERVICE_ROLE_KEY',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  ),
+  supabaseServiceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')),
   cronSecret: Deno.env.get('CRON_SECRET') ?? '',
   resendApiKey: Deno.env.get('RESEND_API_KEY') ?? '',
   resendFromEmail: Deno.env.get('RESEND_FROM_EMAIL') ?? '',

@@ -29,10 +29,10 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-const redirectTo =
-  typeof window !== 'undefined'
-    ? `${window.location.origin}/auth/callback`
-    : `${appConfig.appUrl}/auth/callback`
+const redirectTo = `${appConfig.appUrl}/auth/callback`
+
+console.log('appConfig.appUrl =', appConfig.appUrl)
+console.log('redirectTo =', redirectTo)
 
 const { error } = await supabase.auth.signInWithOtp({
   email: normalizedEmail,
