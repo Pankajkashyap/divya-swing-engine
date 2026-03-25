@@ -47,6 +47,7 @@ export function AppHeader({ title, subtitle }: Props) {
     { label: 'Inbox', href: '/inbox', badge: pendingCount },
     { label: 'Weekly Review', href: '/weekly-review' },
     { label: 'Docs', href: '/docs' },
+    { label: 'Settings', href: '/settings' },
   ]
 
   const handleLogout = async () => {

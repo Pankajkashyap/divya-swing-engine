@@ -1,0 +1,438 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { AppHeader } from '@/components/AppHeader'
+import { supabase as browserSupabase } from '@/lib/supabase'
+
+type UserSettings = {
+  id: string
+  user_id: string
+  portfolio_value: number
+  timezone: string
+  email_notifications_enabled: boolean
+  digest_email_enabled: boolean
+  urgent_alerts_enabled: boolean
+  notification_email: string | null
+  created_at: string
+  updated_at: string
+}
+
+const timezoneOptions = [
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Toronto', label: 'Toronto (ET)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Asia/Kolkata', label: 'India (IST)' },
+]
+
+const defaultTimezone = 'America/Denver'
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+function formatMemberSince(value?: string | null) {
+  if (!value) return '—'
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value))
+}
+
+function ToggleRow({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string
+  description: string
+  value: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-4">
+      <div className="min-w-0">
+        <div className="text-sm font-medium text-neutral-900">{label}</div>
+        <p className="mt-1 text-sm text-neutral-600">{description}</p>
+      </div>
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        onClick={() => onChange(!value)}
+        className={[
+          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+          value ? 'bg-neutral-900' : 'bg-neutral-300',
+        ].join(' ')}
+      >
+        <span
+          className={[
+            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+            value ? 'translate-x-6' : 'translate-x-1',
+          ].join(' ')}
+        />
+      </button>
+    </div>
+  )
+}
+
+export default function SettingsPage() {
+  const router = useRouter()
+  const supabase = useMemo(() => browserSupabase, [])
+
+  const [settings, setSettings] = useState<UserSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const [accountEmail, setAccountEmail] = useState<string>('—')
+
+  const [portfolioValue, setPortfolioValue] = useState('')
+  const [timezone, setTimezone] = useState(defaultTimezone)
+  const [notificationEmail, setNotificationEmail] = useState('')
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true)
+  const [digestEmailEnabled, setDigestEmailEnabled] = useState(true)
+  const [urgentAlertsEnabled, setUrgentAlertsEnabled] = useState(true)
+
+  const [portfolioValueError, setPortfolioValueError] = useState<string | null>(null)
+  const [notificationEmailError, setNotificationEmailError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSettings = async () => {
+      setLoading(true)
+      setError(null)
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (cancelled) return
+
+      if (authError || !user) {
+        setError(authError?.message ?? 'Unable to load your account.')
+        setLoading(false)
+        return
+      }
+
+      setAccountEmail(user.email ?? '—')
+
+      const { data, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (settingsError) {
+        setError(settingsError.message)
+        setLoading(false)
+        return
+      }
+
+      const nextSettings = (data as UserSettings | null) ?? null
+
+      setSettings(nextSettings)
+      setPortfolioValue(
+        nextSettings?.portfolio_value != null ? String(nextSettings.portfolio_value) : ''
+      )
+      setTimezone(nextSettings?.timezone ?? defaultTimezone)
+      setNotificationEmail(nextSettings?.notification_email ?? (user.email ?? ''))
+      setEmailNotificationsEnabled(nextSettings?.email_notifications_enabled ?? true)
+      setDigestEmailEnabled(nextSettings?.digest_email_enabled ?? true)
+      setUrgentAlertsEnabled(nextSettings?.urgent_alerts_enabled ?? true)
+      setLoading(false)
+    }
+
+    void loadSettings()
+
+    return () => {
+      cancelled = true
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    if (!saveSuccess) return
+
+    const timeout = window.setTimeout(() => {
+      setSaveSuccess(false)
+    }, 3000)
+
+    return () => window.clearTimeout(timeout)
+  }, [saveSuccess])
+
+  const handleSave = async () => {
+    setError(null)
+    setSaveSuccess(false)
+    setPortfolioValueError(null)
+    setNotificationEmailError(null)
+
+    const trimmedPortfolioValue = portfolioValue.trim()
+    const parsedPortfolioValue = Number(trimmedPortfolioValue)
+    const trimmedNotificationEmail = notificationEmail.trim()
+
+    let hasValidationError = false
+
+    if (
+      trimmedPortfolioValue.length === 0 ||
+      Number.isNaN(parsedPortfolioValue) ||
+      parsedPortfolioValue <= 0
+    ) {
+      setPortfolioValueError('Portfolio value must be a positive number.')
+      hasValidationError = true
+    }
+
+    if (trimmedNotificationEmail && !isValidEmail(trimmedNotificationEmail)) {
+      setNotificationEmailError('Enter a valid email address.')
+      hasValidationError = true
+    }
+
+    if (hasValidationError) return
+
+    setSaving(true)
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      setError(authError?.message ?? 'Unable to load your account.')
+      setSaving(false)
+      return
+    }
+
+    const { error: saveError } = await supabase.from('user_settings').upsert(
+      {
+        user_id: user.id,
+        portfolio_value: parsedPortfolioValue,
+        timezone,
+        notification_email: trimmedNotificationEmail || null,
+        email_notifications_enabled: emailNotificationsEnabled,
+        digest_email_enabled: digestEmailEnabled,
+        urgent_alerts_enabled: urgentAlertsEnabled,
+      },
+      { onConflict: 'user_id' }
+    )
+
+    if (saveError) {
+      setError(saveError.message)
+      setSaving(false)
+      return
+    }
+
+    const { data: refreshedSettings, error: refreshError } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (refreshError) {
+      setError(refreshError.message)
+      setSaving(false)
+      return
+    }
+
+    setSettings((refreshedSettings as UserSettings | null) ?? null)
+    setSaveSuccess(true)
+    setSaving(false)
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
+
+  return (
+    <main className="min-h-screen bg-neutral-50 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl">
+        <AppHeader
+          title="Settings"
+          subtitle="Manage your portfolio value, notification preferences, and account settings."
+        />
+
+        {loading ? (
+          <div className="space-y-6">
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <section className="ui-section">
+              <div className="ui-card rounded-2xl border border-neutral-200">
+                <div className="border-b border-neutral-200 px-6 py-5">
+                  <h2 className="text-lg font-semibold text-neutral-900">Portfolio</h2>
+                </div>
+
+                <div className="px-6 py-6">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-neutral-900">
+                      Portfolio Value ($)
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      className="ui-input"
+                      placeholder="100000"
+                      value={portfolioValue}
+                      onChange={(event) => {
+                        setPortfolioValue(event.target.value)
+                        if (portfolioValueError) setPortfolioValueError(null)
+                      }}
+                    />
+                  </label>
+
+                  {portfolioValueError ? (
+                    <p className="mt-2 text-sm text-red-600">{portfolioValueError}</p>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+
+            <section className="ui-section">
+              <div className="ui-card rounded-2xl border border-neutral-200">
+                <div className="border-b border-neutral-200 px-6 py-5">
+                  <h2 className="text-lg font-semibold text-neutral-900">Notifications</h2>
+                </div>
+
+                <div className="space-y-6 px-6 py-6">
+                  <div>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-neutral-900">
+                        Notification Email
+                      </span>
+                      <input
+                        type="email"
+                        className="ui-input"
+                        placeholder="you@example.com"
+                        value={notificationEmail}
+                        onChange={(event) => {
+                          setNotificationEmail(event.target.value)
+                          if (notificationEmailError) setNotificationEmailError(null)
+                        }}
+                      />
+                    </label>
+
+                    <p className="mt-2 text-sm text-neutral-600">
+                      Buy signals, stop alerts, and digests are sent to this address.
+                    </p>
+
+                    {notificationEmailError ? (
+                      <p className="mt-2 text-sm text-red-600">{notificationEmailError}</p>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-neutral-900">
+                        Timezone
+                      </span>
+                      <select
+                        className="ui-select"
+                        value={timezone}
+                        onChange={(event) => setTimezone(event.target.value)}
+                      >
+                        {timezoneOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <ToggleRow
+                      label="Email notifications"
+                      description="Receive buy signal and alert emails"
+                      value={emailNotificationsEnabled}
+                      onChange={setEmailNotificationsEnabled}
+                    />
+
+                    <ToggleRow
+                      label="Digest emails"
+                      description="Receive daily and weekly summary emails"
+                      value={digestEmailEnabled}
+                      onChange={setDigestEmailEnabled}
+                    />
+
+                    <ToggleRow
+                      label="Urgent alerts"
+                      description="Receive urgent stop and target alert emails"
+                      value={urgentAlertsEnabled}
+                      onChange={setUrgentAlertsEnabled}
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="ui-section">
+              <div className="ui-card rounded-2xl border border-neutral-200">
+                <div className="border-b border-neutral-200 px-6 py-5">
+                  <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
+                </div>
+
+                <div className="space-y-5 px-6 py-6">
+                  <div>
+                    <div className="text-sm font-medium text-neutral-500">Email address</div>
+                    <div className="mt-1 text-sm text-neutral-900">{accountEmail}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-medium text-neutral-500">Member since</div>
+                    <div className="mt-1 text-sm text-neutral-900">
+                      {formatMemberSince(settings?.created_at)}
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="ui-btn-secondary"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="ui-btn-primary"
+                >
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+
+              {saveSuccess ? (
+                <p className="text-sm text-green-600">Settings saved successfully.</p>
+              ) : null}
+
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  )
+}
