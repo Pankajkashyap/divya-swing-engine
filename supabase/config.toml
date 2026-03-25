@@ -413,3 +413,9 @@ verify_jwt = false
 
 [functions.watchlist-review]
 verify_jwt = false
+
+[functions.daily-digest]
+verify_jwt = false
+
+[functions.weekly-digest]
+verify_jwt = false
