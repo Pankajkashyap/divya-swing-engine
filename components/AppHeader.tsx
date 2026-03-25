@@ -45,6 +45,7 @@ export function AppHeader({ title, subtitle }: Props) {
   const navItems = [
     { label: 'Dashboard', href: '/' },
     { label: 'Inbox', href: '/inbox', badge: pendingCount },
+    { label: 'Candidates', href: '/candidates' },
     { label: 'Weekly Review', href: '/weekly-review' },
     { label: 'Docs', href: '/docs' },
     { label: 'Settings', href: '/settings' },

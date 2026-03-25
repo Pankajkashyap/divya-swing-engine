@@ -19,6 +19,13 @@ type UserSettings = {
   morning_trade_monitor_enabled: boolean
   created_at: string
   updated_at: string
+  screener_enabled: boolean
+  screener_min_price: number
+  screener_min_avg_volume: number
+  screener_min_eps_growth_pct: number
+  screener_min_revenue_growth_pct: number
+  screener_exchanges: string
+  screener_max_candidates: number
 }
 
 const timezoneOptions = [
@@ -110,9 +117,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   const [accountEmail, setAccountEmail] = useState<string>('—')
-
   const [portfolioValue, setPortfolioValue] = useState('')
   const [timezone, setTimezone] = useState(defaultTimezone)
   const [notificationEmail, setNotificationEmail] = useState('')
@@ -122,10 +127,16 @@ export default function SettingsPage() {
   const [scanSchedule, setScanSchedule] = useState<'evening_only' | 'three_times_daily'>('evening_only')
   const [buySignalExpiryDays, setBuySignalExpiryDays] = useState<1 | 2 | 3>(1)
   const [morningTradeMonitorEnabled, setMorningTradeMonitorEnabled] = useState(true)
-
   const [portfolioValueError, setPortfolioValueError] = useState<string | null>(null)
   const [notificationEmailError, setNotificationEmailError] = useState<string | null>(null)
-
+  const [screenerEnabled, setScreenerEnabled] = useState(false)
+  const [screenerMinPrice, setScreenerMinPrice] = useState('10')
+  const [screenerMinAvgVolume, setScreenerMinAvgVolume] = useState('500000')
+  const [screenerMinEpsGrowthPct, setScreenerMinEpsGrowthPct] = useState('25')
+  const [screenerMinRevenueGrowthPct, setScreenerMinRevenueGrowthPct] = useState('20')
+  const [screenerExchanges, setScreenerExchanges] = useState('XNAS,XNYS')
+  const [screenerMaxCandidates, setScreenerMaxCandidates] = useState<10 | 20 | 30>(20)
+  
   useEffect(() => {
     let cancelled = false
 
@@ -176,6 +187,13 @@ export default function SettingsPage() {
       setScanSchedule(nextSettings?.scan_schedule ?? 'evening_only')
       setBuySignalExpiryDays((nextSettings?.buy_signal_expiry_days ?? 1) as 1 | 2 | 3)
       setMorningTradeMonitorEnabled(nextSettings?.morning_trade_monitor_enabled ?? true)
+      setScreenerEnabled(nextSettings?.screener_enabled ?? false)
+      setScreenerMinPrice(String(nextSettings?.screener_min_price ?? 10))
+      setScreenerMinAvgVolume(String(nextSettings?.screener_min_avg_volume ?? 500000))
+      setScreenerMinEpsGrowthPct(String(nextSettings?.screener_min_eps_growth_pct ?? 25))
+      setScreenerMinRevenueGrowthPct(String(nextSettings?.screener_min_revenue_growth_pct ?? 20))
+      setScreenerExchanges(nextSettings?.screener_exchanges ?? 'XNAS,XNYS')
+      setScreenerMaxCandidates((nextSettings?.screener_max_candidates ?? 20) as 10 | 20 | 30)
       setLoading(false)
     }
 
@@ -249,6 +267,13 @@ export default function SettingsPage() {
         scan_schedule: scanSchedule,
         buy_signal_expiry_days: buySignalExpiryDays,
         morning_trade_monitor_enabled: morningTradeMonitorEnabled,
+        screener_enabled: screenerEnabled,
+        screener_min_price: Number(screenerMinPrice),
+        screener_min_avg_volume: Number(screenerMinAvgVolume),
+        screener_min_eps_growth_pct: Number(screenerMinEpsGrowthPct),
+        screener_min_revenue_growth_pct: Number(screenerMinRevenueGrowthPct),
+        screener_exchanges: screenerExchanges,
+        screener_max_candidates: screenerMaxCandidates,
       },
       { onConflict: 'user_id' }
     )
@@ -507,6 +532,110 @@ export default function SettingsPage() {
                 </div>
               </div>
             </section>
+
+            <section className="ui-section">
+  <div className="ui-card rounded-2xl border border-neutral-200">
+    <div className="border-b border-neutral-200 px-6 py-5">
+      <h2 className="text-lg font-semibold text-neutral-900">Screener</h2>
+      <p className="mt-2 text-sm text-neutral-600">
+        The screener runs nightly and automatically discovers stock candidates using Massive market data. Enable it and set your minimum criteria.
+      </p>
+    </div>
+
+    <div className="space-y-6 px-6 py-6">
+      <ToggleRow
+        label="Autonomous screener"
+        description="Automatically discover new candidates each night based on your criteria below."
+        value={screenerEnabled}
+        onChange={setScreenerEnabled}
+      />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-neutral-900">
+            Minimum price ($)
+          </span>
+          <input
+            type="number"
+            step="1"
+            className="ui-input"
+            value={screenerMinPrice}
+            onChange={(event) => setScreenerMinPrice(event.target.value)}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-neutral-900">
+            Minimum average volume
+          </span>
+          <input
+            type="number"
+            step="10000"
+            placeholder="500000"
+            className="ui-input"
+            value={screenerMinAvgVolume}
+            onChange={(event) => setScreenerMinAvgVolume(event.target.value)}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-neutral-900">
+            Minimum EPS growth (%)
+          </span>
+          <input
+            type="number"
+            step="1"
+            placeholder="25"
+            className="ui-input"
+            value={screenerMinEpsGrowthPct}
+            onChange={(event) => setScreenerMinEpsGrowthPct(event.target.value)}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-neutral-900">
+            Minimum revenue growth (%)
+          </span>
+          <input
+            type="number"
+            step="1"
+            placeholder="20"
+            className="ui-input"
+            value={screenerMinRevenueGrowthPct}
+            onChange={(event) => setScreenerMinRevenueGrowthPct(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <div>
+        <div className="text-sm font-medium text-neutral-900">
+          Max new candidates per night
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          {[10, 20, 30].map((count) => {
+            const selected = screenerMaxCandidates === count
+
+            return (
+              <button
+                key={count}
+                type="button"
+                onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
+                className={
+                  selected
+                    ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white'
+                    : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700'
+                }
+              >
+                {count}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
             <section className="ui-section">
               <div className="ui-card rounded-2xl border border-neutral-200">

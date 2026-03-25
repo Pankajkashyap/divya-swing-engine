@@ -419,3 +419,6 @@ verify_jwt = false
 
 [functions.weekly-digest]
 verify_jwt = false
+
+[functions.watchlist-screener]
+verify_jwt = false
