@@ -1,9 +1,9 @@
 // Server only — do not import in client components
 
-import { yahooProvider } from './yahoo.ts'
+import { massiveProvider } from './massive.ts'
 import type { MarketDataProvider } from './types.ts'
 
-export const marketDataProvider: MarketDataProvider = yahooProvider
+export const marketDataProvider: MarketDataProvider = massiveProvider
 
 export type {
   MarketDataProvider,
