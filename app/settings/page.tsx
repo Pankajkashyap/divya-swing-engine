@@ -14,6 +14,9 @@ type UserSettings = {
   digest_email_enabled: boolean
   urgent_alerts_enabled: boolean
   notification_email: string | null
+  scan_schedule: 'evening_only' | 'three_times_daily'
+  buy_signal_expiry_days: 1 | 2 | 3
+  morning_trade_monitor_enabled: boolean
   created_at: string
   updated_at: string
 }
@@ -26,6 +29,21 @@ const timezoneOptions = [
   { value: 'America/Toronto', label: 'Toronto (ET)' },
   { value: 'Europe/London', label: 'London (GMT/BST)' },
   { value: 'Asia/Kolkata', label: 'India (IST)' },
+]
+
+const scanScheduleOptions = [
+  {
+    value: 'evening_only' as const,
+    label: 'Evening only',
+    description:
+      'Watchlist scans run at 4:30 PM ET after market close. Review signals at night, place limit orders before market open.',
+  },
+  {
+    value: 'three_times_daily' as const,
+    label: 'Three times daily',
+    description:
+      'Watchlist scans run at 8:30 AM, 12:30 PM, and 4:30 PM ET. Signals may arrive during market hours.',
+  },
 ]
 
 const defaultTimezone = 'America/Denver'
@@ -101,6 +119,9 @@ export default function SettingsPage() {
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true)
   const [digestEmailEnabled, setDigestEmailEnabled] = useState(true)
   const [urgentAlertsEnabled, setUrgentAlertsEnabled] = useState(true)
+  const [scanSchedule, setScanSchedule] = useState<'evening_only' | 'three_times_daily'>('evening_only')
+  const [buySignalExpiryDays, setBuySignalExpiryDays] = useState<1 | 2 | 3>(1)
+  const [morningTradeMonitorEnabled, setMorningTradeMonitorEnabled] = useState(true)
 
   const [portfolioValueError, setPortfolioValueError] = useState<string | null>(null)
   const [notificationEmailError, setNotificationEmailError] = useState<string | null>(null)
@@ -152,6 +173,9 @@ export default function SettingsPage() {
       setEmailNotificationsEnabled(nextSettings?.email_notifications_enabled ?? true)
       setDigestEmailEnabled(nextSettings?.digest_email_enabled ?? true)
       setUrgentAlertsEnabled(nextSettings?.urgent_alerts_enabled ?? true)
+      setScanSchedule(nextSettings?.scan_schedule ?? 'evening_only')
+      setBuySignalExpiryDays((nextSettings?.buy_signal_expiry_days ?? 1) as 1 | 2 | 3)
+      setMorningTradeMonitorEnabled(nextSettings?.morning_trade_monitor_enabled ?? true)
       setLoading(false)
     }
 
@@ -222,6 +246,9 @@ export default function SettingsPage() {
         email_notifications_enabled: emailNotificationsEnabled,
         digest_email_enabled: digestEmailEnabled,
         urgent_alerts_enabled: urgentAlertsEnabled,
+        scan_schedule: scanSchedule,
+        buy_signal_expiry_days: buySignalExpiryDays,
+        morning_trade_monitor_enabled: morningTradeMonitorEnabled,
       },
       { onConflict: 'user_id' }
     )
@@ -376,6 +403,107 @@ export default function SettingsPage() {
                       onChange={setUrgentAlertsEnabled}
                     />
                   </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="ui-section">
+              <div className="ui-card rounded-2xl border border-neutral-200">
+                <div className="border-b border-neutral-200 px-6 py-5">
+                  <h2 className="text-lg font-semibold text-neutral-900">Workflow preferences</h2>
+                  <p className="mt-2 text-sm text-neutral-600">
+                    Control when the system scans for setups and how long signals stay active.
+                  </p>
+                </div>
+
+                <div className="space-y-6 px-6 py-6">
+                  <div>
+                    <div className="text-sm font-medium text-neutral-900">Scan schedule</div>
+                    <p className="mt-1 text-sm text-neutral-600">
+                      Evening only is recommended for swing traders who review signals at night and place pre-market orders.
+                    </p>
+
+                    <div className="mt-4 space-y-3">
+                      {scanScheduleOptions.map((option) => {
+                        const selected = scanSchedule === option.value
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setScanSchedule(option.value)}
+                            className={[
+                              'w-full cursor-pointer rounded-xl p-4 text-left',
+                              selected
+                                ? 'border-2 border-neutral-900 bg-neutral-50'
+                                : 'border border-neutral-200',
+                            ].join(' ')}
+                          >
+                            <div className="flex items-start gap-3">
+                              <span
+                                className={[
+                                  'mt-1 inline-flex h-4 w-4 shrink-0 rounded-full border',
+                                  selected
+                                    ? 'border-neutral-900 bg-neutral-900'
+                                    : 'border-neutral-300 bg-white',
+                                ].join(' ')}
+                              >
+                                {selected ? (
+                                  <span className="m-auto h-2 w-2 rounded-full bg-white" />
+                                ) : null}
+                              </span>
+
+                              <div>
+                                <div className="text-sm font-medium text-neutral-900">
+                                  {option.label}
+                                </div>
+                                <p className="mt-1 text-sm text-neutral-600">
+                                  {option.description}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-medium text-neutral-900">
+                      Buy signal active for
+                    </div>
+                    <p className="mt-1 text-sm text-neutral-600">
+                      How many trading days a buy signal stays in your Inbox before it expires.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {[1, 2, 3].map((days) => {
+                        const selected = buySignalExpiryDays === days
+
+                        return (
+                          <button
+                            key={days}
+                            type="button"
+                            onClick={() => setBuySignalExpiryDays(days as 1 | 2 | 3)}
+                            className={
+                              selected
+                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white'
+                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700'
+                            }
+                          >
+                            {days} day{days > 1 ? 's' : ''}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <ToggleRow
+                    label="Morning trade monitor"
+                    description="Check open trades at market open (9:45 AM ET) for stop hits at the open."
+                    value={morningTradeMonitorEnabled}
+                    onChange={setMorningTradeMonitorEnabled}
+                  />
                 </div>
               </div>
             </section>

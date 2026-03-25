@@ -1,9 +1,8 @@
 // Server only — do not import in client components
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
 import { validateCronSecret } from '../_shared/cronAuth.ts'
-import { getCadenceWindowKey } from '../_shared/marketHours.ts'
+import { getCadenceWindowKey, getMarketWindow } from '../_shared/marketHours.ts'
 import {
   startScanLog,
   finishScanLog,
@@ -29,6 +28,7 @@ type UserSettingsRow = {
   user_id: string
   notification_email: string | null
   urgent_alerts_enabled: boolean | null
+  morning_trade_monitor_enabled: boolean | null
 }
 
 type TradeRow = {
@@ -100,11 +100,11 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    const { data: userSettings, error: userSettingsError } = await supabase
-      .from('user_settings')
-      .select('user_id, notification_email, urgent_alerts_enabled')
-      .limit(1)
-      .maybeSingle()
+  const { data: userSettings, error: userSettingsError } = await supabase
+    .from('user_settings')
+    .select('user_id, notification_email, urgent_alerts_enabled, morning_trade_monitor_enabled')
+    .limit(1)
+    .maybeSingle()
 
     if (userSettingsError) {
       return jsonResponse(
@@ -126,12 +126,15 @@ Deno.serve(async (request: Request) => {
     const settings = userSettings as UserSettingsRow
     const userId = settings.user_id
 
-    if (settings.urgent_alerts_enabled === false) {
+    const morningMonitorEnabled = settings.morning_trade_monitor_enabled ?? true
+    const marketWindow = getMarketWindow()
+
+      if (!morningMonitorEnabled && marketWindow === 'pre_market') {
       return jsonResponse(
-        { skipped: true, reason: 'Urgent alerts disabled in settings' },
-        200
+      { skipped: true, reason: 'Morning trade monitor disabled in settings' },
+      200
       )
-    }
+      }
 
     const recipientEmail =
       settings.notification_email ?? edgeConfig.authorizedUserEmail ?? null
