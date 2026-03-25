@@ -1,10 +1,13 @@
 // Server only — do not import in client components
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { fromZonedTime, formatInTimeZone } from 'https://esm.sh/date-fns-tz@3.2.0'
 
 import { validateCronSecret } from '../_shared/cronAuth.ts'
-import { getCadenceWindowKey, isMarketHours } from '../_shared/marketHours.ts'
+import {
+  getCadenceWindowKey,
+  getMarketWindow,
+  isMarketHours,
+} from '../_shared/marketHours.ts'
 import { startScanLog, finishScanLog, hasAlreadyProcessed } from '../_shared/scanLog.ts'
 import { marketDataProvider } from '../_shared/marketDataProvider/index.ts'
 import {
@@ -96,6 +99,14 @@ type StockSummary = {
   emailFailReason: string | null
 }
 
+type UserSettingsRow = {
+  user_id: string
+  portfolio_value: number | null
+  notification_email: string | null
+  scan_schedule: 'evening_only' | 'three_times_daily' | null
+  buy_signal_expiry_days: 1 | 2 | 3 | null
+}
+
 function jsonResponse(payload: unknown, status: number): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -107,9 +118,11 @@ function getTodayDateString(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10)
 }
 
-function getEtEndOfDayIso(now: Date = new Date()): string {
-  const etDate = formatInTimeZone(now, 'America/New_York', 'yyyy-MM-dd')
-  return fromZonedTime(`${etDate}T16:00:00`, 'America/New_York').toISOString()
+function getExpiryDate(daysFromNow: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + daysFromNow)
+  date.setHours(21, 0, 0, 0) // 9 PM UTC ≈ 4–5 PM ET depending on DST
+  return date.toISOString()
 }
 
 async function safeFinishScanLog(params: {
@@ -128,7 +141,6 @@ async function safeFinishScanLog(params: {
   })
 }
 
-// Exact copy of app logic from lib/evaluateSetup.ts
 function evaluateSetup(
   market: MarketSnapshot,
   stock: WatchlistRow
@@ -256,7 +268,6 @@ function evaluateSetup(
   }
 }
 
-// Exact copy of app logic from lib/generateTradePlan.ts
 function generateTradePlan(
   market: MarketSnapshot,
   stock: WatchlistRow,
@@ -403,10 +414,8 @@ function generateTradePlan(
   }
 
   const dollarRisk = Number(((portfolioValue * riskPct) / 100).toFixed(2))
-
   const plannedShares = Math.floor(dollarRisk / riskPerShare)
   const positionValue = Number((plannedShares * entry).toFixed(2))
-
   const maxPositionValue = (portfolioValue * 25) / 100
 
   let finalShares = plannedShares
@@ -470,7 +479,7 @@ Deno.serve(async (request: Request) => {
 
     const { data: userSettings, error: userSettingsError } = await supabase
       .from('user_settings')
-      .select('user_id, portfolio_value, notification_email')
+      .select('user_id, portfolio_value, notification_email, scan_schedule, buy_signal_expiry_days')
       .limit(1)
       .maybeSingle()
 
@@ -488,12 +497,31 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    const userId = userSettings.user_id
-    const portfolioValue = Number(userSettings.portfolio_value ?? 0)
+    const settings = userSettings as UserSettingsRow
+    const userId = settings.user_id
+    const portfolioValue = Number(settings.portfolio_value ?? 0)
     const recipientEmail =
-      userSettings.notification_email ??
+      settings.notification_email ??
       edgeConfig.authorizedUserEmail ??
       null
+
+    const scanSchedule = settings.scan_schedule ?? 'evening_only'
+    const marketWindow = getMarketWindow()
+
+    if (scanSchedule === 'evening_only') {
+      const isPostMarketRun =
+        marketWindow === 'post_market' || marketWindow === 'closed'
+
+      if (!isPostMarketRun) {
+        return jsonResponse(
+          {
+            skipped: true,
+            reason: 'Scan schedule set to evening_only — skipping non-post-market run',
+          },
+          200
+        )
+      }
+    }
 
     const { data: market, error: marketError } = await supabase
       .from('market_snapshots')
@@ -829,6 +857,9 @@ Deno.serve(async (request: Request) => {
             continue
           }
 
+          const expiryDays = settings.buy_signal_expiry_days ?? 1
+          const expiresAt = getExpiryDate(expiryDays)
+
           const pendingActionResult = await createPendingAction({
             userId,
             ticker: stock.ticker,
@@ -838,7 +869,7 @@ Deno.serve(async (request: Request) => {
             message: `Setup passed evaluation. Grade: ${stock.setup_grade ?? 'N/A'}. R/R: ${plan.expected_rr}. Entry zone: ${stock.entry_zone_low ?? 'N/A'}–${stock.entry_zone_high ?? 'N/A'}.`,
             watchlistId: stock.id,
             tradePlanId,
-            expiresAt: getEtEndOfDayIso(),
+            expiresAt,
             payloadJson: {
               verdict: evaluation.verdict,
               score_total: evaluation.score_total,
