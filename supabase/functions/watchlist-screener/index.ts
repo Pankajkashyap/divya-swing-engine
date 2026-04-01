@@ -1,7 +1,6 @@
 // Server only — do not import in client components
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { restClient } from 'https://esm.sh/@polygon.io/client-js@7'
 
 import { validateCronSecret } from '../_shared/cronAuth.ts'
 import { getCadenceWindowKey } from '../_shared/marketHours.ts'
@@ -12,7 +11,8 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-const massiveClient = restClient(Deno.env.get('MASSIVE_API_KEY') ?? '')
+const massiveApiKey = Deno.env.get('MASSIVE_API_KEY') ?? ''
+const massiveBaseUrl = 'https://api.polygon.io'
 
 type UserSettingsRow = {
   user_id: string
@@ -30,6 +30,21 @@ type MassiveTicker = {
   name?: string | null
   market?: string | null
   primary_exchange?: string | null
+}
+
+type AggregateBar = {
+  c?: number
+  v?: number
+  t?: number
+}
+
+type FinancialResult = {
+  financials?: {
+    income_statement?: {
+      basic_earnings_per_share?: { value?: number }
+      revenues?: { value?: number }
+    }
+  }
 }
 
 type Candidate = {
@@ -58,14 +73,6 @@ function getRecentTradingDateRange(): { from: string; to: string } {
   }
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = []
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size))
-  }
-  return chunks
-}
-
 function toNumberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
@@ -89,6 +96,72 @@ async function safeFinishScanLog(params: {
     message: params.message,
     changesJson: params.changesJson,
   })
+}
+
+async function massiveGet<T>(path: string, query: Record<string, string>): Promise<T | null> {
+  const url = new URL(`${massiveBaseUrl}${path}`)
+
+  for (const [key, value] of Object.entries(query)) {
+    url.searchParams.set(key, value)
+  }
+
+  url.searchParams.set('apiKey', massiveApiKey)
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`Massive request failed (${response.status}): ${text || response.statusText}`)
+  }
+
+  return (await response.json()) as T
+}
+
+async function fetchReferenceTickers(exchange: string): Promise<MassiveTicker[]> {
+  const data = await massiveGet<{ results?: MassiveTicker[] }>('/v3/reference/tickers', {
+    market: 'stocks',
+    exchange,
+    active: 'true',
+    limit: '1000',
+    sort: 'ticker',
+  })
+
+  return data?.results ?? []
+}
+
+async function fetchAggregates(
+  ticker: string,
+  from: string,
+  to: string
+): Promise<AggregateBar[]> {
+  const encodedTicker = encodeURIComponent(ticker)
+
+  const data = await massiveGet<{ results?: AggregateBar[] }>(
+    `/v2/aggs/ticker/${encodedTicker}/range/1/day/${from}/${to}`,
+    {
+      adjusted: 'true',
+      sort: 'desc',
+      limit: '10',
+    }
+  )
+
+  return data?.results ?? []
+}
+
+async function fetchFinancials(ticker: string): Promise<FinancialResult[]> {
+  const data = await massiveGet<{ results?: FinancialResult[] }>('/vX/reference/financials', {
+    ticker,
+    limit: '2',
+    timeframe: 'annual',
+    order: 'desc',
+  })
+
+  return data?.results ?? []
 }
 
 Deno.serve(async (request: Request) => {
@@ -130,6 +203,13 @@ Deno.serve(async (request: Request) => {
       )
     }
 
+    if (!massiveApiKey) {
+      return jsonResponse(
+        { success: false, reason: 'MASSIVE_API_KEY is not configured' },
+        500
+      )
+    }
+
     const windowKey = getCadenceWindowKey('watchlist-screener')
 
     const alreadyProcessed = await hasAlreadyProcessed({
@@ -165,26 +245,17 @@ Deno.serve(async (request: Request) => {
 
     for (const exchange of exchangeList) {
       try {
-        const tickerResponse = await massiveClient.reference.tickers({
-          market: 'stocks',
-          exchange,
-          active: true,
-          limit: 1000,
-          sort: 'ticker',
-        })
+        const tickers = await fetchReferenceTickers(exchange)
 
-        const results =
-          ((tickerResponse as { results?: MassiveTicker[] } | null)?.results ?? [])
-
-        for (const ticker of results) {
+        for (const ticker of tickers) {
           const symbol = ticker.ticker ?? ''
           if (!symbol) continue
           if (!tickerMap.has(symbol)) {
             tickerMap.set(symbol, ticker)
           }
         }
-      } catch {
-        continue
+      } catch (error) {
+        console.error(`[watchlist-screener] Failed to fetch reference tickers for ${exchange}:`, error)
       }
     }
 
@@ -200,6 +271,7 @@ Deno.serve(async (request: Request) => {
           passed_filters: 0,
           already_in_watchlist: 0,
           added: 0,
+          rejection_counts: {},
           windowKey,
         },
       })
@@ -210,17 +282,19 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    const filteredTickers = allTickers.filter((ticker) => {
-      const symbol = ticker.ticker ?? ''
-      const exchange = ticker.primary_exchange ?? ''
+    const filteredTickers = allTickers
+      .filter((ticker) => {
+        const symbol = ticker.ticker ?? ''
+        const exchange = ticker.primary_exchange ?? ''
 
-      if (ticker.market !== 'stocks') return false
-      if (!symbol || symbol.includes('.')) return false
-      if (symbol.length > 5) return false
-      if (!exchangeList.includes(exchange)) return false
+        if (ticker.market !== 'stocks') return false
+        if (!symbol || symbol.includes('.')) return false
+        if (symbol.length > 5) return false
+        if (!exchangeList.includes(exchange)) return false
 
-      return true
-    })
+        return true
+      })
+      .slice(0, 120)
 
     const { from, to } = getRecentTradingDateRange()
 
@@ -228,82 +302,93 @@ Deno.serve(async (request: Request) => {
     let passedFilters = 0
     const candidates: Candidate[] = []
 
-    for (const tickerBatch of chunk(filteredTickers, 10)) {
+    const rejectionCounts = {
+      price: 0,
+      volume: 0,
+      missingEps: 0,
+      lowEps: 0,
+      missingRevenue: 0,
+      lowRevenue: 0,
+      fetchError: 0,
+    }
+
+    for (const tickerDetail of filteredTickers) {
       if (candidates.length >= maxCandidates) break
 
-      for (const tickerDetail of tickerBatch) {
-        if (candidates.length >= maxCandidates) break
+      const ticker = tickerDetail.ticker ?? ''
+      if (!ticker) continue
 
-        const ticker = tickerDetail.ticker ?? ''
-        if (!ticker) continue
+      scanned += 1
 
-        scanned += 1
+      try {
+        const [bars, financialResults] = await Promise.all([
+          fetchAggregates(ticker, from, to),
+          fetchFinancials(ticker),
+        ])
 
-        try {
-          const [priceResponse, fundamentalsResponse] = await Promise.all([
-            massiveClient.stocks.aggregates(ticker, 1, 'day', from, to),
-            massiveClient.stocks.financials({
-              ticker,
-              limit: 2,
-              timeframe: 'annual',
-              order: 'desc',
-            }),
-          ])
+        const sortedBars = [...bars].sort((a, b) => (b.t ?? 0) - (a.t ?? 0))
+        const latestBar = sortedBars[0]
+        const latestClose = toNumberOrNull(latestBar?.c)
+        const latestVolume = toNumberOrNull(latestBar?.v)
 
-          const bars =
-            (((priceResponse as {
-              results?: Array<{ c?: number; v?: number; t?: number }>
-            } | null)?.results) ?? []).sort((a, b) => (b.t ?? 0) - (a.t ?? 0))
-
-          const latestBar = bars[0]
-          const latestClose = toNumberOrNull(latestBar?.c)
-          const latestVolume = toNumberOrNull(latestBar?.v)
-
-          if (latestClose === null || latestClose < minPrice) continue
-          if (latestVolume === null || latestVolume < minAvgVolume) continue
-
-          const financialResults =
-            ((fundamentalsResponse as {
-              results?: Array<{
-                financials?: {
-                  income_statement?: {
-                    basic_earnings_per_share?: { value?: number }
-                    revenues?: { value?: number }
-                  }
-                }
-              }>
-            } | null)?.results ?? [])
-
-          const currentEps = toNumberOrNull(
-            financialResults[0]?.financials?.income_statement?.basic_earnings_per_share?.value
-          )
-          const priorEps = toNumberOrNull(
-            financialResults[1]?.financials?.income_statement?.basic_earnings_per_share?.value
-          )
-          const currentRevenue = toNumberOrNull(
-            financialResults[0]?.financials?.income_statement?.revenues?.value
-          )
-          const priorRevenue = toNumberOrNull(
-            financialResults[1]?.financials?.income_statement?.revenues?.value
-          )
-
-          const epsGrowthPct = calculateGrowth(currentEps, priorEps)
-          const revenueGrowthPct = calculateGrowth(currentRevenue, priorRevenue)
-
-          if (epsGrowthPct === null || epsGrowthPct < minEpsGrowth) continue
-          if (revenueGrowthPct === null || revenueGrowthPct < minRevenueGrowth) continue
-
-          passedFilters += 1
-
-          candidates.push({
-            ticker,
-            companyName: tickerDetail.name ?? null,
-            epsGrowthPct,
-            revenueGrowthPct,
-          })
-        } catch {
+        if (latestClose === null || latestClose < minPrice) {
+          rejectionCounts.price += 1
           continue
         }
+
+        if (latestVolume === null || latestVolume < minAvgVolume) {
+          rejectionCounts.volume += 1
+          continue
+        }
+
+        const currentEps = toNumberOrNull(
+          financialResults[0]?.financials?.income_statement?.basic_earnings_per_share?.value
+        )
+        const priorEps = toNumberOrNull(
+          financialResults[1]?.financials?.income_statement?.basic_earnings_per_share?.value
+        )
+        const currentRevenue = toNumberOrNull(
+          financialResults[0]?.financials?.income_statement?.revenues?.value
+        )
+        const priorRevenue = toNumberOrNull(
+          financialResults[1]?.financials?.income_statement?.revenues?.value
+        )
+
+        const epsGrowthPct = calculateGrowth(currentEps, priorEps)
+        const revenueGrowthPct = calculateGrowth(currentRevenue, priorRevenue)
+
+        if (epsGrowthPct === null) {
+          rejectionCounts.missingEps += 1
+          continue
+        }
+
+        if (epsGrowthPct < minEpsGrowth) {
+          rejectionCounts.lowEps += 1
+          continue
+        }
+
+        if (revenueGrowthPct === null) {
+          rejectionCounts.missingRevenue += 1
+          continue
+        }
+
+        if (revenueGrowthPct < minRevenueGrowth) {
+          rejectionCounts.lowRevenue += 1
+          continue
+        }
+
+        passedFilters += 1
+
+        candidates.push({
+          ticker,
+          companyName: tickerDetail.name ?? null,
+          epsGrowthPct,
+          revenueGrowthPct,
+        })
+      } catch (error) {
+        rejectionCounts.fetchError += 1
+        console.error(`[watchlist-screener] Skipping ${ticker} due to fetch error:`, error)
+        continue
       }
     }
 
@@ -319,6 +404,7 @@ Deno.serve(async (request: Request) => {
           passed_filters: 0,
           already_in_watchlist: 0,
           added: 0,
+          rejection_counts: rejectionCounts,
           windowKey,
         },
       })
@@ -330,6 +416,7 @@ Deno.serve(async (request: Request) => {
           passed_filters: 0,
           already_in_watchlist: 0,
           added: 0,
+          rejection_counts: rejectionCounts,
           windowKey,
         },
         200
@@ -370,21 +457,22 @@ Deno.serve(async (request: Request) => {
         signal_state: 'candidate',
         status: 'watchlist',
         action_status: 'watchlist',
+        setup_type: 'other',
         setup_grade: null,
         entry_zone_low: null,
         entry_zone_high: null,
         stop_price: null,
         target_1_price: null,
         target_2_price: null,
-        trend_template_pass: null,
-        volume_dry_up_pass: null,
-        rs_line_confirmed: null,
-        base_pattern_valid: null,
-        entry_near_pivot: null,
-        volume_breakout_confirmed: null,
-        liquidity_pass: null,
-        earnings_within_2_weeks: null,
-        binary_event_risk: null,
+        trend_template_pass: false,
+        volume_dry_up_pass: false,
+        rs_line_confirmed: false,
+        base_pattern_valid: false,
+        entry_near_pivot: false,
+        volume_breakout_confirmed: false,
+        liquidity_pass: false,
+        earnings_within_2_weeks: false,
+        binary_event_risk: false,
         eps_growth_pct: candidate.epsGrowthPct,
         revenue_growth_pct: candidate.revenueGrowthPct,
         acc_dist_rating: null,
@@ -395,9 +483,12 @@ Deno.serve(async (request: Request) => {
         flagged_for_review: false,
       })
 
-      if (!insertError) {
-        added += 1
+      if (insertError) {
+        console.error(`[watchlist-screener] Failed to insert ${candidate.ticker}:`, insertError.message)
+        continue
       }
+
+      added += 1
     }
 
     await safeFinishScanLog({
@@ -409,6 +500,7 @@ Deno.serve(async (request: Request) => {
         passed_filters: passedFilters,
         already_in_watchlist: alreadyInWatchlist,
         added,
+        rejection_counts: rejectionCounts,
         windowKey,
       },
     })
@@ -420,6 +512,7 @@ Deno.serve(async (request: Request) => {
         passed_filters: passedFilters,
         already_in_watchlist: alreadyInWatchlist,
         added,
+        rejection_counts: rejectionCounts,
         windowKey,
       },
       200
