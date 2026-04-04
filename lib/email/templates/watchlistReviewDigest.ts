@@ -1,3 +1,5 @@
+import { APP_BASE_URL } from '@/lib/config'
+
 export type WatchlistReviewItem = {
   ticker: string
   consecutiveFailCount: number
@@ -17,9 +19,9 @@ function fmtDate(value: string) {
     year: 'numeric',
   }).format(new Date(value))
 }
-
+ 
 function inboxUrl(appUrl?: string) {
-  return `${appUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? ''}/inbox`
+  return `${appUrl ?? APP_BASE_URL}/inbox`
 }
 
 function layout(title: string, body: string) {
