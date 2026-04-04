@@ -21,6 +21,7 @@ import { RuleAuditTable } from '@/components/RuleAuditTable'
 import { StopUpdateTable } from '@/components/StopUpdateTable'
 import { PartialExitTable } from '@/components/PartialExitTable'
 import { ExposurePreviewPanel } from '@/components/ExposurePreviewPanel'
+import { MarketSnapshotChatGPTWorkflow } from '@/components/MarketSnapshotChatGPTWorkflow'
 
 export type MarketSnapshot = {
   id: string
@@ -1146,7 +1147,7 @@ const createTradeBlockReason = !stock
         />
 
         <MarketSnapshotForm onSave={handleSaveMarketSnapshot} />
-
+        <MarketSnapshotChatGPTWorkflow />
         <AddWatchlistStockForm onAdd={handleAddWatchlistStock} />
 
         <WatchlistSelectionTable
