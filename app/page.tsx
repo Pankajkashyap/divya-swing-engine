@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { evaluateSetup } from '@/lib/evaluateSetup'
 import { generateTradePlan } from '@/lib/generateTradePlan'
@@ -157,7 +157,7 @@ export default function HomePage() {
   const [tradeCreationMessage, setTradeCreationMessage] =
     useState<TradeCreationMessage | null>(null)
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     const [
       { data: marketData, error: marketError },
       { data: watchlistData, error: watchlistError },
@@ -221,7 +221,7 @@ export default function HomePage() {
     setSavedPlans(tradePlanData ?? [])
     setSavedTrades(tradeData ?? [])
     setRuleAuditRows(ruleAuditData ?? [])
-  }
+  }, [supabase])
 
   useEffect(() => {
     const load = async () => {
@@ -252,7 +252,7 @@ export default function HomePage() {
     }
 
     void load()
-  }, [])
+  }, [loadDashboardData, supabase])
 
   useEffect(() => {
     if (!hasLoadedSettings.current) return
@@ -289,7 +289,7 @@ export default function HomePage() {
     }
 
     void savePortfolioValue()
-  }, [portfolioValue])
+  }, [portfolioValue, supabase])
 
   const metrics = useMemo(() => {
     const openTrades = savedTrades.filter(
