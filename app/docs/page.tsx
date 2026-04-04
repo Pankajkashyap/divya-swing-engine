@@ -74,153 +74,322 @@ export default function DocsPage() {
 
         <Section title="1. Start Here: What This Platform Does">
           <p>
-            This platform is a rule-based swing trading operating system. It helps you move through a disciplined workflow:
-            read the market, build a watchlist, evaluate a setup, size the trade, execute the trade, manage the trade,
-            and review results at the end of the week.
+            This platform is now an autonomous swing trading assistant, not just a manual planning tool.
+            It runs on a schedule in the background and continuously scans the market, evaluates watchlist
+            stocks, generates trade plans, and monitors open trades without you having to trigger each step manually.
           </p>
           <p>
-            The most important idea is this: <strong>the market comes first.</strong> You do not start by asking,
-            “Which stock looks exciting?” You start by asking, “Is the overall market supportive for swing trading right now?”
+            The system sends you email notifications when action is required. If a qualifying buy setup is
+            found, you receive a trade instruction email. If an open trade hits a stop or reaches a target,
+            you receive an urgent alert. At the end of the day and week, you receive digest emails summarising
+            what happened.
           </p>
           <p>
-            If the market is weak, even strong-looking individual stocks can fail. If the market is healthy, your odds improve.
+            The most important design principle is <strong>human in the loop</strong>. The system never places
+            orders for you. All execution happens manually in Wealthsimple. Every buy and every sell still
+            requires your explicit confirmation.
+          </p>
+          <p>
+            The <strong>Inbox</strong> is the centre of that confirmation layer. This is where you review pending
+            actions, confirm signals after acting in Wealthsimple, dismiss items you do not want to take, or
+            snooze items you want to revisit later.
           </p>
         </Section>
 
-        <Section title="2. Step-by-Step: How To Use The App">
+        <Section title="2. Your Daily Routine">
           <div className="space-y-5">
             <div>
-              <p className="font-semibold">Step 1 — Update Market Snapshot</p>
+              <p className="font-semibold">Morning</p>
               <p>
-                Go to the market snapshot section on the dashboard and enter the current market phase and the maximum long exposure
-                you want to allow. This sets the context for everything else.
+                Check your email. If the evening scan found qualifying setups, a Trade Instruction Card arrived
+                overnight. Open the app Inbox to review it.
+              </p>
+              <p>
+                If you want to act on a signal, place a limit buy order in Wealthsimple using the exact entry
+                zone, stop, and share count from the card. Then return to the Inbox and tap <strong>Executed</strong>,
+                entering your actual fill price and quantity. The app creates the trade record.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold">Step 2 — Add a Stock to the Watchlist</p>
+              <p className="font-semibold">During the day</p>
               <p>
-                Enter the ticker, company name, setup grade, reward/risk ratio, entry zone, and stop. This creates a candidate
-                idea, not a live trade.
+                You do not need to watch the market. The system monitors your open trades automatically at
+                8:30 AM, 12:30 PM, and 4:30 PM ET. If a stop is hit or a target is reached, an urgent email
+                arrives. Act in Wealthsimple first, then confirm in the Inbox.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold">Step 3 — Select the Watchlist Stock</p>
+              <p className="font-semibold">Evening</p>
               <p>
-                Choose the stock you want to evaluate. The selected stock becomes the active candidate for setup analysis and trade planning.
+                The system runs its main scan at 4:30 PM ET after market close. It evaluates your entire
+                watchlist, refreshes fundamentals, flags weak stocks for review, and sends a daily digest
+                email summarising the day.
               </p>
             </div>
 
             <div>
-              <p className="font-semibold">Step 4 — Evaluate Setup</p>
+              <p className="font-semibold">Sunday evening</p>
               <p>
-                Click <strong>Evaluate Setup</strong>. The engine checks the setup against core rules such as market phase,
-                trend template, volume pattern, and reward/risk. It returns a verdict: <strong>Pass</strong>, <strong>Watch</strong>, or <strong>Fail</strong>.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Step 5 — Review the Rule Breakdown</p>
-              <p>
-                Read the evaluation panel carefully. This shows why the stock passed, failed, or only qualified with caution.
-                This is where you build trust in the engine.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Step 6 — Generate Trade Plan</p>
-              <p>
-                Enter your portfolio value and click <strong>Generate Trade Plan</strong>. The app calculates risk, position size,
-                shares, and expected reward/risk using the current setup and your account size.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Step 7 — Create Trade</p>
-              <p>
-                If the trade plan is approved, click <strong>Create Trade</strong>. The trade becomes live and moves into trade management.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Step 8 — Manage the Trade</p>
-              <p>
-                Use the stop update section to move stops as the trade develops. Use the partial exit section if you want to reduce size
-                without closing the full position. Use close trade when the trade is done.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Step 9 — Review Portfolio Heat</p>
-              <p>
-                Watch the portfolio heat section. This tells you how much of your portfolio is currently exposed and whether you are still
-                within your market-based exposure limit.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Step 10 — Complete Weekly Review</p>
-              <p>
-                At the end of the week, go to <strong>Weekly Review</strong>. Review open trades, closed trades, realized P&amp;L, mistakes,
-                and your focus for next week.
+                A weekly digest email arrives covering your performance for the week — wins, losses, P&amp;L,
+                and watchlist health. Open the Weekly Review page to complete your review and write your
+                focus for next week.
               </p>
             </div>
           </div>
         </Section>
 
-        <Section title="3. Beginner Workflow: What To Do in Real Life">
-          <p className="font-semibold">If you are brand new, use this simple routine:</p>
-          <ol className="ml-5 list-decimal space-y-2">
-            <li>Update market phase first.</li>
-            <li>Add only 1–3 watchlist names at first.</li>
-            <li>Evaluate only the cleanest setup.</li>
-            <li>Do not create a trade unless the engine verdict is clearly supportive.</li>
-            <li>Keep position size small while learning.</li>
-            <li>Review every trade in Weekly Review, even if it made money.</li>
-          </ol>
-          <p>
-            The goal at the beginning is not to trade a lot. The goal is to learn the process and avoid sloppy decisions.
-          </p>
+        <Section title="3. The Five Pages">
+          <div className="space-y-4">
+            <div>
+              <p className="font-semibold">Dashboard</p>
+              <p>
+                The main trading workspace. Add and manage watchlist stocks, run manual evaluations, generate
+                trade plans, and manage open trades. It also shows portfolio heat and exposure.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Inbox</p>
+              <p>
+                The action centre. All buy signals, stop alerts, target alerts, and watchlist review items
+                appear here sorted by urgency. Every automated signal requires your confirmation before anything
+                happens.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Candidates</p>
+              <p>
+                The screener research hub. Stocks discovered by the autonomous screener appear here awaiting
+                research. Copy the pre-built ChatGPT prompt with one click, paste into ChatGPT to fill in
+                missing technical fields, paste the result back, and click Apply to bulk-update all candidates
+                at once.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Weekly Review</p>
+              <p>
+                Your end-of-week reset. Review closed trades, wins, losses, realized P&amp;L, rule violations,
+                and write your focus for next week.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Settings</p>
+              <p>
+                Control your portfolio value, notification email, scan schedule (evening only vs three times
+                daily), buy signal expiry, morning trade monitor toggle, and screener preferences.
+              </p>
+            </div>
+          </div>
         </Section>
 
-        <Section title="4. How the Engine Makes Decisions">
+        <Section title="4. How the Autonomous System Works">
           <p>
-            The engine is rule-based. It does not simply “like” or “dislike” a stock. It checks specific conditions and then produces a verdict.
+            The automation layer is powered by scheduled Edge Functions running through Supabase pg_cron.
+            Each function has a narrow job. Together they create the daily operating rhythm of the app.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <p className="font-semibold">market-scan</p>
+              <p>
+                Checks SPY and QQQ to determine the current market phase. Runs three times daily.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">watchlist-evaluate</p>
+              <p>
+                Re-evaluates every watchlist stock against SEPA rules using live Massive market data. Runs at
+                4:30 PM ET in evening-only mode, or three times daily if that setting is enabled.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">trade-monitor</p>
+              <p>
+                Checks current prices for all open trades against stops and targets. Runs three times daily.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">fundamentals-refresh</p>
+              <p>
+                Refreshes EPS and revenue data for watchlist stocks. Runs once daily after market close.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">watchlist-review</p>
+              <p>
+                Flags stocks that have failed hard rules three or more consecutive times. Runs once daily after
+                market close.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">watchlist-screener</p>
+              <p>
+                Discovers new stock candidates from the S&amp;P 500 and NASDAQ 100 universe using Massive market
+                data. Runs nightly.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">daily-digest</p>
+              <p>
+                Sends a summary email at 4:40 PM ET.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">weekly-digest</p>
+              <p>
+                Sends a performance summary email on Sunday evening.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">expire-pending-actions</p>
+              <p>
+                Cleans up stale buy signals from the Inbox. Runs hourly.
+              </p>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="5. The ChatGPT Research Workflow">
+          <div className="space-y-5">
+            <div>
+              <p className="font-semibold">Step 1 — Nightly screener discovery</p>
+              <p>
+                The nightly screener identifies stocks from the S&amp;P 500 and NASDAQ 100 that meet basic SEPA
+                fundamental criteria such as minimum EPS growth, revenue growth, price, and volume. These land
+                in the Candidates page.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Step 2 — Automatic data population</p>
+              <p>
+                The screener populates what it can automatically: EPS growth, revenue growth, and company name.
+                Technical fields like trend template, RS line, base pattern, entry zone, stop, and targets still
+                require chart research.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Step 3 — Copy prompt + data</p>
+              <p>
+                Go to the Candidates page and click <strong>Copy prompt + data</strong>. This copies a pre-built
+                ChatGPT research prompt plus the candidate JSON to your clipboard in one click.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Step 4 — Run research in ChatGPT</p>
+              <p>
+                Open ChatGPT, paste, and send. ChatGPT researches each candidate and fills in the missing fields.
+                Stocks it cannot research or that fail quality checks are marked with grade <strong>F</strong>.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Step 5 — Bulk import the results</p>
+              <p>
+                Copy ChatGPT&apos;s JSON output. Go back to the Candidates page, paste into the import box, and
+                click <strong>Apply</strong>. All candidates are updated in one operation. F-grade candidates are
+                automatically removed.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-semibold">Step 6 — Flow into watchlist evaluation</p>
+              <p>
+                Valid candidates flow into the next evening&apos;s watchlist-evaluate scan for full SEPA rule
+                evaluation.
+              </p>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="6. How the Rule Engine Makes Decisions">
+          <p>
+            The engine is still rule-based. It does not simply “like” or “dislike” a stock. It checks specific
+            conditions and then produces a verdict.
           </p>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Term
               term="Pass"
-              definition="The setup meets the main rule requirements and can move forward into trade planning."
+              definition="The setup meets the hard requirements, soft conditions are acceptable, and no major risk flag changes the outcome."
             />
             <Term
               term="Watch"
-              definition="The setup is not a clean reject, but there is caution. Examples: weaker grade, event risk, or not enough quality."
+              definition="The setup is not a clean reject, but enough caution exists that it should be monitored rather than acted on immediately."
             />
             <Term
               term="Fail"
-              definition="The setup breaks a hard rule. Examples: weak market phase, failed trend template, or reward/risk below minimum."
+              definition="A hard rule failed. The setup does not qualify and should not move forward into trade planning."
             />
           </div>
 
+          <div className="space-y-4">
+            <div>
+              <p className="font-semibold">Hard fail rules — any one of these failing = verdict fail</p>
+              <ul className="ml-5 list-disc space-y-2">
+                <li>Market phase is correction or bear</li>
+                <li>Trend template does not pass all 8 criteria</li>
+                <li>Liquidity gate fails</li>
+                <li>Base pattern is not valid</li>
+                <li>RS line is not confirming</li>
+                <li>Fundamentals fail (EPS growth under 25%, revenue growth under 25%, weak A/D rating, or industry rank outside the top 20%)</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold">Soft fail rules — two or more failing = verdict watch</p>
+              <ul className="ml-5 list-disc space-y-2">
+                <li>Volume dry-up not confirmed</li>
+                <li>Entry not near pivot</li>
+                <li>Volume breakout not confirmed</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold">Risk flags — upgrade pass to watch</p>
+              <ul className="ml-5 list-disc space-y-2">
+                <li>Earnings within 2 weeks</li>
+                <li>Binary event risk</li>
+              </ul>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="7. Trade Sizing">
           <p>
-            The point of the rule engine is consistency. A trader improves faster when decisions are explained and repeatable.
+            Position sizing is still risk-based. The app calculates shares from your portfolio value, setup grade,
+            entry, stop, and the current market environment. The goal is consistency, not conviction-based sizing.
+          </p>
+
+          <ul className="ml-5 list-disc space-y-2">
+            <li>A+ setup: 2% portfolio risk</li>
+            <li>A setup: 1% portfolio risk</li>
+            <li>B setup: 0.5% portfolio risk</li>
+            <li>C setup: 0.25% portfolio risk</li>
+          </ul>
+
+          <p>
+            In an under-pressure market, risk is halved across all grades. If earnings risk or binary event risk
+            is present, position size is halved again. Maximum single position remains capped at 25% of portfolio value.
           </p>
         </Section>
 
-        <Section title="5. The Most Important Rules in This Platform">
-          <ul className="ml-5 list-disc space-y-2">
-            <li>The overall market is checked before individual stock analysis.</li>
-            <li>The setup must have a logical stop.</li>
-            <li>The setup must have acceptable reward/risk.</li>
-            <li>Position size is based on risk, not emotion or conviction.</li>
-            <li>Portfolio exposure should stay within market-based limits.</li>
-            <li>Losses must stay controlled and review must be routine.</li>
-          </ul>
-        </Section>
-
-        <Section title="6. Core Terms You Need to Know">
+        <Section title="8. Core Terms You Need to Know">
           <div className="grid gap-4 md:grid-cols-2">
             <Term
               term="Market Phase"
@@ -270,98 +439,55 @@ export default function DocsPage() {
               term="Weekly Review"
               definition="A structured reset process where you review market conditions, trade results, mistakes, and next-week focus."
             />
+            <Term
+              term="Pending action"
+              definition="A signal or alert in your Inbox awaiting your confirmation."
+            />
+            <Term
+              term="Signal state"
+              definition="The lifecycle stage of a watchlist candidate — candidate, evaluated, plan generated, signal sent, awaiting confirmation, converted to trade, archived."
+            />
+            <Term
+              term="Screener"
+              definition="The nightly autonomous function that discovers new stock candidates from the S&amp;P 500 and NASDAQ 100."
+            />
+            <Term
+              term="Trade Instruction Card"
+              definition="The email sent when a buy signal is generated — contains ticker, entry zone, stop, shares, position value, and reward/risk."
+            />
+            <Term
+              term="Bulk import"
+              definition="The one-click operation that applies ChatGPT research results to all candidates simultaneously."
+            />
+            <Term
+              term="Scan log"
+              definition="The internal record of every automated function run, used for debugging and audit."
+            />
           </div>
-        </Section>
-
-        <Section title="7. How To Read the Main Dashboard">
-          <div className="space-y-4">
-            <div>
-              <p className="font-semibold">Dashboard Metrics</p>
-              <p>
-                Gives you a high-level snapshot: watchlist count, open trades, closed trades, and realized P&amp;L.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Portfolio Heat</p>
-              <p>
-                Shows whether your current open position exposure is still within the maximum exposure allowed by the market environment.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Market Summary</p>
-              <p>
-                Shows the current market phase, selected candidate, and portfolio value being used for sizing.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Watchlist Selection</p>
-              <p>
-                Lets you choose which stock the engine should analyze next.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Evaluation Panel</p>
-              <p>
-                Shows the verdict, decision reason, and full rule breakdown.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Trade Plan Panel</p>
-              <p>
-                Shows risk %, dollar risk, entry, stop, shares, and expected reward/risk.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-semibold">Trade Management</p>
-              <p>
-                Lets you close trades, update stops, and process partial exits.
-              </p>
-            </div>
-          </div>
-        </Section>
-
-        <Section title="8. How To Use Weekly Review Properly">
-          <p>
-            Weekly review is not just a report. It is a reset ritual.
-          </p>
-          <ol className="ml-5 list-decimal space-y-2">
-            <li>Check current market phase first.</li>
-            <li>Review all open trades.</li>
-            <li>Review every closed trade.</li>
-            <li>Count wins and losses.</li>
-            <li>Look for rule violations and execution mistakes.</li>
-            <li>Write one clear focus for next week.</li>
-          </ol>
-          <p>
-            A trader improves by reviewing behavior, not by staring at P&amp;L alone.
-          </p>
         </Section>
 
         <Section title="9. Non-Negotiables">
           <ul className="ml-5 list-disc space-y-2">
-            <li>Do not ignore market context.</li>
+            <li>Do not ignore market context — the system checks market phase before every evaluation.</li>
             <li>Do not create trades without a defined stop.</li>
-            <li>Do not take trades with poor reward/risk.</li>
-            <li>Do not oversize because of confidence or excitement.</li>
-            <li>Do not skip review just because a trade made money.</li>
+            <li>Do not take trades with poor reward/risk — minimum 2:1 required.</li>
+            <li>Do not oversize — position sizing is rule-based, not conviction-based.</li>
+            <li>Do not skip the Inbox confirmation — every signal requires your explicit action.</li>
+            <li>Do not act on a signal without checking the rule breakdown in the evaluation.</li>
+            <li>Do not skip weekly review just because a trade made money.</li>
             <li>Do not let one trade define your week.</li>
           </ul>
         </Section>
 
         <Section title="10. Suggested Learning Path for a New User">
           <ol className="ml-5 list-decimal space-y-2">
-            <li>Learn the meanings of market phase, pivot, stop, and reward/risk.</li>
-            <li>Practice adding watchlist names without creating trades.</li>
-            <li>Run evaluations and read the rule breakdown carefully.</li>
-            <li>Generate trade plans using small sample portfolio values.</li>
-            <li>Paper trade a few examples before using real money decisions.</li>
-            <li>Use Weekly Review every single week.</li>
+            <li>Read through the Settings page and configure your portfolio value, notification email, and scan schedule.</li>
+            <li>Add 2–3 stocks manually to the watchlist using the Dashboard form.</li>
+            <li>Run a manual evaluation from the Dashboard to understand the rule breakdown.</li>
+            <li>Enable the screener in Settings and check the Candidates page the next morning.</li>
+            <li>Run the ChatGPT research workflow on your first batch of candidates.</li>
+            <li>Wait for the first automated buy signal email and review it carefully before acting.</li>
+            <li>Use Weekly Review every Sunday without exception.</li>
           </ol>
         </Section>
       </section>
