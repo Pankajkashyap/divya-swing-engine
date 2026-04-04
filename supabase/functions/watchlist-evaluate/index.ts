@@ -1,3 +1,7 @@
+// ⚠️ IMPORTANT: The evaluateSetup and generateTradePlan functions below
+// are duplicated from lib/evaluateSetup.ts and lib/generateTradePlan.ts.
+// If you change any rule thresholds there, update here too.
+
 // Server only — do not import in client components
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'

@@ -1,3 +1,7 @@
+// ⚠️ IMPORTANT: This logic is duplicated in:
+// supabase/functions/watchlist-evaluate/index.ts (evaluateSetup function)
+// supabase/functions/watchlist-evaluate/index.ts (generateTradePlan function)
+// If you change any rule thresholds here, update those files too.
 // =============================
 // TYPES
 // =============================
