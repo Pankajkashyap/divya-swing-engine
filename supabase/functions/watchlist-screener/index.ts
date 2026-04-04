@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { validateCronSecret } from '../_shared/cronAuth.ts'
 import { getCadenceWindowKey } from '../_shared/marketHours.ts'
 import { startScanLog, finishScanLog, hasAlreadyProcessed } from '../_shared/scanLog.ts'
+import { TICKER_UNIVERSE } from '../_shared/ticker-universe.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -23,14 +24,6 @@ type UserSettingsRow = {
   screener_min_revenue_growth_pct: number | null
   screener_exchanges: string | null
   screener_max_candidates: number | null
-}
-
-type MassiveTicker = {
-  ticker?: string
-  name?: string | null
-  market?: string | null
-  primary_exchange?: string | null
-  type?: string | null
 }
 
 type AggregateBar = {
@@ -59,7 +52,6 @@ type PricePassCandidate = {
   ticker: string
   price: number
   volume: number
-  tickerDetail: MassiveTicker
 }
 
 function jsonResponse(payload: unknown, status: number): Response {
@@ -128,45 +120,6 @@ async function safeFinishScanLog(params: {
   })
 }
 
-async function massiveGet<T>(path: string, query: Record<string, string>): Promise<T | null> {
-  const url = new URL(`${massiveBaseUrl}${path}`)
-
-  for (const [key, value] of Object.entries(query)) {
-    url.searchParams.set(key, value)
-  }
-
-  url.searchParams.set('apiKey', massiveApiKey)
-
-  const response = await fetchWithTimeout(
-    url.toString(),
-    {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    },
-    5000
-  )
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(`Massive request failed (${response.status}): ${text || response.statusText}`)
-  }
-
-  return (await response.json()) as T
-}
-
-async function fetchReferenceTickers(exchange: string): Promise<MassiveTicker[]> {
-  const data = await massiveGet<{ results?: MassiveTicker[] }>('/v3/reference/tickers', {
-    market: 'stocks',
-    exchange,
-    active: 'true',
-    limit: '1000',
-    sort: 'ticker',
-  })
-
-  return data?.results ?? []
-}
 
 Deno.serve(async (request: Request) => {
   let logId: string | null = null
@@ -208,7 +161,8 @@ Deno.serve(async (request: Request) => {
       return jsonResponse({ success: false, reason: 'MASSIVE_API_KEY is not configured' }, 500)
     }
 
-const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-test-1`
+    const windowKey = getCadenceWindowKey('watchlist-screener')
+
     const alreadyProcessed = await hasAlreadyProcessed({
       jobType: 'watchlist-screener',
       windowKey,
@@ -224,79 +178,22 @@ const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-
       windowKey,
     })
 
-    const exchangeList = (settings.screener_exchanges ?? 'XNAS,XNYS')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean)
-
     const minPrice = Number(settings.screener_min_price ?? 10)
     const minAvgVolume = Number(settings.screener_min_avg_volume ?? 500000)
     const minEpsGrowth = Number(settings.screener_min_eps_growth_pct ?? 25)
     const minRevenueGrowth = Number(settings.screener_min_revenue_growth_pct ?? 20)
     const maxCandidates = Number(settings.screener_max_candidates ?? 20)
 
-    const tickerMap = new Map<string, MassiveTicker>()
-
-    for (const exchange of exchangeList) {
-      try {
-        const tickers = await fetchReferenceTickers(exchange)
-
-        for (const ticker of tickers) {
-          const symbol = ticker.ticker ?? ''
-          if (!symbol) continue
-          if (!tickerMap.has(symbol)) {
-            tickerMap.set(symbol, ticker)
-          }
-        }
-      } catch (error) {
-        console.error(`[watchlist-screener] Failed to fetch reference tickers for ${exchange}:`, error)
-      }
-    }
-
-    const allTickers = Array.from(tickerMap.values())
-
-    if (allTickers.length === 0) {
-      await safeFinishScanLog({
-        logId,
-        status: 'failed',
-        message: 'Ticker reference response was empty',
-        changesJson: {
-          pass1_scanned: 0,
-          pass1_price_volume_passed: 0,
-          pass2_fundamentals_scanned: 0,
-          pre_filtered_from: 0,
-          passed_all_filters: 0,
-          already_in_watchlist: 0,
-          added: 0,
-          stopped_early: false,
-          rejection_counts: {},
-          windowKey,
-        },
-      })
-
-      return jsonResponse({ success: false, reason: 'Ticker reference response was empty' }, 500)
-    }
-
-    const preFiltered = allTickers.filter((ticker) => {
-      const t = ticker.ticker ?? ''
-      const name = (ticker.name ?? '').toLowerCase()
-      const type = ticker.type ?? ''
-
-      if (t.endsWith('W') || t.endsWith('U') || t.endsWith('R') || t.includes('.')) return false
-
-      const invalidTypes = ['ADRC', 'ADRW', 'ADRR', 'ETS', 'ETF', 'ETN', 'WARRANT', 'RIGHT', 'UNIT']
-      if (invalidTypes.includes(type)) return false
-
-      const spac_keywords = ['acquisition', 'spac', 'blank check', 'special purpose', 'merger corp']
-      if (spac_keywords.some((k) => name.includes(k))) return false
-
-      if (t.length < 2 || t.length > 5) return false
-
+    const preFiltered = TICKER_UNIVERSE.filter((ticker) => {
+      if (ticker.endsWith('W') || ticker.endsWith('U') || ticker.endsWith('R')) return false
+      if (ticker.includes('.')) return false
+      if (ticker.length < 2 || ticker.length > 5) return false
       return true
     })
 
     const targetScanCount = Math.min(maxCandidates * 10, 50)
-    const tickersToProcess = preFiltered.slice(0, targetScanCount)
+    const shuffled = [...preFiltered].sort(() => Math.random() - 0.5)
+    const tickersToProcess = shuffled.slice(0, targetScanCount)
 
     const { from, to } = getRecentTradingDateRange()
 
@@ -308,30 +205,21 @@ const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-
       volume_too_low: 0,
       eps_too_low: 0,
       already_in_watchlist: 0,
-      spac: 0,
-      invalid_type: 0,
-      bad_suffix: 0,
       zero_fundamentals: 0,
     }
 
     const pricePassList: PricePassCandidate[] = []
 
     console.log(
-      `[watchlist-screener] Pass 1 starting. Deep-processing ${tickersToProcess.length} tickers from ${allTickers.length} reference tickers.`
+      `[watchlist-screener] Pass 1 starting. Deep-processing ${tickersToProcess.length} tickers from static universe of ${TICKER_UNIVERSE.length}.`
     )
 
-    for (const tickerDetail of tickersToProcess) {
+    for (const ticker of tickersToProcess) {
       if (pricePassList.length >= maxCandidates * 3) {
         console.log(
           `[watchlist-screener] Pass 1 reached shortlist target (${maxCandidates * 3}). Stopping early.`
         )
         break
-      }
-
-      const ticker = tickerDetail.ticker ?? ''
-      if (!ticker) {
-        await delay(150)
-        continue
       }
 
       try {
@@ -389,7 +277,6 @@ const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-
           ticker,
           price,
           volume,
-          tickerDetail,
         })
       } catch (error) {
         rejectionCounts.fetch_error += 1
@@ -472,6 +359,20 @@ const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-
           continue
         }
 
+        let companyName: string | null = null
+        try {
+          const detailUrl =
+            `${massiveBaseUrl}/v3/reference/tickers/${encodeURIComponent(ticker)}` +
+            `?apiKey=${massiveApiKey}`
+          const detailResponse = await fetchWithTimeout(detailUrl, {}, 5000)
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json()
+            companyName = detailData?.results?.name ?? null
+          }
+        } catch {
+          // company name is optional — continue without it
+        }
+
         passedCount += 1
 
         const { data: existing, error: existingError } = await supabase
@@ -499,7 +400,7 @@ const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-
 
         const candidate: Candidate = {
           ticker,
-          companyName: shortlisted.tickerDetail.name ?? null,
+          companyName,
           epsGrowthPct: epsGrowth,
           revenueGrowthPct: revenueGrowth,
         }
@@ -568,7 +469,7 @@ const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-
         pass1_scanned: tickersToProcess.length,
         pass1_price_volume_passed: pricePassList.length,
         pass2_fundamentals_scanned: pricePassList.length,
-        pre_filtered_from: allTickers.length,
+        pre_filtered_from: TICKER_UNIVERSE.length,
         passed_all_filters: passedCount,
         already_in_watchlist: rejectionCounts.already_in_watchlist,
         added: addedCount,
@@ -603,4 +504,5 @@ const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-
 
     return jsonResponse({ success: false, reason: errorMessage }, 500)
   }
-})
+})// force redeploy static universe fix
+// force redeploy universe export fix
