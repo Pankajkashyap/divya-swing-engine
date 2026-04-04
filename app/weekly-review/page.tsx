@@ -61,7 +61,7 @@ export default function WeeklyReviewPage() {
     }
 
     loadData()
-  }, [])
+  }, [supabase])
 
   const metrics = useMemo(() => {
     const openTrades = trades.filter(
@@ -111,28 +111,29 @@ export default function WeeklyReviewPage() {
 
     if (!user) return
 
-    const { error } = await supabase.from('weekly_reviews').insert({
-      user_id: user.id,
-      week_ending: today,
-      market_phase: market?.market_phase ?? null,
-      open_positions_count: metrics.openTradesCount,
-      wins_count: metrics.winsCount,
-      losses_count: metrics.lossesCount,
-      weekly_pnl_dollar: metrics.totalRealizedPnl,
-      avg_win_r: metrics.avgWin,
-      avg_loss_r: metrics.avgLoss,
-      biggest_rule_violation: biggestRuleIssue || null,
-      next_week_triggers: nextWeekTriggers || null,
-      primary_focus: primaryFocus || null,
-      notes: notes || null,
-    })
-
-    if (error) {
-      console.error(error)
-      alert('Failed to save weekly review')
-      return
-    }
-
+const { error } = await supabase.from('weekly_reviews').upsert(
+  {
+    user_id: user.id,
+    week_ending: today,
+    market_phase: market?.market_phase ?? null,
+    open_positions_count: metrics.openTradesCount,
+    wins_count: metrics.winsCount,
+    losses_count: metrics.lossesCount,
+    weekly_pnl_dollar: metrics.totalRealizedPnl,
+    avg_win_r: metrics.avgWin,
+    avg_loss_r: metrics.avgLoss,
+    biggest_rule_violation: biggestRuleIssue || null,
+    next_week_triggers: nextWeekTriggers || null,
+    primary_focus: primaryFocus || null,
+    notes: notes || null,
+  },
+  { onConflict: 'week_ending' }
+)
+if (error) {
+  console.error(error)
+  alert('Failed to save weekly review')
+  return
+}
     alert('Weekly review saved')
   }
 
