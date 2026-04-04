@@ -32,6 +32,7 @@ export type WatchlistRow = {
   id: string
   ticker: string
   company_name: string | null
+  source?: string | null
   setup_grade: string | null
   trend_template_pass: boolean | null
   volume_dry_up_pass: boolean | null
@@ -174,7 +175,7 @@ export default function HomePage() {
       supabase
         .from('watchlist')
         .select(
-          'id, ticker, company_name, setup_grade, trend_template_pass, volume_dry_up_pass, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
+          'id, ticker, company_name, source, setup_grade, trend_template_pass, volume_dry_up_pass, earnings_within_2_weeks, binary_event_risk, pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_breakout_confirmed, liquidity_pass, eps_growth_pct, eps_accelerating, revenue_growth_pct, acc_dist_rating, industry_group_rank'
         )
         .order('created_at', { ascending: false })
         .limit(20),
@@ -1201,28 +1202,49 @@ const createTradeBlockReason = !stock
               setTradeCreationMessage(null)
             }
           }}
-          onDelete={async (rowId, ticker) => {
-            const { error } = await supabase
-              .from('watchlist')
-              .delete()
-              .eq('id', rowId)
+onDelete={async (rowId, ticker) => {
+  const rowToDelete = watchlist.find((r) => r.id === rowId)
+  const isManual = rowToDelete?.source !== 'automation'
 
-            if (error) {
-              console.error(error)
-              alert(`Failed to delete watchlist row for ${ticker}`)
-              return
-            }
+  if (isManual) {
+    const confirmed = window.confirm(
+      `Archive ${ticker} from your watchlist? This preserves your evaluation history.`
+    )
+    if (!confirmed) return
 
-            setWatchlist((prev) => prev.filter((row) => row.id !== rowId))
+    const { error } = await supabase
+      .from('watchlist')
+      .update({ signal_state: 'archived' })
+      .eq('id', rowId)
 
-            if (stock?.id === rowId) {
-              setStock(null)
-              setResult(null)
-              setPlan(null)
-              setLatestTradePlanId(null)
-              setTradeCreationMessage(null)
-            }
-          }}
+    if (error) {
+      console.error(error)
+      alert(`Failed to archive ${ticker}`)
+      return
+    }
+  } else {
+    const { error } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('id', rowId)
+
+    if (error) {
+      console.error(error)
+      alert(`Failed to delete watchlist row for ${ticker}`)
+      return
+    }
+  }
+
+  setWatchlist((prev) => prev.filter((row) => row.id !== rowId))
+
+  if (stock?.id === rowId) {
+    setStock(null)
+    setResult(null)
+    setPlan(null)
+    setLatestTradePlanId(null)
+    setTradeCreationMessage(null)
+  }
+}}
         />
 
        <TradeActionButtons
