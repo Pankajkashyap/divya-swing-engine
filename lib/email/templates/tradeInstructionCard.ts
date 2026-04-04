@@ -1,3 +1,5 @@
+import { APP_BASE_URL } from '@/lib/config'
+
 export type TradeInstructionCardData = {
   ticker: string
   companyName?: string
@@ -44,7 +46,7 @@ function fmtDate(value: string) {
 }
 
 function inboxUrl(appUrl?: string) {
-  return `${appUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? ''}/inbox`
+  return `${appUrl ?? APP_BASE_URL}/inbox`
 }
 
 function layout(title: string, body: string) {

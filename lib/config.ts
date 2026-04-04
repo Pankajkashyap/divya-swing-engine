@@ -7,6 +7,9 @@ function requireEnv(name: string, value: string | undefined): string {
   return value
 }
 
+export const APP_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
 export const appConfig = {
   supabaseUrl: requireEnv(
     'NEXT_PUBLIC_SUPABASE_URL',

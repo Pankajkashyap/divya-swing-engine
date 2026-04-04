@@ -1,3 +1,5 @@
+import { APP_BASE_URL } from '@/lib/config'
+
 export type TargetAlertData = {
   ticker: string
   currentPrice: number
@@ -27,7 +29,7 @@ function fmtPercent(value: number) {
 }
 
 function inboxUrl(appUrl?: string) {
-  return `${appUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? ''}/inbox`
+  return `${appUrl ?? APP_BASE_URL}/inbox`
 }
 
 function layout(title: string, body: string) {
