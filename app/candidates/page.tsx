@@ -416,67 +416,69 @@ export default function CandidatesPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 text-neutral-900 dark:text-neutral-100">
         <AppHeader
           title="Candidates"
           subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
         />
-        <div className="mt-8 text-sm text-neutral-500">Loading candidates...</div>
+        <div className="mt-8 text-sm text-neutral-500 dark:text-neutral-400">Loading candidates...</div>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 text-neutral-900 dark:text-neutral-100">
       <AppHeader
         title="Candidates"
         subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
       />
 
       {!screenerEnabled && candidates.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-8 text-neutral-700">
+        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-8 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
           No candidates yet. Enable the screener in Settings and it will run tonight.
         </div>
       ) : (
         <>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Awaiting research
                 <Tooltip text="Candidates the screener has found but that still need technical fields filled in (RS line, base pattern, entry zone, etc.) before they can be evaluated." />
               </div>
-              <div className="mt-2 text-4xl font-semibold">{awaitingResearchCount}</div>
+              <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-neutral-100">{awaitingResearchCount}</div>
             </div>
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500">
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Ready for evaluation
                 <Tooltip text="Candidates that have been fully researched and are ready for the rule-based evaluation engine to score." />
               </div>
-              <div className="mt-2 text-4xl font-semibold">{readyForEvaluationCount}</div>
+              <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-neutral-100">{readyForEvaluationCount}</div>
             </div>
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500">
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 Last screener run
                 <Tooltip text="The most recent time the automated screener ran and searched for new candidates." />
               </div>
-              <div className="mt-2 text-2xl font-semibold">
+              <div className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
                 {lastRunAt ? new Date(lastRunAt).toLocaleString() : 'No runs yet'}
               </div>
             </div>
           </div>
 
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <h2 className="text-2xl font-semibold">Step 1 — Copy to ChatGPT</h2>
-              <p className="mt-3 text-neutral-600">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Step 1 — Copy to ChatGPT</h2>
+              <p className="mt-3 text-neutral-600 dark:text-neutral-400">
                 Click copy. Open ChatGPT. Paste. The prompt and candidate data are included.
               </p>
-              <div className="mt-5 text-lg font-medium">{candidates.length} candidates included</div>
+              <div className="mt-5 text-lg font-medium text-neutral-900 dark:text-neutral-100">{candidates.length} candidates included</div>
 
               <textarea
                 readOnly
                 value={clipboardPreview}
-                className="mt-5 h-32 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs text-neutral-500"
+                className="mt-5 h-32 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
               />
 
               <button
@@ -488,9 +490,9 @@ export default function CandidatesPage() {
               </button>
             </div>
 
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <h2 className="text-2xl font-semibold">Step 2 — Paste ChatGPT output</h2>
-              <p className="mt-3 text-neutral-600">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Step 2 — Paste ChatGPT output</h2>
+              <p className="mt-3 text-neutral-600 dark:text-neutral-400">
                 Paste the JSON that ChatGPT returned. Click Apply to update all candidates at once.
               </p>
 
@@ -498,33 +500,33 @@ export default function CandidatesPage() {
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
                 placeholder="Paste ChatGPT's JSON output here..."
-                className="mt-5 h-48 w-full rounded-xl border border-neutral-200 p-4 text-sm"
+                className="mt-5 h-48 w-full rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
               />
 
               <div className="mt-4 min-h-7">
                 {importValidation === 'valid' && parsedImport && (
-                  <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                  <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
                     Valid JSON — {parsedImport.length} candidates ready to apply
                   </span>
                 )}
                 {importValidation === 'invalid' && (
-                  <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
+                  <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
                     Invalid JSON — check the output and try again
                   </span>
                 )}
                 {importValidation === 'schema' && (
-                  <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
                     JSON structure does not match expected format
                   </span>
                 )}
               </div>
 
               {importSuccess && (
-                <div className="mt-4 text-sm font-medium text-green-700">{importSuccess}</div>
+                <div className="mt-4 text-sm font-medium text-green-700 dark:text-green-300">{importSuccess}</div>
               )}
 
               {importError && (
-                <div className="mt-4 text-sm font-medium text-red-700">{importError}</div>
+                <div className="mt-4 text-sm font-medium text-red-700 dark:text-red-300">{importError}</div>
               )}
 
               <button

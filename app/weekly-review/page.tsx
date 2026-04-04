@@ -111,50 +111,50 @@ export default function WeeklyReviewPage() {
 
     if (!user) return
 
-const { error } = await supabase.from('weekly_reviews').upsert(
-  {
-    user_id: user.id,
-    week_ending: today,
-    market_phase: market?.market_phase ?? null,
-    open_positions_count: metrics.openTradesCount,
-    wins_count: metrics.winsCount,
-    losses_count: metrics.lossesCount,
-    weekly_pnl_dollar: metrics.totalRealizedPnl,
-    avg_win_r: metrics.avgWin,
-    avg_loss_r: metrics.avgLoss,
-    biggest_rule_violation: biggestRuleIssue || null,
-    next_week_triggers: nextWeekTriggers || null,
-    primary_focus: primaryFocus || null,
-    notes: notes || null,
-  },
-  { onConflict: 'week_ending' }
-)
-if (error) {
-    console.error(error)
-    alert('Failed to save weekly review')
-    return
-  }
+    const { error } = await supabase.from('weekly_reviews').upsert(
+      {
+        user_id: user.id,
+        week_ending: today,
+        market_phase: market?.market_phase ?? null,
+        open_positions_count: metrics.openTradesCount,
+        wins_count: metrics.winsCount,
+        losses_count: metrics.lossesCount,
+        weekly_pnl_dollar: metrics.totalRealizedPnl,
+        avg_win_r: metrics.avgWin,
+        avg_loss_r: metrics.avgLoss,
+        biggest_rule_violation: biggestRuleIssue || null,
+        next_week_triggers: nextWeekTriggers || null,
+        primary_focus: primaryFocus || null,
+        notes: notes || null,
+      },
+      { onConflict: 'week_ending' }
+    )
 
-  setPrimaryFocus('')
-  setBiggestRuleIssue('')
-  setNextWeekTriggers('')
-  setNotes('')
+    if (error) {
+      console.error(error)
+      alert('Failed to save weekly review')
+      return
+    }
 
-  alert('Weekly review saved')
+    setPrimaryFocus('')
+    setBiggestRuleIssue('')
+    setNextWeekTriggers('')
+    setNotes('')
+
+    alert('Weekly review saved')
   }
 
   if (loading) {
-    return <main className="p-10">Loading weekly review...</main>
+    return <main className="p-10 text-neutral-900 dark:text-neutral-100">Loading weekly review...</main>
   }
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
+    <main className="min-h-screen bg-white px-6 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <section className="mx-auto max-w-6xl">
-      
-      <AppHeader
-        title="Weekly Review"
-        subtitle="Review outcomes, performance, and next-week focus."
-      />
+        <AppHeader
+          title="Weekly Review"
+          subtitle="Review outcomes, performance, and next-week focus."
+        />
 
         <WeeklyReviewSummary
           marketPhase={market?.market_phase ?? ''}
@@ -167,16 +167,16 @@ if (error) {
           avgLoss={metrics.avgLoss}
         />
 
-        <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
-          <h2 className="text-lg font-semibold">Closed Trades</h2>
+        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-900">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Closed Trades</h2>
 
           {metrics.closedTrades.length === 0 ? (
-            <p className="mt-4 text-neutral-600">No closed trades yet.</p>
+            <p className="mt-4 text-neutral-600 dark:text-neutral-400">No closed trades yet.</p>
           ) : (
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-neutral-200 text-left text-neutral-500">
+                  <tr className="border-b border-neutral-200 text-left text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
                     <th className="py-3 pr-4">Ticker</th>
                     <th className="py-3 pr-4">Entry Date</th>
                     <th className="py-3 pr-4">Exit Date</th>
@@ -187,8 +187,8 @@ if (error) {
                 </thead>
                 <tbody>
                   {metrics.closedTrades.map((trade) => (
-                    <tr key={trade.id} className="border-b border-neutral-100">
-                      <td className="py-3 pr-4 font-medium">{trade.ticker}</td>
+                    <tr key={trade.id} className="border-b border-neutral-100 dark:border-neutral-800">
+                      <td className="py-3 pr-4 font-medium text-neutral-900 dark:text-neutral-100">{trade.ticker}</td>
                       <td className="py-3 pr-4">{trade.entry_date ?? '—'}</td>
                       <td className="py-3 pr-4">{trade.exit_date ?? '—'}</td>
                       <td className="py-3 pr-4">
@@ -204,52 +204,52 @@ if (error) {
           )}
         </div>
 
-        <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
-          <h2 className="text-lg font-semibold">Weekly Review Notes</h2>
+        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-900">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Weekly Review Notes</h2>
 
           <div className="mt-4 grid gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Primary Focus for Next Week
               </label>
               <input
                 value={primaryFocus}
                 onChange={(e) => setPrimaryFocus(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
                 placeholder="Focus on A-grade setups only"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Biggest Rule Issue
               </label>
               <input
                 value={biggestRuleIssue}
                 onChange={(e) => setBiggestRuleIssue(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
                 placeholder="Entered too far from pivot"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Next Week Triggers
               </label>
               <input
                 value={nextWeekTriggers}
                 onChange={(e) => setNextWeekTriggers(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
                 placeholder="Watch for confirmed_uptrend continuation"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Notes</label>
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">Notes</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="min-h-32 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                className="min-h-32 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
                 placeholder="Weekly reflection..."
               />
             </div>

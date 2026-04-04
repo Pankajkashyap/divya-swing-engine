@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import { AppHeader } from '@/components/AppHeader'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -70,6 +71,62 @@ function formatMemberSince(value?: string | null) {
   }).format(new Date(value))
 }
 
+function SunIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41M2 12h2M20 12h2 M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
+function SystemIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+    </svg>
+  )
+}
+
 function ToggleRow({
   label,
   description,
@@ -82,10 +139,10 @@ function ToggleRow({
   onChange: (next: boolean) => void
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-4">
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-4 dark:border-neutral-700 dark:bg-neutral-900">
       <div className="min-w-0">
-        <div className="text-sm font-medium text-neutral-900">{label}</div>
-        <p className="mt-1 text-sm text-neutral-600">{description}</p>
+        <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{label}</div>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{description}</p>
       </div>
 
       <button
@@ -95,12 +152,12 @@ function ToggleRow({
         onClick={() => onChange(!value)}
         className={[
           'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-          value ? 'bg-neutral-900' : 'bg-neutral-300',
+          value ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-neutral-700',
         ].join(' ')}
       >
         <span
           className={[
-            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform dark:bg-neutral-900',
             value ? 'translate-x-6' : 'translate-x-1',
           ].join(' ')}
         />
@@ -112,6 +169,7 @@ function ToggleRow({
 export default function SettingsPage() {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
+  const { theme, setTheme } = useTheme()
 
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -137,7 +195,7 @@ export default function SettingsPage() {
   const [screenerMinRevenueGrowthPct, setScreenerMinRevenueGrowthPct] = useState('20')
   const [screenerExchanges, setScreenerExchanges] = useState('XNAS,XNYS')
   const [screenerMaxCandidates, setScreenerMaxCandidates] = useState<10 | 20 | 30>(20)
-  
+
   useEffect(() => {
     let cancelled = false
 
@@ -309,7 +367,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-50 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-neutral-50 px-4 py-8 dark:bg-neutral-950 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
         <AppHeader
           title="Settings"
@@ -318,21 +376,79 @@ export default function SettingsPage() {
 
         {loading ? (
           <div className="space-y-6">
-            <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
-            <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
-            <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
           </div>
         ) : (
           <div className="space-y-6">
             <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200">
-                <div className="border-b border-neutral-200 px-6 py-5">
-                  <h2 className="text-lg font-semibold text-neutral-900">Portfolio</h2>
+              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
+                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                    Appearance
+                  </h2>
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                    Choose how Divya Swing Engine looks.
+                  </p>
+                </div>
+
+                <div className="px-6 py-6">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {[
+                      { value: 'light', label: 'Light', icon: <SunIcon /> },
+                      { value: 'dark', label: 'Dark', icon: <MoonIcon /> },
+                      { value: 'system', label: 'System', icon: <SystemIcon /> },
+                    ].map((option) => {
+                      const selected = theme === option.value
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setTheme(option.value)}
+                          className={[
+                            'w-full rounded-xl p-4 text-left transition-colors',
+                            selected
+                              ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-neutral-800'
+                              : 'border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900',
+                          ].join(' ')}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={[
+                                'mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg border',
+                                selected
+                                  ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                                  : 'border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
+                              ].join(' ')}
+                            >
+                              {option.icon}
+                            </span>
+
+                            <div>
+                              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                                {option.label}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="ui-section">
+              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
+                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Portfolio</h2>
                 </div>
 
                 <div className="px-6 py-6">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-neutral-900">
+                    <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       Portfolio Value ($)
                     </span>
                     <input
@@ -349,22 +465,22 @@ export default function SettingsPage() {
                   </label>
 
                   {portfolioValueError ? (
-                    <p className="mt-2 text-sm text-red-600">{portfolioValueError}</p>
+                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">{portfolioValueError}</p>
                   ) : null}
                 </div>
               </div>
             </section>
 
             <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200">
-                <div className="border-b border-neutral-200 px-6 py-5">
-                  <h2 className="text-lg font-semibold text-neutral-900">Notifications</h2>
+              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
+                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Notifications</h2>
                 </div>
 
                 <div className="space-y-6 px-6 py-6">
                   <div>
                     <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-neutral-900">
+                      <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         Notification Email
                       </span>
                       <input
@@ -379,18 +495,18 @@ export default function SettingsPage() {
                       />
                     </label>
 
-                    <p className="mt-2 text-sm text-neutral-600">
+                    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                       Buy signals, stop alerts, and digests are sent to this address.
                     </p>
 
                     {notificationEmailError ? (
-                      <p className="mt-2 text-sm text-red-600">{notificationEmailError}</p>
+                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">{notificationEmailError}</p>
                     ) : null}
                   </div>
 
                   <div>
                     <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-neutral-900">
+                      <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         Timezone
                       </span>
                       <select
@@ -434,21 +550,21 @@ export default function SettingsPage() {
             </section>
 
             <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200">
-                <div className="border-b border-neutral-200 px-6 py-5">
-                  <h2 className="text-lg font-semibold text-neutral-900">Workflow preferences</h2>
-                  <p className="mt-2 text-sm text-neutral-600">
+              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
+                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Workflow preferences</h2>
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                     Control when the system scans for setups and how long signals stay active.
                   </p>
                 </div>
 
                 <div className="space-y-6 px-6 py-6">
                   <div>
-                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       Scan schedule
                       <Tooltip text="How often the system scans your watchlist for buy signals. Evening only is recommended — signals arrive after market close and you review them at night before placing pre-market limit orders." />
                     </div>
-                    <p className="mt-1 text-sm text-neutral-600">
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                       Evening only is recommended for swing traders who review signals at night and place pre-market orders.
                     </p>
 
@@ -464,8 +580,8 @@ export default function SettingsPage() {
                             className={[
                               'w-full cursor-pointer rounded-xl p-4 text-left',
                               selected
-                                ? 'border-2 border-neutral-900 bg-neutral-50'
-                                : 'border border-neutral-200',
+                                ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-neutral-800'
+                                : 'border border-neutral-200 dark:border-neutral-700',
                             ].join(' ')}
                           >
                             <div className="flex items-start gap-3">
@@ -473,20 +589,20 @@ export default function SettingsPage() {
                                 className={[
                                   'mt-1 inline-flex h-4 w-4 shrink-0 rounded-full border',
                                   selected
-                                    ? 'border-neutral-900 bg-neutral-900'
-                                    : 'border-neutral-300 bg-white',
+                                    ? 'border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100'
+                                    : 'border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-900',
                                 ].join(' ')}
                               >
                                 {selected ? (
-                                  <span className="m-auto h-2 w-2 rounded-full bg-white" />
+                                  <span className="m-auto h-2 w-2 rounded-full bg-white dark:bg-neutral-900" />
                                 ) : null}
                               </span>
 
                               <div>
-                                <div className="text-sm font-medium text-neutral-900">
+                                <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                                   {option.label}
                                 </div>
-                                <p className="mt-1 text-sm text-neutral-600">
+                                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                                   {option.description}
                                 </p>
                               </div>
@@ -498,11 +614,11 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       Buy signal active for
                       <Tooltip text="How many trading days a buy signal stays in your Inbox before it expires. After this period, if you haven't acted on it, it is automatically dismissed." />
                     </div>
-                    <p className="mt-1 text-sm text-neutral-600">
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                       How many trading days a buy signal stays in your Inbox before it expires.
                     </p>
 
@@ -517,8 +633,8 @@ export default function SettingsPage() {
                             onClick={() => setBuySignalExpiryDays(days as 1 | 2 | 3)}
                             className={
                               selected
-                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white'
-                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700'
+                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
+                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-300'
                             }
                           >
                             {days} day{days > 1 ? 's' : ''}
@@ -528,14 +644,14 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4">
+                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4 dark:border-neutral-700 dark:bg-neutral-900">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                           Morning trade monitor
                           <Tooltip text="If enabled, the system checks your open trades at 9:45 AM ET for stop losses hit at the market open." />
                         </div>
-                        <p className="mt-1 text-sm text-neutral-600">
+                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                           Check open trades at market open (9:45 AM ET) for stop hits at the open.
                         </p>
                       </div>
@@ -547,12 +663,12 @@ export default function SettingsPage() {
                         onClick={() => setMorningTradeMonitorEnabled(!morningTradeMonitorEnabled)}
                         className={[
                           'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-                          morningTradeMonitorEnabled ? 'bg-neutral-900' : 'bg-neutral-300',
+                          morningTradeMonitorEnabled ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-neutral-700',
                         ].join(' ')}
                       >
                         <span
                           className={[
-                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform dark:bg-neutral-900',
                             morningTradeMonitorEnabled ? 'translate-x-6' : 'translate-x-1',
                           ].join(' ')}
                         />
@@ -564,23 +680,23 @@ export default function SettingsPage() {
             </section>
 
             <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200">
-                <div className="border-b border-neutral-200 px-6 py-5">
-                  <h2 className="text-lg font-semibold text-neutral-900">Screener</h2>
-                  <p className="mt-2 text-sm text-neutral-600">
+              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
+                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Screener</h2>
+                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
                     The screener runs nightly and automatically discovers stock candidates using Massive market data. Enable it and set your minimum criteria.
                   </p>
                 </div>
 
                 <div className="space-y-6 px-6 py-6">
-                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4">
+                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4 dark:border-neutral-700 dark:bg-neutral-900">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                           Autonomous screener
                           <Tooltip text="When enabled, the system automatically scans the market each night for new stock candidates that meet your minimum criteria." />
                         </div>
-                        <p className="mt-1 text-sm text-neutral-600">
+                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                           Automatically discover new candidates each night based on your criteria below.
                         </p>
                       </div>
@@ -592,12 +708,12 @@ export default function SettingsPage() {
                         onClick={() => setScreenerEnabled(!screenerEnabled)}
                         className={[
                           'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-                          screenerEnabled ? 'bg-neutral-900' : 'bg-neutral-300',
+                          screenerEnabled ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-neutral-700',
                         ].join(' ')}
                       >
                         <span
                           className={[
-                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform dark:bg-neutral-900',
                             screenerEnabled ? 'translate-x-6' : 'translate-x-1',
                           ].join(' ')}
                         />
@@ -607,7 +723,7 @@ export default function SettingsPage() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         Minimum price ($)
                         <Tooltip text="Only consider stocks trading above this price. Helps avoid penny stocks and illiquid names." />
                       </span>
@@ -621,7 +737,7 @@ export default function SettingsPage() {
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         Minimum average volume
                         <Tooltip text="Only consider stocks with at least this many shares traded per day on average. Ensures you can enter and exit without slippage." />
                       </span>
@@ -636,7 +752,7 @@ export default function SettingsPage() {
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         Minimum EPS growth (%)
                         <Tooltip text="Only consider stocks with at least this level of earnings growth year over year. Minervini's baseline is 25%." />
                       </span>
@@ -651,7 +767,7 @@ export default function SettingsPage() {
                     </label>
 
                     <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         Minimum revenue growth (%)
                         <Tooltip text="Only consider stocks with at least this level of sales growth year over year. Confirms the earnings growth is backed by real demand." />
                       </span>
@@ -667,7 +783,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       Max new candidates per night
                       <Tooltip text="The maximum number of new stocks the screener will add to your candidates list in a single night. Keeps your review workload manageable." />
                     </div>
@@ -683,8 +799,8 @@ export default function SettingsPage() {
                             onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
                             className={
                               selected
-                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white'
-                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700'
+                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
+                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-300'
                             }
                           >
                             {count}
@@ -698,20 +814,20 @@ export default function SettingsPage() {
             </section>
 
             <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200">
-                <div className="border-b border-neutral-200 px-6 py-5">
-                  <h2 className="text-lg font-semibold text-neutral-900">Account</h2>
+              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
+                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Account</h2>
                 </div>
 
                 <div className="space-y-5 px-6 py-6">
                   <div>
-                    <div className="text-sm font-medium text-neutral-500">Email address</div>
-                    <div className="mt-1 text-sm text-neutral-900">{accountEmail}</div>
+                    <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Email address</div>
+                    <div className="mt-1 text-sm text-neutral-900 dark:text-neutral-100">{accountEmail}</div>
                   </div>
 
                   <div>
-                    <div className="text-sm font-medium text-neutral-500">Member since</div>
-                    <div className="mt-1 text-sm text-neutral-900">
+                    <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Member since</div>
+                    <div className="mt-1 text-sm text-neutral-900 dark:text-neutral-100">
                       {formatMemberSince(settings?.created_at)}
                     </div>
                   </div>
@@ -742,10 +858,10 @@ export default function SettingsPage() {
               </div>
 
               {saveSuccess ? (
-                <p className="text-sm text-green-600">Settings saved successfully.</p>
+                <p className="text-sm text-green-600 dark:text-green-400">Settings saved successfully.</p>
               ) : null}
 
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+              {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
             </div>
           </div>
         )}

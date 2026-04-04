@@ -492,13 +492,13 @@ export default function InboxPage() {
     setExecutingId(null)
   }
 
-  if (loading) {
-    return <main className="p-10">Loading inbox...</main>
-  }
+if (loading) {
+  return <main className="p-10 text-neutral-900 dark:text-neutral-100">Loading inbox...</main>
+}
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
-      <section className="mx-auto max-w-6xl">
+<main className="min-h-screen bg-white px-6 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+          <section className="mx-auto max-w-6xl">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <AppHeader
@@ -506,15 +506,15 @@ export default function InboxPage() {
               subtitle="Pending signals, alerts, and watchlist reviews."
             />
           </div>
-          <div className="mt-6 inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-sm font-medium text-neutral-700">
-            {pendingCountLabel}
+        <div className="mt-6 inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+              {pendingCountLabel}
           </div>
         </div>
 
         <section className="ui-section">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900">
-              Pending Actions
+            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                Pending Actions
               <Tooltip text="Items that require your decision: proposed buy signals, watchlist additions or removals, and system alerts waiting for your confirmation." />
             </h2>
           </div>
@@ -534,8 +534,8 @@ export default function InboxPage() {
 
         <section className="ui-section mt-8">
           <div className="mb-4">
-            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900">
-              Notification Log
+            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                Notification Log
               <Tooltip text="A record of all emails and alerts the system has sent you." />
             </h2>
           </div>

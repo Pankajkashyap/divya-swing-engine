@@ -345,12 +345,13 @@ export default function HomePage() {
   }, [portfolioValue, metrics.openPositionValue, market, plan])
 
   const tradeMessageClass =
-    tradeCreationMessage?.type === 'error'
-      ? 'mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800'
-      : tradeCreationMessage?.type === 'success'
-        ? 'mt-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-800'
-        : 'mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm leading-6 text-neutral-700'
-const evaluateSetupBlockReason = !market
+  tradeCreationMessage?.type === 'error'
+    ? 'mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300'
+    : tradeCreationMessage?.type === 'success'
+      ? 'mt-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300'
+      : 'mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm leading-6 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
+
+      const evaluateSetupBlockReason = !market
   ? 'Save a market snapshot to enable setup evaluation.'
   : !stock
     ? 'Select a valid watchlist stock to enable setup evaluation.'
@@ -1113,13 +1114,17 @@ const createTradeBlockReason = !stock
     alert('Partial exit processed successfully')
   }
 
-  if (loading) {
-    return <main className="p-10">Loading...</main>
-  }
+if (loading) {
+  return (
+    <main className="p-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      Loading...
+    </main>
+  )
+}
 
   return (
-    <main className="min-h-screen bg-white px-6 py-10 text-neutral-900">
-      <section className="mx-auto max-w-6xl">
+<main className="min-h-screen bg-white px-6 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">      
+  <section className="mx-auto max-w-6xl">
         <AppHeader
           title="Setup Evaluator"
           subtitle="Market-first rule engine, trade planning, execution, and exposure control."
