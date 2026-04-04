@@ -1,12 +1,33 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { appConfig } from '@/lib/config'
 
 type CandidateRow = {
   id: string
   ticker: string
   eps_growth_pct: number | null
   revenue_growth_pct: number | null
+  setup_grade: 'A+' | 'A' | 'B' | 'C' | 'F' | null
+  trend_template_pass: boolean | null
+  rs_line_confirmed: boolean | null
+  base_pattern_valid: boolean | null
+  entry_near_pivot: boolean | null
+  volume_dry_up_pass: boolean | null
+  volume_breakout_confirmed: boolean | null
+  earnings_within_2_weeks: boolean | null
+  binary_event_risk: boolean | null
+  acc_dist_rating: 'A' | 'B' | 'C' | 'D' | 'E' | null
+  industry_group_rank: number | null
+  entry_zone_low: number | null
+  entry_zone_high: number | null
+  stop_price: number | null
+  target_1_price: number | null
+  target_2_price: number | null
+}
+
+type CurrentWatchlistRow = {
+  id: string
   setup_grade: 'A+' | 'A' | 'B' | 'C' | 'F' | null
   trend_template_pass: boolean | null
   rs_line_confirmed: boolean | null
@@ -104,7 +125,24 @@ function validateRow(row: unknown): row is CandidateRow {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = createRouteHandlerClient({ cookies })
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    appConfig.supabaseUrl,
+    appConfig.supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, options)
+          }
+        },
+      },
+    }
+  )
 
   const {
     data: { user },
@@ -135,7 +173,7 @@ export async function POST(request: NextRequest) {
     .in('id', ids)
     .eq('user_id', user.id)
 
-  const ownedIds = new Set(owned?.map((row) => row.id) ?? [])
+  const ownedIds = new Set((owned ?? []).map((row: { id: string }) => row.id))
   const safeRows = rows.filter((row) => ownedIds.has(row.id))
 
   const validRows = safeRows.filter((row) => row.setup_grade !== 'F')
@@ -152,6 +190,8 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .eq('source', 'automation')
   }
+
+  const validIds = validRows.map((row) => row.id)
 
   const { data: current } = await supabase
     .from('watchlist')
@@ -174,9 +214,11 @@ export async function POST(request: NextRequest) {
       target_1_price,
       target_2_price
     `)
-    .in('id', validRows.map((row) => row.id))
+    .in('id', validIds)
 
-  const currentMap = new Map((current ?? []).map((row) => [row.id, row]))
+  const currentMap = new Map(
+    ((current ?? []) as CurrentWatchlistRow[]).map((row) => [row.id, row])
+  )
 
   let successCount = 0
   let skipCount = 0
@@ -192,8 +234,7 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    const updatePayload: Record<string, unknown> = {}
-
+        const updatePayload: Record<string, unknown> = {}
     for (const field of updatableFields) {
       const incomingValue = row[field]
       const currentValue = existing[field]

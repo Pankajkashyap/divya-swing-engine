@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { AppHeader } from '@/components/AppHeader'
 
 type CandidateRow = {
@@ -215,7 +215,7 @@ async function copyTextWithFallback(text: string): Promise<void> {
 }
 
 export default function CandidatesPage() {
-  const supabase = createClientComponentClient()
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const [candidates, setCandidates] = useState<CandidateRow[]>([])
   const [screenerEnabled, setScreenerEnabled] = useState(false)
@@ -491,7 +491,7 @@ export default function CandidatesPage() {
                 className="mt-5 h-48 w-full rounded-xl border border-neutral-200 p-4 text-sm"
               />
 
-              <div className="mt-4 min-h-[28px]">
+              <div className="mt-4 min-h-7">
                 {importValidation === 'valid' && parsedImport && (
                   <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
                     Valid JSON — {parsedImport.length} candidates ready to apply
