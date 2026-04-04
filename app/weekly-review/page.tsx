@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { WeeklyReviewSummary } from '@/components/WeeklyReviewSummary'
 import { AppHeader } from '@/components/AppHeader'
 
@@ -22,6 +22,7 @@ type TradeRow = {
 }
 
 export default function WeeklyReviewPage() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [trades, setTrades] = useState<TradeRow[]>([])
   const [primaryFocus, setPrimaryFocus] = useState('')

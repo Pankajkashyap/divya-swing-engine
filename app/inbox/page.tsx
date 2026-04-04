@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { AppHeader } from '@/components/AppHeader'
 import { PendingActionsTable } from '@/components/inbox/PendingActionsTable'
 import { NotificationLogTable } from '@/components/inbox/NotificationLogTable'
@@ -75,6 +75,7 @@ function asNumber(value: unknown): number | null {
 }
 
 export default function InboxPage() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([])
   const [notifications, setNotifications] = useState<NotificationLog[]>([])
   const [loading, setLoading] = useState(true)

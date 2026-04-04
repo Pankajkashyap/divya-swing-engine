@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { evaluateSetup } from '@/lib/evaluateSetup'
 import { generateTradePlan } from '@/lib/generateTradePlan'
 import { calculateExposure } from '@/lib/calculateExposure'
@@ -139,6 +139,7 @@ type TradeCreationMessage = {
 }
 
 export default function HomePage() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [market, setMarket] = useState<MarketSnapshot | null>(null)
   const [stock, setStock] = useState<WatchlistRow | null>(null)
   const [watchlist, setWatchlist] = useState<WatchlistRow[]>([])
