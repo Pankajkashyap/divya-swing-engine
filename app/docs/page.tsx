@@ -10,9 +10,9 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-6">
-      <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-      <div className="mt-4 space-y-4 text-sm leading-7 text-neutral-700">
+    <section className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+      <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">{title}</h2>
+      <div className="mt-4 space-y-4 text-sm leading-7 text-neutral-700 dark:text-neutral-300">
         {children}
       </div>
     </section>
@@ -27,48 +27,48 @@ function Term({
   definition: string
 }) {
   return (
-    <div className="rounded-xl border border-neutral-200 p-4">
-      <p className="font-semibold text-neutral-900">{term}</p>
-      <p className="mt-1 text-sm leading-6 text-neutral-700">{definition}</p>
+    <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+      <p className="font-semibold text-neutral-900 dark:text-neutral-100">{term}</p>
+      <p className="mt-1 text-sm leading-6 text-neutral-700 dark:text-neutral-300">{definition}</p>
     </div>
   )
 }
 
 export default function DocsPage() {
   return (
-    <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-900">
+    <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <section className="mx-auto max-w-5xl space-y-8">
-        <div className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm">
+        <div className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-[0.24em] text-neutral-500">
+              <p className="text-xs font-medium uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
                 Divya Swing Engine
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight">
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
                 Documentation & Learning Guide
               </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-neutral-600">
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-neutral-600 dark:text-neutral-400">
                 This page explains how to use the platform step by step, what the main trading terms mean,
                 and how the engine makes decisions. It is written for someone who is new to trading and new
                 to this app.
               </p>
             </div>
 
-<div className="flex gap-2">
-  <Link
-    href="/"
-    className="ui-link-pill-idle"
-  >
-    Dashboard
-  </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/"
+                className="ui-link-pill-idle"
+              >
+                Dashboard
+              </Link>
 
-  <Link
-    href="/weekly-review"
-    className="ui-link-pill-idle"
-  >
-    Weekly Review
-  </Link>
-</div>
+              <Link
+                href="/weekly-review"
+                className="ui-link-pill-idle"
+              >
+                Weekly Review
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -449,7 +449,7 @@ export default function DocsPage() {
             />
             <Term
               term="Screener"
-              definition="The nightly autonomous function that discovers new stock candidates from the S&amp;P 500 and NASDAQ 100."
+              definition="The nightly autonomous function that discovers new stock candidates from the S&P 500 and NASDAQ 100."
             />
             <Term
               term="Trade Instruction Card"

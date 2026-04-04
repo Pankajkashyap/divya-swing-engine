@@ -273,9 +273,9 @@ export function MarketSnapshotChatGPTWorkflow() {
 
   return (
     <div className="mt-8 grid gap-6 lg:grid-cols-2">
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-        <h2 className="text-2xl font-semibold">Step 1 — Copy Market Prompt</h2>
-        <p className="mt-3 text-neutral-600">
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+        <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Step 1 — Copy Market Prompt</h2>
+        <p className="mt-3 text-neutral-600 dark:text-neutral-400">
           Click copy. Open ChatGPT with web browsing enabled. Paste. ChatGPT
           will research the current market and return a JSON assessment.
         </p>
@@ -283,7 +283,7 @@ export function MarketSnapshotChatGPTWorkflow() {
         <textarea
           readOnly
           value={clipboardPreview}
-          className="mt-5 h-32 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs text-neutral-500"
+          className="mt-5 h-32 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
         />
 
         <button
@@ -295,9 +295,9 @@ export function MarketSnapshotChatGPTWorkflow() {
         </button>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-        <h2 className="text-2xl font-semibold">Step 2 — Paste ChatGPT output</h2>
-        <p className="mt-3 text-neutral-600">
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
+        <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Step 2 — Paste ChatGPT output</h2>
+        <p className="mt-3 text-neutral-600 dark:text-neutral-400">
           Paste the JSON that ChatGPT returned. Click Apply to update the market
           snapshot.
         </p>
@@ -306,35 +306,35 @@ export function MarketSnapshotChatGPTWorkflow() {
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
           placeholder="Paste ChatGPT's JSON output here..."
-          className="mt-5 h-48 w-full rounded-xl border border-neutral-200 p-4 text-sm"
+          className="mt-5 h-48 w-full rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
         />
 
         <div className="mt-4 min-h-7">
           {importValidation === 'valid' && (
-            <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+            <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
               Valid JSON — ready to apply
             </span>
           )}
           {importValidation === 'invalid' && (
-            <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
+            <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
               Invalid JSON — check the output and try again
             </span>
           )}
           {importValidation === 'schema' && (
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
               JSON structure does not match expected format
             </span>
           )}
         </div>
 
         {importSuccess ? (
-          <div className="mt-4 text-sm font-medium text-green-700">
+          <div className="mt-4 text-sm font-medium text-green-700 dark:text-green-300">
             {importSuccess}
           </div>
         ) : null}
 
         {importError ? (
-          <div className="mt-4 text-sm font-medium text-red-700">
+          <div className="mt-4 text-sm font-medium text-red-700 dark:text-red-300">
             {importError}
           </div>
         ) : null}
