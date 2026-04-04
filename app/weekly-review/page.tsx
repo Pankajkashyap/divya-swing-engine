@@ -130,11 +130,17 @@ const { error } = await supabase.from('weekly_reviews').upsert(
   { onConflict: 'week_ending' }
 )
 if (error) {
-  console.error(error)
-  alert('Failed to save weekly review')
-  return
-}
-    alert('Weekly review saved')
+    console.error(error)
+    alert('Failed to save weekly review')
+    return
+  }
+
+  setPrimaryFocus('')
+  setBiggestRuleIssue('')
+  setNextWeekTriggers('')
+  setNotes('')
+
+  alert('Weekly review saved')
   }
 
   if (loading) {
