@@ -191,7 +191,7 @@ Deno.serve(async (request: Request) => {
       return true
     })
 
-    const targetScanCount = Math.min(maxCandidates * 10, 50)
+    const targetScanCount = Math.min(maxCandidates * 2, 12)
     const shuffled = [...preFiltered].sort(() => Math.random() - 0.5)
     const tickersToProcess = shuffled.slice(0, targetScanCount)
 
@@ -231,7 +231,7 @@ Deno.serve(async (request: Request) => {
 
         if (!aggResponse.ok) {
           rejectionCounts.fetch_error += 1
-          await delay(150)
+          await delay(12500)
           continue
         }
 
