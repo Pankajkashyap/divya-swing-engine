@@ -321,12 +321,6 @@ export function WatchlistSelectionTable({
   }
 
   const handleDelete = async (row: WatchlistRow) => {
-    const confirmed = window.confirm(
-      `Delete watchlist row for ${row.ticker}? This cannot be undone.`
-    )
-
-    if (!confirmed) return
-
     await onDelete(row.id, row.ticker)
   }
 
