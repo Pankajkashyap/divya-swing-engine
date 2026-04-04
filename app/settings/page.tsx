@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppHeader } from '@/components/AppHeader'
-import { supabase as browserSupabase } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 type UserSettings = {
   id: string
@@ -110,7 +110,7 @@ function ToggleRow({
 
 export default function SettingsPage() {
   const router = useRouter()
-  const supabase = useMemo(() => browserSupabase, [])
+  const supabase = createSupabaseBrowserClient()
 
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
