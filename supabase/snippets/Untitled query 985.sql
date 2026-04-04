@@ -12,7 +12,8 @@ create extension if not exists pg_net;
 
 -- Set cron secret as a database config parameter
 -- Replace REPLACE_WITH_REAL_CRON_SECRET before running this migration.
-alter database postgres set app.cron_secret = '7f9c2d1a-market-scan-prod-x8Qp29Lm';
+-- CRON_SECRET is managed via Supabase Edge Function secrets and cron job headers.
+-- Do not commit the actual secret value here.
 
 -- Remove existing jobs if re-running this migration
 select cron.unschedule(jobname)
