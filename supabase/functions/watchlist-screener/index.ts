@@ -240,7 +240,7 @@ Deno.serve(async (request: Request) => {
 
         if (bars.length === 0) {
           rejectionCounts.fetch_error += 1
-          await delay(150)
+          await delay(12500)
           continue
         }
 
@@ -251,25 +251,25 @@ Deno.serve(async (request: Request) => {
 
         if (price === null) {
           rejectionCounts.fetch_error += 1
-          await delay(150)
+          await delay(12500)
           continue
         }
 
         if (price < minPrice) {
           rejectionCounts.price_too_low += 1
-          await delay(150)
+          await delay(12500)
           continue
         }
 
         if (volume === null) {
           rejectionCounts.fetch_error += 1
-          await delay(150)
+          await delay(12500)
           continue
         }
 
         if (volume < minAvgVolume) {
           rejectionCounts.volume_too_low += 1
-          await delay(150)
+          await delay(12500)
           continue
         }
 
@@ -283,7 +283,7 @@ Deno.serve(async (request: Request) => {
         console.error(`[watchlist-screener] Pass 1 aggregate fetch failed for ${ticker}:`, error)
       }
 
-      await delay(150)
+      await delay(12500)
     }
 
     console.log(
