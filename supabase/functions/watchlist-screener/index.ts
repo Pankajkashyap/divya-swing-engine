@@ -191,7 +191,7 @@ Deno.serve(async (request: Request) => {
       return true
     })
 
-    const targetScanCount = Math.min(maxCandidates * 2, 12)
+    const targetScanCount = Math.min(maxCandidates * 2, 8)
     const shuffled = [...preFiltered].sort(() => Math.random() - 0.5)
     const tickersToProcess = shuffled.slice(0, targetScanCount)
 
