@@ -55,6 +55,13 @@ type Candidate = {
   revenueGrowthPct: number | null
 }
 
+type PricePassCandidate = {
+  ticker: string
+  price: number
+  volume: number
+  tickerDetail: MassiveTicker
+}
+
 function jsonResponse(payload: unknown, status: number): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -161,36 +168,6 @@ async function fetchReferenceTickers(exchange: string): Promise<MassiveTicker[]>
   return data?.results ?? []
 }
 
-async function fetchAggregates(
-  ticker: string,
-  from: string,
-  to: string
-): Promise<AggregateBar[]> {
-  const encodedTicker = encodeURIComponent(ticker)
-
-  const data = await massiveGet<{ results?: AggregateBar[] }>(
-    `/v2/aggs/ticker/${encodedTicker}/range/1/day/${from}/${to}`,
-    {
-      adjusted: 'true',
-      sort: 'desc',
-      limit: '10',
-    }
-  )
-
-  return data?.results ?? []
-}
-
-async function fetchFinancials(ticker: string): Promise<FinancialResult[]> {
-  const data = await massiveGet<{ results?: FinancialResult[] }>('/vX/reference/financials', {
-    ticker,
-    limit: '2',
-    timeframe: 'annual',
-    order: 'desc',
-  })
-
-  return data?.results ?? []
-}
-
 Deno.serve(async (request: Request) => {
   let logId: string | null = null
 
@@ -224,31 +201,21 @@ Deno.serve(async (request: Request) => {
     const userId = settings.user_id
 
     if (settings.screener_enabled === false) {
-      return jsonResponse(
-        { skipped: true, reason: 'Screener disabled in settings' },
-        200
-      )
+      return jsonResponse({ skipped: true, reason: 'Screener disabled in settings' }, 200)
     }
 
     if (!massiveApiKey) {
-      return jsonResponse(
-        { success: false, reason: 'MASSIVE_API_KEY is not configured' },
-        500
-      )
+      return jsonResponse({ success: false, reason: 'MASSIVE_API_KEY is not configured' }, 500)
     }
 
-    const windowKey = getCadenceWindowKey('watchlist-screener')
-
+const windowKey = `${getCadenceWindowKey('watchlist-screener')}:manual-two-pass-test-1`
     const alreadyProcessed = await hasAlreadyProcessed({
       jobType: 'watchlist-screener',
       windowKey,
     })
 
     if (alreadyProcessed) {
-      return jsonResponse(
-        { skipped: true, reason: 'Already processed this window' },
-        200
-      )
+      return jsonResponse({ skipped: true, reason: 'Already processed this window' }, 200)
     }
 
     logId = await startScanLog({
@@ -294,9 +261,11 @@ Deno.serve(async (request: Request) => {
         status: 'failed',
         message: 'Ticker reference response was empty',
         changesJson: {
-          scanned: 0,
+          pass1_scanned: 0,
+          pass1_price_volume_passed: 0,
+          pass2_fundamentals_scanned: 0,
           pre_filtered_from: 0,
-          passed_filters: 0,
+          passed_all_filters: 0,
           already_in_watchlist: 0,
           added: 0,
           stopped_early: false,
@@ -305,10 +274,7 @@ Deno.serve(async (request: Request) => {
         },
       })
 
-      return jsonResponse(
-        { success: false, reason: 'Ticker reference response was empty' },
-        500
-      )
+      return jsonResponse({ success: false, reason: 'Ticker reference response was empty' }, 500)
     }
 
     const preFiltered = allTickers.filter((ticker) => {
@@ -336,8 +302,6 @@ Deno.serve(async (request: Request) => {
 
     let passedCount = 0
     let addedCount = 0
-    const candidates: Candidate[] = []
-
     const rejectionCounts = {
       fetch_error: 0,
       price_too_low: 0,
@@ -350,38 +314,126 @@ Deno.serve(async (request: Request) => {
       zero_fundamentals: 0,
     }
 
+    const pricePassList: PricePassCandidate[] = []
+
+    console.log(
+      `[watchlist-screener] Pass 1 starting. Deep-processing ${tickersToProcess.length} tickers from ${allTickers.length} reference tickers.`
+    )
+
     for (const tickerDetail of tickersToProcess) {
-      if (addedCount >= maxCandidates) {
-        console.log(`[watchlist-screener] Reached max candidates (${maxCandidates}). Stopping early.`)
+      if (pricePassList.length >= maxCandidates * 3) {
+        console.log(
+          `[watchlist-screener] Pass 1 reached shortlist target (${maxCandidates * 3}). Stopping early.`
+        )
         break
       }
 
       const ticker = tickerDetail.ticker ?? ''
       if (!ticker) {
-        await delay(200)
+        await delay(150)
         continue
       }
 
       try {
-        const [bars, financialResults] = await Promise.all([
-          fetchAggregates(ticker, from, to),
-          fetchFinancials(ticker),
-        ])
+        const aggregateUrl =
+          `${massiveBaseUrl}/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/1/day/${from}/${to}` +
+          `?adjusted=true&sort=desc&limit=5&apiKey=${massiveApiKey}`
+
+        const aggResponse = await fetchWithTimeout(aggregateUrl, {}, 5000)
+
+        if (!aggResponse.ok) {
+          rejectionCounts.fetch_error += 1
+          await delay(150)
+          continue
+        }
+
+        const aggJson = (await aggResponse.json()) as { results?: AggregateBar[] }
+        const bars = aggJson.results ?? []
+
+        if (bars.length === 0) {
+          rejectionCounts.fetch_error += 1
+          await delay(150)
+          continue
+        }
 
         const sortedBars = [...bars].sort((a, b) => (b.t ?? 0) - (a.t ?? 0))
         const latestBar = sortedBars[0]
         const price = toNumberOrNull(latestBar?.c)
         const volume = toNumberOrNull(latestBar?.v)
 
-        if (price === null || price <= minPrice) {
-          rejectionCounts.price_too_low += 1
-          await delay(200)
+        if (price === null) {
+          rejectionCounts.fetch_error += 1
+          await delay(150)
           continue
         }
 
-        if (volume === null || volume <= minAvgVolume) {
+        if (price < minPrice) {
+          rejectionCounts.price_too_low += 1
+          await delay(150)
+          continue
+        }
+
+        if (volume === null) {
+          rejectionCounts.fetch_error += 1
+          await delay(150)
+          continue
+        }
+
+        if (volume < minAvgVolume) {
           rejectionCounts.volume_too_low += 1
-          await delay(200)
+          await delay(150)
+          continue
+        }
+
+        pricePassList.push({
+          ticker,
+          price,
+          volume,
+          tickerDetail,
+        })
+      } catch (error) {
+        rejectionCounts.fetch_error += 1
+        console.error(`[watchlist-screener] Pass 1 aggregate fetch failed for ${ticker}:`, error)
+      }
+
+      await delay(150)
+    }
+
+    console.log(
+      `[watchlist-screener] Pass 1 complete. Price/volume passed: ${pricePassList.length} of ${tickersToProcess.length}`
+    )
+
+    console.log(
+      `[watchlist-screener] Pass 2 starting. Fundamentals screening for ${pricePassList.length} shortlisted tickers.`
+    )
+
+    for (const shortlisted of pricePassList) {
+      if (addedCount >= maxCandidates) {
+        console.log(`[watchlist-screener] Reached max candidates (${maxCandidates}). Stopping early.`)
+        break
+      }
+
+      const ticker = shortlisted.ticker
+
+      try {
+        const financialsUrl =
+          `${massiveBaseUrl}/vX/reference/financials?ticker=${encodeURIComponent(ticker)}` +
+          `&timeframe=annual&order=desc&limit=2&apiKey=${massiveApiKey}`
+
+        const finResponse = await fetchWithTimeout(financialsUrl, {}, 8000)
+
+        if (!finResponse.ok) {
+          rejectionCounts.fetch_error += 1
+          await delay(300)
+          continue
+        }
+
+        const finJson = (await finResponse.json()) as { results?: FinancialResult[] }
+        const financialResults = finJson.results ?? []
+
+        if (financialResults.length === 0) {
+          rejectionCounts.fetch_error += 1
+          await delay(300)
           continue
         }
 
@@ -407,19 +459,16 @@ Deno.serve(async (request: Request) => {
 
         if (!hasValidFundamentals) {
           rejectionCounts.zero_fundamentals += 1
-          await delay(200)
+          await delay(300)
           continue
         }
 
-        if (epsGrowth !== null && epsGrowth < minEpsGrowth) {
+        if (
+          (epsGrowth === null || epsGrowth <= minEpsGrowth) &&
+          (revenueGrowth === null || revenueGrowth <= minRevenueGrowth)
+        ) {
           rejectionCounts.eps_too_low += 1
-          await delay(200)
-          continue
-        }
-
-        if (revenueGrowth !== null && revenueGrowth < minRevenueGrowth) {
-          rejectionCounts.eps_too_low += 1
-          await delay(200)
+          await delay(300)
           continue
         }
 
@@ -433,21 +482,24 @@ Deno.serve(async (request: Request) => {
           .maybeSingle()
 
         if (existingError) {
-          console.error(`[watchlist-screener] Failed to check existing watchlist entry for ${ticker}:`, existingError)
+          console.error(
+            `[watchlist-screener] Failed to check existing watchlist entry for ${ticker}:`,
+            existingError
+          )
           rejectionCounts.fetch_error += 1
-          await delay(200)
+          await delay(300)
           continue
         }
 
         if (existing?.ticker) {
           rejectionCounts.already_in_watchlist += 1
-          await delay(200)
+          await delay(300)
           continue
         }
 
-        const candidate = {
+        const candidate: Candidate = {
           ticker,
-          companyName: tickerDetail.name ?? null,
+          companyName: shortlisted.tickerDetail.name ?? null,
           epsGrowthPct: epsGrowth,
           revenueGrowthPct: revenueGrowth,
         }
@@ -489,30 +541,35 @@ Deno.serve(async (request: Request) => {
         if (insertError) {
           console.error(`[watchlist-screener] Failed to insert ${candidate.ticker}:`, insertError.message)
           rejectionCounts.fetch_error += 1
-          await delay(200)
+          await delay(300)
           continue
         }
 
-        candidates.push(candidate)
         addedCount += 1
       } catch (error) {
         rejectionCounts.fetch_error += 1
-        console.error(`[watchlist-screener] Skipping ${ticker} due to fetch error:`, error)
+        console.error(`[watchlist-screener] Pass 2 financials fetch failed for ${ticker}:`, error)
       }
 
-      await delay(200)
+      await delay(300)
     }
+
+    console.log(`[watchlist-screener] Pass 2 complete. Added: ${addedCount}`)
 
     const stoppedEarly = addedCount >= maxCandidates
 
     await safeFinishScanLog({
       logId,
       status: 'completed',
-      message: `Watchlist screener completed. Pre-filtered from ${allTickers.length} to ${tickersToProcess.length}. Passed: ${passedCount}, existing: ${rejectionCounts.already_in_watchlist}, added: ${addedCount}`,
+      message:
+        `Watchlist screener completed. Pass 1 scanned ${tickersToProcess.length}, ` +
+        `price/volume passed ${pricePassList.length}, pass 2 added ${addedCount}.`,
       changesJson: {
-        scanned: tickersToProcess.length,
+        pass1_scanned: tickersToProcess.length,
+        pass1_price_volume_passed: pricePassList.length,
+        pass2_fundamentals_scanned: pricePassList.length,
         pre_filtered_from: allTickers.length,
-        passed_filters: passedCount,
+        passed_all_filters: passedCount,
         already_in_watchlist: rejectionCounts.already_in_watchlist,
         added: addedCount,
         stopped_early: stoppedEarly,
@@ -521,19 +578,18 @@ Deno.serve(async (request: Request) => {
       },
     })
 
-    return jsonResponse(
-      {
+    return new Response(
+      JSON.stringify({
         success: true,
-        scanned: tickersToProcess.length,
-        pre_filtered_from: allTickers.length,
-        passed_filters: passedCount,
-        already_in_watchlist: rejectionCounts.already_in_watchlist,
+        pass1_scanned: tickersToProcess.length,
+        pass1_passed: pricePassList.length,
+        pass2_scanned: pricePassList.length,
         added: addedCount,
         stopped_early: stoppedEarly,
         rejection_counts: rejectionCounts,
         windowKey,
-      },
-      200
+      }),
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
     const errorMessage =
