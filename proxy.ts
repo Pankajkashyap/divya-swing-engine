@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseMiddlewareClient } from '@/lib/supabase-server'
 
-const AUTHORIZED_EMAIL = 'pnkjkshp80@gmail.com'
+const AUTHORIZED_EMAIL = process.env.AUTHORIZED_EMAIL ?? ''
 
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
