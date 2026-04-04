@@ -535,26 +535,36 @@ export default function CandidatesPage() {
 
 function isCandidateReadyForApply(row: unknown): row is Record<string, unknown> {
   if (!isValidImportedRow(row)) return false
+  const r = row as Record<string, unknown>
 
-  return (
-    'ticker' in row &&
-    'eps_growth_pct' in row &&
-    'revenue_growth_pct' in row &&
-    'setup_grade' in row &&
-    'trend_template_pass' in row &&
-    'rs_line_confirmed' in row &&
-    'base_pattern_valid' in row &&
-    'entry_near_pivot' in row &&
-    'volume_dry_up_pass' in row &&
-    'volume_breakout_confirmed' in row &&
-    'earnings_within_2_weeks' in row &&
-    'binary_event_risk' in row &&
-    'acc_dist_rating' in row &&
-    'industry_group_rank' in row &&
-    'entry_zone_low' in row &&
-    'entry_zone_high' in row &&
-    'stop_price' in row &&
-    'target_1_price' in row &&
-    'target_2_price' in row
-  )
+  if (typeof r.ticker !== 'string' || !r.ticker.trim()) return false
+  if (typeof r.id !== 'string' || !r.id.trim()) return false
+
+  const booleanFields = [
+    'trend_template_pass', 'rs_line_confirmed', 'base_pattern_valid',
+    'entry_near_pivot', 'volume_dry_up_pass', 'volume_breakout_confirmed',
+    'earnings_within_2_weeks', 'binary_event_risk',
+  ]
+
+  for (const field of booleanFields) {
+    if (r[field] !== null && typeof r[field] !== 'boolean') return false
+  }
+
+  const numericFields = [
+    'eps_growth_pct', 'revenue_growth_pct', 'industry_group_rank',
+    'entry_zone_low', 'entry_zone_high', 'stop_price',
+    'target_1_price', 'target_2_price',
+  ]
+
+  for (const field of numericFields) {
+    if (r[field] !== null && typeof r[field] !== 'number') return false
+  }
+
+  const validGrades = ['A+', 'A', 'B', 'C', 'F', null]
+  if (!validGrades.includes(r.setup_grade as string | null)) return false
+
+  const validAccDist = ['A', 'B', 'C', 'D', 'E', null]
+  if (!validAccDist.includes(r.acc_dist_rating as string | null)) return false
+
+  return true
 }
