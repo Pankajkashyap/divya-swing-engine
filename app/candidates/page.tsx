@@ -1,18 +1,18 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { AppHeader } from '@/components/AppHeader'
-import { supabase as browserSupabase } from '@/lib/supabase'
 
-type WatchlistRow = {
+type CandidateRow = {
   id: string
   ticker: string
   company_name: string | null
-  source: 'manual' | 'automation'
+  source: string
   signal_state: string | null
   eps_growth_pct: number | null
   revenue_growth_pct: number | null
-  setup_grade: 'A+' | 'A' | 'B' | 'C' | null
+  setup_grade: string | null
   trend_template_pass: boolean | null
   rs_line_confirmed: boolean | null
   base_pattern_valid: boolean | null
@@ -21,7 +21,7 @@ type WatchlistRow = {
   volume_breakout_confirmed: boolean | null
   earnings_within_2_weeks: boolean | null
   binary_event_risk: boolean | null
-  acc_dist_rating: 'A' | 'B' | 'C' | 'D' | 'E' | null
+  acc_dist_rating: string | null
   industry_group_rank: number | null
   entry_zone_low: number | null
   entry_zone_high: number | null
@@ -30,15 +30,43 @@ type WatchlistRow = {
   target_2_price: number | null
 }
 
-type ScreenerSettings = {
-  screener_enabled: boolean | null
-}
-
 type ScanLogRow = {
-  started_at: string | null
+  started_at: string
 }
 
-function buildClipboardContent(candidates: WatchlistRow[]): string {
+type UserSettings = {
+  screener_enabled: boolean
+}
+
+type BulkUpdateResult = {
+  updated: number
+  rejected: number
+  skipped: number
+  failed: number
+  errors: Array<{ id?: string; ticker?: string; message: string }>
+}
+
+function isCandidateReadyForEvaluation(candidate: CandidateRow): boolean {
+  return (
+    candidate.setup_grade !== null &&
+    candidate.trend_template_pass !== null &&
+    candidate.rs_line_confirmed !== null &&
+    candidate.base_pattern_valid !== null &&
+    candidate.entry_near_pivot !== null &&
+    candidate.volume_dry_up_pass !== null &&
+    candidate.volume_breakout_confirmed !== null &&
+    candidate.earnings_within_2_weeks !== null &&
+    candidate.binary_event_risk !== null &&
+    candidate.acc_dist_rating !== null &&
+    candidate.industry_group_rank !== null
+  )
+}
+
+function isValidImportedRow(row: unknown): row is Record<string, unknown> {
+  return typeof row === 'object' && row !== null && typeof (row as { id?: unknown }).id === 'string'
+}
+
+function buildClipboardContent(candidates: CandidateRow[]): string {
   const today = new Date().toISOString().slice(0, 10)
 
   const json = JSON.stringify(
@@ -78,10 +106,34 @@ STRICT OUTPUT RULES:
 - Preserve every "id" field exactly as provided — these are database primary keys.
 - If you cannot determine a value with reasonable confidence, return null. Do not guess.
 
+CANDIDATE QUALITY RULES:
+- Before researching any candidate, assess whether it is a real 
+  operating business with a tradeable chart.
+- If a candidate is a SPAC, shell company, blank check company, 
+  acquisition vehicle, ADR with no US listing, ETF, warrant, or 
+  any non-operating entity — set setup_grade to "F" and leave all 
+  price fields (entry_zone_low, entry_zone_high, stop_price, 
+  target_1_price, target_2_price) as null. Set all boolean fields 
+  to false. Do not attempt chart research for these.
+- If a candidate has eps_growth_pct of 0 or null AND 
+  revenue_growth_pct of 0 or null — set setup_grade to "F". 
+  These are unresearchable from a fundamental standpoint.
+- Only populate entry_zone_low, entry_zone_high, stop_price, and 
+  target_1_price if BOTH trend_template_pass is true AND 
+  base_pattern_valid is true. If either is false or null, leave 
+  all price fields as null.
+- A setup_grade of "F" means the candidate will be automatically 
+  rejected and not imported into the system.
+
 FIELD DEFINITIONS — fill these in for each candidate:
 
-setup_grade (string: "A+", "A", "B", or "C")
-  Overall quality grade of the current setup. A+ = near-perfect conditions, tight base, strong RS, ideal pivot. C = marginal setup with weaknesses.
+setup_grade (string: "A+", "A", "B", "C", or "F")
+  Overall quality grade of the current setup.
+  A+ = near-perfect conditions, tight base, strong RS, ideal pivot.
+  A  = strong setup with minor imperfections.
+  B  = decent setup, tradeable but not ideal.
+  C  = marginal setup with notable weaknesses.
+  F  = unresearchable or disqualified candidate. See quality rules above.
 
 trend_template_pass (boolean)
   True only if ALL 8 of Minervini's trend template criteria are met:
@@ -145,347 +197,364 @@ ${json}`
   return prompt
 }
 
-function formatDateTime(value: string | null) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
-}
-
-function isReady(candidate: WatchlistRow) {
-  return [
-    candidate.setup_grade,
-    candidate.trend_template_pass,
-    candidate.rs_line_confirmed,
-    candidate.base_pattern_valid,
-    candidate.entry_near_pivot,
-    candidate.volume_dry_up_pass,
-    candidate.volume_breakout_confirmed,
-    candidate.earnings_within_2_weeks,
-    candidate.binary_event_risk,
-    candidate.acc_dist_rating,
-    candidate.industry_group_rank,
-    candidate.entry_zone_low,
-    candidate.entry_zone_high,
-    candidate.stop_price,
-    candidate.target_1_price,
-  ].every((value) => value !== null)
-}
-
-function validateCandidateArray(value: unknown): {
-  valid: boolean
-  schemaValid: boolean
-  count: number
-} {
-  if (!Array.isArray(value)) {
-    return { valid: false, schemaValid: false, count: 0 }
-  }
-
-  const count = value.length
-
-  const schemaValid = value.every((row) => {
-    if (typeof row !== 'object' || row === null || Array.isArray(row)) return false
-    const item = row as Record<string, unknown>
-    return typeof item.id === 'string' && typeof item.ticker === 'string'
-  })
-
-  return { valid: true, schemaValid, count }
-}
-
-async function copyTextWithFallback(text: string) {
+async function copyTextWithFallback(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text)
     return
   }
 
-  const textarea = document.createElement('textarea')
-  textarea.value = text
-  textarea.setAttribute('readonly', 'true')
-  textarea.style.position = 'absolute'
-  textarea.style.left = '-9999px'
-  document.body.appendChild(textarea)
-  textarea.select()
+  const textArea = document.createElement('textarea')
+  textArea.value = text
+  textArea.style.position = 'fixed'
+  textArea.style.opacity = '0'
+  document.body.appendChild(textArea)
+  textArea.focus()
+  textArea.select()
   document.execCommand('copy')
-  document.body.removeChild(textarea)
+  document.body.removeChild(textArea)
 }
 
 export default function CandidatesPage() {
-  const supabase = useMemo(() => browserSupabase, [])
+  const supabase = createClientComponentClient()
 
-  const [loading, setLoading] = useState(true)
-  const [candidates, setCandidates] = useState<WatchlistRow[]>([])
+  const [candidates, setCandidates] = useState<CandidateRow[]>([])
   const [screenerEnabled, setScreenerEnabled] = useState(false)
   const [lastRunAt, setLastRunAt] = useState<string | null>(null)
-  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
-  const [pasteValue, setPasteValue] = useState('')
-  const [applyLoading, setApplyLoading] = useState(false)
-  const [applyMessage, setApplyMessage] = useState<string | null>(null)
-  const [applyError, setApplyError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const [copySuccess, setCopySuccess] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [parsedImport, setParsedImport] = useState<Record<string, unknown>[] | null>(null)
+  const [importValidation, setImportValidation] = useState<'empty' | 'valid' | 'invalid' | 'schema'>('empty')
+  const [importing, setImporting] = useState(false)
+  const [importSuccess, setImportSuccess] = useState<string | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-
-    const loadData = async () => {
+    const load = async () => {
       setLoading(true)
 
-      const [watchlistResult, settingsResult, logsResult] = await Promise.all([
+      const [{ data: candidateData }, { data: settingsData }, { data: scanLogsData }] = await Promise.all([
         supabase
           .from('watchlist')
-          .select(
-            'id, ticker, company_name, source, signal_state, eps_growth_pct, revenue_growth_pct, setup_grade, trend_template_pass, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_dry_up_pass, volume_breakout_confirmed, earnings_within_2_weeks, binary_event_risk, acc_dist_rating, industry_group_rank, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
-          )
+          .select(`
+            id,
+            ticker,
+            company_name,
+            source,
+            signal_state,
+            eps_growth_pct,
+            revenue_growth_pct,
+            setup_grade,
+            trend_template_pass,
+            rs_line_confirmed,
+            base_pattern_valid,
+            entry_near_pivot,
+            volume_dry_up_pass,
+            volume_breakout_confirmed,
+            earnings_within_2_weeks,
+            binary_event_risk,
+            acc_dist_rating,
+            industry_group_rank,
+            entry_zone_low,
+            entry_zone_high,
+            stop_price,
+            target_1_price,
+            target_2_price
+          `)
           .eq('source', 'automation')
           .eq('signal_state', 'candidate')
-          .order('ticker'),
+          .order('created_at', { ascending: false }),
         supabase
           .from('user_settings')
           .select('screener_enabled')
-          .limit(1)
-          .maybeSingle(),
+          .maybeSingle<UserSettings>(),
         supabase
           .from('scan_logs')
           .select('started_at')
           .eq('job_type', 'watchlist-screener')
           .order('started_at', { ascending: false })
           .limit(1)
-          .maybeSingle(),
+          .maybeSingle<ScanLogRow>(),
       ])
 
-      if (cancelled) return
-
-      setCandidates((watchlistResult.data as WatchlistRow[] | null) ?? [])
-      setScreenerEnabled(
-        ((settingsResult.data as ScreenerSettings | null)?.screener_enabled) ?? false
-      )
-      setLastRunAt(((logsResult.data as ScanLogRow | null)?.started_at) ?? null)
+      setCandidates((candidateData ?? []) as CandidateRow[])
+      setScreenerEnabled(settingsData?.screener_enabled ?? false)
+      setLastRunAt(scanLogsData?.started_at ?? null)
       setLoading(false)
     }
 
-    void loadData()
-
-    return () => {
-      cancelled = true
-    }
+    void load()
   }, [supabase])
 
   useEffect(() => {
-    if (copyState !== 'copied') return
-    const timeout = window.setTimeout(() => setCopyState('idle'), 2000)
-    return () => window.clearTimeout(timeout)
-  }, [copyState])
+    setImportSuccess(null)
+    setImportError(null)
 
-  const clipboardContent = buildClipboardContent(candidates)
-  const previewText = clipboardContent.split('\n').slice(0, 3).join('\n')
-  const awaitingResearchCount = candidates.filter((candidate) => !isReady(candidate)).length
-  const readyCount = candidates.filter((candidate) => isReady(candidate)).length
-
-  let validationState: 'empty' | 'valid' | 'invalid' | 'schema' = 'empty'
-  let validationCount = 0
-  let parsedBody: unknown = null
-
-  if (pasteValue.trim()) {
-    try {
-      parsedBody = JSON.parse(pasteValue)
-      const result = validateCandidateArray(parsedBody)
-      validationCount = result.count
-      validationState = result.valid ? (result.schemaValid ? 'valid' : 'schema') : 'invalid'
-    } catch {
-      validationState = 'invalid'
-    }
-  }
-
-  const handleCopy = async () => {
-    try {
-      setApplyError(null)
-      await copyTextWithFallback(clipboardContent)
-      setCopyState('copied')
-    } catch {
-      setApplyError('Failed to copy to clipboard.')
-    }
-  }
-
-  const handleApply = async () => {
-    if (validationState !== 'valid') return
-
-    setApplyLoading(true)
-    setApplyMessage(null)
-    setApplyError(null)
-
-    const response = await fetch('/api/watchlist/bulk-update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(parsedBody),
-    })
-
-    const result = await response.json()
-
-    if (!response.ok) {
-      setApplyError(result.error ?? 'Failed to apply candidate updates.')
-      setApplyLoading(false)
+    if (!importText.trim()) {
+      setImportValidation('empty')
+      setParsedImport(null)
       return
     }
 
-    setApplyMessage(`${result.updated} candidates updated successfully.`)
-    setPasteValue('')
-    setApplyLoading(false)
+    try {
+      const parsed = JSON.parse(importText) as unknown
 
-    const { data } = await supabase
-      .from('watchlist')
-      .select(
-        'id, ticker, company_name, source, signal_state, eps_growth_pct, revenue_growth_pct, setup_grade, trend_template_pass, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_dry_up_pass, volume_breakout_confirmed, earnings_within_2_weeks, binary_event_risk, acc_dist_rating, industry_group_rank, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
-      )
-      .eq('source', 'automation')
-      .eq('signal_state', 'candidate')
-      .order('ticker')
+      if (!Array.isArray(parsed)) {
+        setImportValidation('schema')
+        setParsedImport(null)
+        return
+      }
 
-    setCandidates((data as WatchlistRow[] | null) ?? [])
+      const valid = parsed.every(isCandidateReadyForApply)
+
+      if (!valid) {
+        setImportValidation('schema')
+        setParsedImport(null)
+        return
+      }
+
+      setImportValidation('valid')
+      setParsedImport(parsed as Record<string, unknown>[])
+    } catch {
+      setImportValidation('invalid')
+      setParsedImport(null)
+    }
+  }, [importText])
+
+  const awaitingResearchCount = useMemo(
+    () => candidates.filter((candidate) => !isCandidateReadyForEvaluation(candidate)).length,
+    [candidates]
+  )
+
+  const readyForEvaluationCount = useMemo(
+    () => candidates.filter((candidate) => isCandidateReadyForEvaluation(candidate)).length,
+    [candidates]
+  )
+
+  const clipboardContent = useMemo(() => buildClipboardContent(candidates), [candidates])
+  const clipboardPreview = useMemo(
+    () => clipboardContent.split('\n').slice(0, 3).join('\n'),
+    [clipboardContent]
+  )
+
+  const handleCopy = async () => {
+    await copyTextWithFallback(clipboardContent)
+    setCopySuccess(true)
+    window.setTimeout(() => setCopySuccess(false), 2000)
   }
 
-  return (
-    <main className="min-h-screen bg-neutral-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
+  const handleApply = async () => {
+    if (!parsedImport) return
+
+    setImporting(true)
+    setImportSuccess(null)
+    setImportError(null)
+
+    try {
+      const response = await fetch('/api/watchlist/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsedImport),
+      })
+
+      const result = (await response.json()) as BulkUpdateResult | { error: string }
+
+      if (!response.ok) {
+        setImportError('error' in result ? result.error : 'Failed to apply update.')
+        setImporting(false)
+        return
+      }
+
+      const typed = result as BulkUpdateResult
+      const msg: string[] = []
+      if (typed.updated > 0) msg.push(`${typed.updated} candidates updated`)
+      if (typed.rejected > 0) msg.push(`${typed.rejected} F-grade candidates removed`)
+      setImportSuccess(msg.join('. ') + '.')
+
+      setImportText('')
+
+      const { data: refreshed } = await supabase
+        .from('watchlist')
+        .select(`
+          id,
+          ticker,
+          company_name,
+          source,
+          signal_state,
+          eps_growth_pct,
+          revenue_growth_pct,
+          setup_grade,
+          trend_template_pass,
+          rs_line_confirmed,
+          base_pattern_valid,
+          entry_near_pivot,
+          volume_dry_up_pass,
+          volume_breakout_confirmed,
+          earnings_within_2_weeks,
+          binary_event_risk,
+          acc_dist_rating,
+          industry_group_rank,
+          entry_zone_low,
+          entry_zone_high,
+          stop_price,
+          target_1_price,
+          target_2_price
+        `)
+        .eq('source', 'automation')
+        .eq('signal_state', 'candidate')
+        .order('created_at', { ascending: false })
+
+      setCandidates((refreshed ?? []) as CandidateRow[])
+    } catch {
+      setImportError('Failed to apply update.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8">
         <AppHeader
           title="Candidates"
           subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
         />
+        <div className="mt-8 text-sm text-neutral-500">Loading candidates...</div>
+      </div>
+    )
+  }
 
-        {loading ? (
-          <div className="space-y-6">
-            <div className="h-24 animate-pulse rounded-xl bg-neutral-100" />
-            <div className="h-64 animate-pulse rounded-xl bg-neutral-100" />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl border border-neutral-200 bg-white p-5">
-                <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                  Awaiting research
-                </div>
-                <div className="mt-2 text-3xl font-semibold text-neutral-900">
-                  {awaitingResearchCount}
-                </div>
-              </div>
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <AppHeader
+        title="Candidates"
+        subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
+      />
 
-              <div className="rounded-2xl border border-neutral-200 bg-white p-5">
-                <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                  Ready for evaluation
-                </div>
-                <div className="mt-2 text-3xl font-semibold text-neutral-900">
-                  {readyCount}
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-200 bg-white p-5">
-                <div className="text-xs font-medium uppercase tracking-wide text-neutral-500">
-                  Last screener run
-                </div>
-                <div className="mt-2 text-sm font-medium text-neutral-900">
-                  {formatDateTime(lastRunAt)}
-                </div>
+      {!screenerEnabled && candidates.length === 0 ? (
+        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-8 text-neutral-700">
+          No candidates yet. Enable the screener in Settings and it will run tonight.
+        </div>
+      ) : (
+        <>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+              <div className="text-sm uppercase tracking-wide text-neutral-500">Awaiting research</div>
+              <div className="mt-2 text-4xl font-semibold">{awaitingResearchCount}</div>
+            </div>
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+              <div className="text-sm uppercase tracking-wide text-neutral-500">Ready for evaluation</div>
+              <div className="mt-2 text-4xl font-semibold">{readyForEvaluationCount}</div>
+            </div>
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+              <div className="text-sm uppercase tracking-wide text-neutral-500">Last screener run</div>
+              <div className="mt-2 text-2xl font-semibold">
+                {lastRunAt ? new Date(lastRunAt).toLocaleString() : 'No runs yet'}
               </div>
             </div>
-
-            {candidates.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white px-6 py-12 text-center">
-                <h2 className="text-lg font-semibold text-neutral-900">No candidates yet.</h2>
-                <p className="mt-2 text-sm text-neutral-600">
-                  Enable the screener in Settings and it will run tonight.
-                </p>
-                {!screenerEnabled ? (
-                  <p className="mt-3 text-xs text-neutral-500">
-                    Screener is currently disabled.
-                  </p>
-                ) : null}
-              </div>
-            ) : (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <section className="rounded-2xl border border-neutral-200 bg-white p-6">
-                  <h2 className="text-lg font-semibold text-neutral-900">
-                    Step 1 — Copy to ChatGPT
-                  </h2>
-                  <p className="mt-2 text-sm text-neutral-600">
-                    Click copy. Open ChatGPT. Paste. The prompt and candidate data are included.
-                  </p>
-                  <p className="mt-4 text-sm font-medium text-neutral-900">
-                    {candidates.length} candidates included
-                  </p>
-
-                  <textarea
-                    readOnly
-                    value={previewText}
-                    className="mt-4 h-32 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs text-neutral-500"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={handleCopy}
-                    className="ui-btn-primary mt-4"
-                  >
-                    {copyState === 'copied' ? 'Copied!' : 'Copy prompt + data'}
-                  </button>
-                </section>
-
-                <section className="rounded-2xl border border-neutral-200 bg-white p-6">
-                  <h2 className="text-lg font-semibold text-neutral-900">
-                    Step 2 — Paste ChatGPT output
-                  </h2>
-                  <p className="mt-2 text-sm text-neutral-600">
-                    Paste the JSON that ChatGPT returned. Click Apply to update all candidates at once.
-                  </p>
-
-                  <textarea
-                    value={pasteValue}
-                    onChange={(event) => setPasteValue(event.target.value)}
-                    placeholder="Paste ChatGPT's JSON output here..."
-                    className="mt-4 h-48 w-full rounded-xl border border-neutral-200 p-4 text-sm text-neutral-800"
-                  />
-
-                  <div className="mt-3">
-                    {validationState === 'valid' ? (
-                      <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                        Valid JSON — {validationCount} candidates ready to apply
-                      </span>
-                    ) : null}
-
-                    {validationState === 'invalid' ? (
-                      <span className="inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
-                        Invalid JSON — check the output and try again
-                      </span>
-                    ) : null}
-
-                    {validationState === 'schema' ? (
-                      <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
-                        JSON structure does not match expected format
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={validationState !== 'valid' || applyLoading}
-                    onClick={handleApply}
-                    className="ui-btn-primary mt-4 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {applyLoading ? 'Applying...' : 'Apply update'}
-                  </button>
-
-                  {applyMessage ? (
-                    <p className="mt-3 text-sm text-green-600">{applyMessage}</p>
-                  ) : null}
-
-                  {applyError ? (
-                    <p className="mt-3 text-sm text-red-600">{applyError}</p>
-                  ) : null}
-                </section>
-              </div>
-            )}
           </div>
-        )}
-      </div>
-    </main>
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+              <h2 className="text-2xl font-semibold">Step 1 — Copy to ChatGPT</h2>
+              <p className="mt-3 text-neutral-600">
+                Click copy. Open ChatGPT. Paste. The prompt and candidate data are included.
+              </p>
+              <div className="mt-5 text-lg font-medium">{candidates.length} candidates included</div>
+
+              <textarea
+                readOnly
+                value={clipboardPreview}
+                className="mt-5 h-32 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs text-neutral-500"
+              />
+
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="ui-btn-primary mt-5"
+              >
+                {copySuccess ? 'Copied!' : 'Copy prompt + data'}
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6">
+              <h2 className="text-2xl font-semibold">Step 2 — Paste ChatGPT output</h2>
+              <p className="mt-3 text-neutral-600">
+                Paste the JSON that ChatGPT returned. Click Apply to update all candidates at once.
+              </p>
+
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="Paste ChatGPT's JSON output here..."
+                className="mt-5 h-48 w-full rounded-xl border border-neutral-200 p-4 text-sm"
+              />
+
+              <div className="mt-4 min-h-[28px]">
+                {importValidation === 'valid' && parsedImport && (
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                    Valid JSON — {parsedImport.length} candidates ready to apply
+                  </span>
+                )}
+                {importValidation === 'invalid' && (
+                  <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
+                    Invalid JSON — check the output and try again
+                  </span>
+                )}
+                {importValidation === 'schema' && (
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+                    JSON structure does not match expected format
+                  </span>
+                )}
+              </div>
+
+              {importSuccess && (
+                <div className="mt-4 text-sm font-medium text-green-700">{importSuccess}</div>
+              )}
+
+              {importError && (
+                <div className="mt-4 text-sm font-medium text-red-700">{importError}</div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleApply}
+                disabled={importValidation !== 'valid' || importing}
+                className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {importing ? 'Applying...' : 'Apply update'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function isCandidateReadyForApply(row: unknown): row is Record<string, unknown> {
+  if (!isValidImportedRow(row)) return false
+
+  return (
+    'ticker' in row &&
+    'eps_growth_pct' in row &&
+    'revenue_growth_pct' in row &&
+    'setup_grade' in row &&
+    'trend_template_pass' in row &&
+    'rs_line_confirmed' in row &&
+    'base_pattern_valid' in row &&
+    'entry_near_pivot' in row &&
+    'volume_dry_up_pass' in row &&
+    'volume_breakout_confirmed' in row &&
+    'earnings_within_2_weeks' in row &&
+    'binary_event_risk' in row &&
+    'acc_dist_rating' in row &&
+    'industry_group_rank' in row &&
+    'entry_zone_low' in row &&
+    'entry_zone_high' in row &&
+    'stop_price' in row &&
+    'target_1_price' in row &&
+    'target_2_price' in row
   )
 }

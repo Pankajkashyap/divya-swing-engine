@@ -1,29 +1,28 @@
-import { createServerClient } from '@supabase/ssr'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { appConfig } from '@/lib/config'
 
 type CandidateRow = {
   id: string
   ticker: string
-  eps_growth_pct?: number | null
-  revenue_growth_pct?: number | null
-  setup_grade?: 'A+' | 'A' | 'B' | 'C' | null
-  trend_template_pass?: boolean | null
-  rs_line_confirmed?: boolean | null
-  base_pattern_valid?: boolean | null
-  entry_near_pivot?: boolean | null
-  volume_dry_up_pass?: boolean | null
-  volume_breakout_confirmed?: boolean | null
-  earnings_within_2_weeks?: boolean | null
-  binary_event_risk?: boolean | null
-  acc_dist_rating?: 'A' | 'B' | 'C' | 'D' | 'E' | null
-  industry_group_rank?: number | null
-  entry_zone_low?: number | null
-  entry_zone_high?: number | null
-  stop_price?: number | null
-  target_1_price?: number | null
-  target_2_price?: number | null
+  eps_growth_pct: number | null
+  revenue_growth_pct: number | null
+  setup_grade: 'A+' | 'A' | 'B' | 'C' | 'F' | null
+  trend_template_pass: boolean | null
+  rs_line_confirmed: boolean | null
+  base_pattern_valid: boolean | null
+  entry_near_pivot: boolean | null
+  volume_dry_up_pass: boolean | null
+  volume_breakout_confirmed: boolean | null
+  earnings_within_2_weeks: boolean | null
+  binary_event_risk: boolean | null
+  acc_dist_rating: 'A' | 'B' | 'C' | 'D' | 'E' | null
+  industry_group_rank: number | null
+  entry_zone_low: number | null
+  entry_zone_high: number | null
+  stop_price: number | null
+  target_1_price: number | null
+  target_2_price: number | null
 }
 
 const numericFields = [
@@ -67,73 +66,45 @@ const updatableFields = [
   'target_2_price',
 ] as const
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function isNumberOrNull(value: unknown): boolean {
-  return value === null || (typeof value === 'number' && Number.isFinite(value))
+  return value === null || typeof value === 'number'
 }
 
 function isBooleanOrNull(value: unknown): boolean {
   return value === null || typeof value === 'boolean'
 }
 
-function validateRow(row: unknown): string | null {
-  if (!isObject(row)) return 'Each row must be an object'
-  if (typeof row.id !== 'string' || row.id.trim() === '') return 'Each row must include a non-empty id'
-  if (typeof row.ticker !== 'string' || row.ticker.trim() === '') {
-    return `Row ${row.id} must include a non-empty ticker`
-  }
+function isValidSetupGrade(value: unknown): boolean {
+  return value === null || ['A+', 'A', 'B', 'C', 'F'].includes(String(value))
+}
+
+function isValidAccDist(value: unknown): boolean {
+  return value === null || ['A', 'B', 'C', 'D', 'E'].includes(String(value))
+}
+
+function validateRow(row: unknown): row is CandidateRow {
+  if (typeof row !== 'object' || row === null) return false
+
+  const candidate = row as Record<string, unknown>
+
+  if (typeof candidate.id !== 'string' || !candidate.id.trim()) return false
+  if (typeof candidate.ticker !== 'string' || !candidate.ticker.trim()) return false
+  if (!isValidSetupGrade(candidate.setup_grade)) return false
+  if (!isValidAccDist(candidate.acc_dist_rating)) return false
 
   for (const field of numericFields) {
-    if (field in row && !isNumberOrNull(row[field])) {
-      return `Field ${field} must be a number or null`
-    }
+    if (!isNumberOrNull(candidate[field])) return false
   }
 
   for (const field of booleanFields) {
-    if (field in row && !isBooleanOrNull(row[field])) {
-      return `Field ${field} must be a boolean or null`
-    }
+    if (!isBooleanOrNull(candidate[field])) return false
   }
 
-  if (
-    'setup_grade' in row &&
-    row.setup_grade !== null &&
-    row.setup_grade !== undefined &&
-    !['A+', 'A', 'B', 'C'].includes(String(row.setup_grade))
-  ) {
-    return 'setup_grade must be one of A+, A, B, C or null'
-  }
-
-  if (
-    'acc_dist_rating' in row &&
-    row.acc_dist_rating !== null &&
-    row.acc_dist_rating !== undefined &&
-    !['A', 'B', 'C', 'D', 'E'].includes(String(row.acc_dist_rating))
-  ) {
-    return 'acc_dist_rating must be one of A, B, C, D, E or null'
-  }
-
-  return null
+  return true
 }
 
 export async function POST(request: NextRequest) {
-  const cookieStore = await cookies()
-
-  const supabase = createServerClient(
-    appConfig.supabaseUrl,
-    appConfig.supabaseAnonKey,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll() {},
-      },
-    }
-  )
+  const supabase = createRouteHandlerClient({ cookies })
 
   const {
     data: { user },
@@ -143,27 +114,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  let body: unknown
-
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-  }
+  const body = await request.json()
 
   if (!Array.isArray(body)) {
     return NextResponse.json({ error: 'Expected an array of candidates' }, { status: 400 })
   }
 
-  for (const row of body) {
-    const validationError = validateRow(row)
-    if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 400 })
-    }
+  const allRows = body as unknown[]
+
+  if (!allRows.every(validateRow)) {
+    return NextResponse.json({ error: 'Invalid candidate payload' }, { status: 400 })
   }
 
-  const candidateRows = body as CandidateRow[]
-  const ids = candidateRows.map((row) => row.id)
+  const rows = allRows as CandidateRow[]
+  const ids = rows.map((row) => row.id)
 
   const { data: owned } = await supabase
     .from('watchlist')
@@ -172,40 +136,59 @@ export async function POST(request: NextRequest) {
     .eq('user_id', user.id)
 
   const ownedIds = new Set(owned?.map((row) => row.id) ?? [])
-  const safeRows = candidateRows.filter((row) => ownedIds.has(row.id))
+  const safeRows = rows.filter((row) => ownedIds.has(row.id))
 
-  if (safeRows.length === 0) {
-    return NextResponse.json({
-      updated: 0,
-      skipped: candidateRows.length,
-      failed: 0,
-      errors: [],
-    })
+  const validRows = safeRows.filter((row) => row.setup_grade !== 'F')
+  const rejectedRows = safeRows.filter((row) => row.setup_grade === 'F')
+
+  console.log(`[bulk-update] rejected F-grade rows: ${rejectedRows.length}`)
+
+  if (rejectedRows.length > 0) {
+    const rejectedIds = rejectedRows.map((row) => row.id)
+    await supabase
+      .from('watchlist')
+      .delete()
+      .in('id', rejectedIds)
+      .eq('user_id', user.id)
+      .eq('source', 'automation')
   }
 
-  const { data: current, error: currentError } = await supabase
+  const { data: current } = await supabase
     .from('watchlist')
-    .select(
-      'id, setup_grade, trend_template_pass, rs_line_confirmed, base_pattern_valid, entry_near_pivot, volume_dry_up_pass, volume_breakout_confirmed, earnings_within_2_weeks, binary_event_risk, acc_dist_rating, industry_group_rank, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price'
-    )
-    .in('id', Array.from(ownedIds))
-
-  if (currentError) {
-    return NextResponse.json({ error: currentError.message }, { status: 500 })
-  }
+    .select(`
+      id,
+      setup_grade,
+      trend_template_pass,
+      rs_line_confirmed,
+      base_pattern_valid,
+      entry_near_pivot,
+      volume_dry_up_pass,
+      volume_breakout_confirmed,
+      earnings_within_2_weeks,
+      binary_event_risk,
+      acc_dist_rating,
+      industry_group_rank,
+      entry_zone_low,
+      entry_zone_high,
+      stop_price,
+      target_1_price,
+      target_2_price
+    `)
+    .in('id', validRows.map((row) => row.id))
 
   const currentMap = new Map((current ?? []).map((row) => [row.id, row]))
 
-  let updated = 0
-  let skipped = candidateRows.length - safeRows.length
-  let failed = 0
-  const errors: Array<{ id: string; message: string }> = []
+  let successCount = 0
+  let skipCount = 0
+  let failCount = 0
+  const errorDetails: Array<{ id?: string; ticker?: string; message: string }> = []
 
-  for (const row of safeRows) {
+  for (const row of validRows) {
     const existing = currentMap.get(row.id)
 
     if (!existing) {
-      skipped += 1
+      failCount += 1
+      errorDetails.push({ id: row.id, ticker: row.ticker, message: 'Row not found' })
       continue
     }
 
@@ -215,13 +198,13 @@ export async function POST(request: NextRequest) {
       const incomingValue = row[field]
       const currentValue = existing[field]
 
-      if (incomingValue !== undefined && incomingValue !== null && currentValue === null) {
+      if (incomingValue !== null && currentValue === null) {
         updatePayload[field] = incomingValue
       }
     }
 
     if (Object.keys(updatePayload).length === 0) {
-      skipped += 1
+      skipCount += 1
       continue
     }
 
@@ -232,17 +215,19 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
 
     if (error) {
-      failed += 1
-      errors.push({ id: row.id, message: error.message })
-    } else {
-      updated += 1
+      failCount += 1
+      errorDetails.push({ id: row.id, ticker: row.ticker, message: error.message })
+      continue
     }
+
+    successCount += 1
   }
 
   return NextResponse.json({
-    updated,
-    skipped,
-    failed,
-    errors,
+    updated: successCount,
+    rejected: rejectedRows.length,
+    skipped: skipCount,
+    failed: failCount,
+    errors: errorDetails,
   })
 }

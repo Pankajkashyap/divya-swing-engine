@@ -30,6 +30,7 @@ type MassiveTicker = {
   name?: string | null
   market?: string | null
   primary_exchange?: string | null
+  type?: string | null
 }
 
 type AggregateBar = {
@@ -50,8 +51,8 @@ type FinancialResult = {
 type Candidate = {
   ticker: string
   companyName: string | null
-  epsGrowthPct: number
-  revenueGrowthPct: number
+  epsGrowthPct: number | null
+  revenueGrowthPct: number | null
 }
 
 function jsonResponse(payload: unknown, status: number): Response {
@@ -288,8 +289,7 @@ Deno.serve(async (request: Request) => {
         const exchange = ticker.primary_exchange ?? ''
 
         if (ticker.market !== 'stocks') return false
-        if (!symbol || symbol.includes('.')) return false
-        if (symbol.length > 5) return false
+        if (!symbol || symbol.length > 5) return false
         if (!exchangeList.includes(exchange)) return false
 
         return true
@@ -303,13 +303,15 @@ Deno.serve(async (request: Request) => {
     const candidates: Candidate[] = []
 
     const rejectionCounts = {
-      price: 0,
-      volume: 0,
-      missingEps: 0,
-      lowEps: 0,
-      missingRevenue: 0,
-      lowRevenue: 0,
-      fetchError: 0,
+      fetch_error: 0,
+      price_too_low: 0,
+      volume_too_low: 0,
+      eps_too_low: 0,
+      already_in_watchlist: 0,
+      spac: 0,
+      invalid_type: 0,
+      bad_suffix: 0,
+      zero_fundamentals: 0,
     }
 
     for (const tickerDetail of filteredTickers) {
@@ -320,6 +322,38 @@ Deno.serve(async (request: Request) => {
 
       scanned += 1
 
+      const nameLower = (tickerDetail?.name ?? '').toLowerCase()
+      const spac_keywords = [
+        'acquisition',
+        'spac',
+        'blank check',
+        'special purpose',
+        'merger',
+        'holdings corp',
+        'blank-check',
+      ]
+
+      if (spac_keywords.some((k) => nameLower.includes(k))) {
+        rejectionCounts.spac += 1
+        continue
+      }
+
+      const invalidTypes = ['ADRC', 'ADRW', 'ADRR', 'ETS', 'ETF', 'ETN', 'WARRANT', 'RIGHT', 'UNIT']
+      if (invalidTypes.includes(tickerDetail?.type ?? '')) {
+        rejectionCounts.invalid_type += 1
+        continue
+      }
+
+      if (
+        ticker.endsWith('W') ||
+        ticker.endsWith('U') ||
+        ticker.endsWith('R') ||
+        ticker.includes('.')
+      ) {
+        rejectionCounts.bad_suffix += 1
+        continue
+      }
+
       try {
         const [bars, financialResults] = await Promise.all([
           fetchAggregates(ticker, from, to),
@@ -328,16 +362,16 @@ Deno.serve(async (request: Request) => {
 
         const sortedBars = [...bars].sort((a, b) => (b.t ?? 0) - (a.t ?? 0))
         const latestBar = sortedBars[0]
-        const latestClose = toNumberOrNull(latestBar?.c)
-        const latestVolume = toNumberOrNull(latestBar?.v)
+        const price = toNumberOrNull(latestBar?.c)
+        const volume = toNumberOrNull(latestBar?.v)
 
-        if (latestClose === null || latestClose < minPrice) {
-          rejectionCounts.price += 1
+        if (price === null || price <= minPrice) {
+          rejectionCounts.price_too_low += 1
           continue
         }
 
-        if (latestVolume === null || latestVolume < minAvgVolume) {
-          rejectionCounts.volume += 1
+        if (volume === null || volume <= minAvgVolume) {
+          rejectionCounts.volume_too_low += 1
           continue
         }
 
@@ -354,26 +388,25 @@ Deno.serve(async (request: Request) => {
           financialResults[1]?.financials?.income_statement?.revenues?.value
         )
 
-        const epsGrowthPct = calculateGrowth(currentEps, priorEps)
-        const revenueGrowthPct = calculateGrowth(currentRevenue, priorRevenue)
+        const epsGrowth = calculateGrowth(currentEps, priorEps)
+        const revenueGrowth = calculateGrowth(currentRevenue, priorRevenue)
 
-        if (epsGrowthPct === null) {
-          rejectionCounts.missingEps += 1
+        const hasValidFundamentals =
+          (epsGrowth !== null && epsGrowth > 0) ||
+          (revenueGrowth !== null && revenueGrowth > 0)
+
+        if (!hasValidFundamentals) {
+          rejectionCounts.zero_fundamentals += 1
           continue
         }
 
-        if (epsGrowthPct < minEpsGrowth) {
-          rejectionCounts.lowEps += 1
+        if (epsGrowth !== null && epsGrowth < minEpsGrowth) {
+          rejectionCounts.eps_too_low += 1
           continue
         }
 
-        if (revenueGrowthPct === null) {
-          rejectionCounts.missingRevenue += 1
-          continue
-        }
-
-        if (revenueGrowthPct < minRevenueGrowth) {
-          rejectionCounts.lowRevenue += 1
+        if (revenueGrowth !== null && revenueGrowth < minRevenueGrowth) {
+          rejectionCounts.eps_too_low += 1
           continue
         }
 
@@ -382,11 +415,11 @@ Deno.serve(async (request: Request) => {
         candidates.push({
           ticker,
           companyName: tickerDetail.name ?? null,
-          epsGrowthPct,
-          revenueGrowthPct,
+          epsGrowthPct: epsGrowth,
+          revenueGrowthPct: revenueGrowth,
         })
       } catch (error) {
-        rejectionCounts.fetchError += 1
+        rejectionCounts.fetch_error += 1
         console.error(`[watchlist-screener] Skipping ${ticker} due to fetch error:`, error)
         continue
       }
@@ -444,7 +477,7 @@ Deno.serve(async (request: Request) => {
 
     const existingTickers = new Set((existing ?? []).map((row) => row.ticker))
     const newCandidates = candidates.filter((candidate) => !existingTickers.has(candidate.ticker))
-    const alreadyInWatchlist = candidates.length - newCandidates.length
+    rejectionCounts.already_in_watchlist = candidates.length - newCandidates.length
 
     let added = 0
 
@@ -457,22 +490,22 @@ Deno.serve(async (request: Request) => {
         signal_state: 'candidate',
         status: 'watchlist',
         action_status: 'watchlist',
-        setup_type: 'other',
+        setup_type: 'breakout',
         setup_grade: null,
         entry_zone_low: null,
         entry_zone_high: null,
         stop_price: null,
         target_1_price: null,
         target_2_price: null,
-        trend_template_pass: false,
-        volume_dry_up_pass: false,
-        rs_line_confirmed: false,
-        base_pattern_valid: false,
-        entry_near_pivot: false,
-        volume_breakout_confirmed: false,
-        liquidity_pass: false,
-        earnings_within_2_weeks: false,
-        binary_event_risk: false,
+        trend_template_pass: null,
+        volume_dry_up_pass: null,
+        rs_line_confirmed: null,
+        base_pattern_valid: null,
+        entry_near_pivot: null,
+        volume_breakout_confirmed: null,
+        liquidity_pass: null,
+        earnings_within_2_weeks: null,
+        binary_event_risk: null,
         eps_growth_pct: candidate.epsGrowthPct,
         revenue_growth_pct: candidate.revenueGrowthPct,
         acc_dist_rating: null,
@@ -494,11 +527,11 @@ Deno.serve(async (request: Request) => {
     await safeFinishScanLog({
       logId,
       status: 'completed',
-      message: `Watchlist screener completed. Scanned: ${scanned}, passed: ${passedFilters}, existing: ${alreadyInWatchlist}, added: ${added}`,
+      message: `Watchlist screener completed. Scanned: ${scanned}, passed: ${passedFilters}, existing: ${rejectionCounts.already_in_watchlist}, added: ${added}`,
       changesJson: {
         scanned,
         passed_filters: passedFilters,
-        already_in_watchlist: alreadyInWatchlist,
+        already_in_watchlist: rejectionCounts.already_in_watchlist,
         added,
         rejection_counts: rejectionCounts,
         windowKey,
@@ -510,7 +543,7 @@ Deno.serve(async (request: Request) => {
         success: true,
         scanned,
         passed_filters: passedFilters,
-        already_in_watchlist: alreadyInWatchlist,
+        already_in_watchlist: rejectionCounts.already_in_watchlist,
         added,
         rejection_counts: rejectionCounts,
         windowKey,
