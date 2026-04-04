@@ -1,5 +1,7 @@
 'use client'
 
+import { Tooltip } from '@/components/ui/Tooltip'
+
 type Props = {
   portfolioValue: number
   currentOpenPositionValue: number
@@ -56,22 +58,34 @@ export function ExposurePreviewPanel({
 
       <div className="grid gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-neutral-200 p-4">
-          <p className="text-sm text-neutral-500">Current Exposure</p>
+          <p className="flex items-center gap-1 text-sm text-neutral-500">
+            Current Exposure
+            <Tooltip text="What percentage of your portfolio is already in open trades before this new trade." />
+          </p>
           <p className="mt-2 text-2xl font-semibold">{currentExposurePct}%</p>
         </div>
 
         <div className="rounded-xl border border-neutral-200 p-4">
-          <p className="text-sm text-neutral-500">New Trade Value</p>
+          <p className="flex items-center gap-1 text-sm text-neutral-500">
+            New Trade Value
+            <Tooltip text="The dollar value of the position you are about to enter, based on the calculated share count." />
+          </p>
           <p className="mt-2 text-2xl font-semibold">{newTradePositionValue}</p>
         </div>
 
         <div className="rounded-xl border border-neutral-200 p-4">
-          <p className="text-sm text-neutral-500">After Trade</p>
+          <p className="flex items-center gap-1 text-sm text-neutral-500">
+            After Trade
+            <Tooltip text="What your total exposure percentage will be if you take this trade." />
+          </p>
           <p className="mt-2 text-2xl font-semibold">{postTradeExposurePct}%</p>
         </div>
 
         <div className="rounded-xl border border-neutral-200 p-4">
-          <p className="text-sm text-neutral-500">Limit</p>
+          <p className="flex items-center gap-1 text-sm text-neutral-500">
+            Limit
+            <Tooltip text="The maximum exposure allowed by the current market phase. You cannot exceed this." />
+          </p>
           <p className="mt-2 text-2xl font-semibold">{exposureLimitPct}%</p>
         </div>
       </div>

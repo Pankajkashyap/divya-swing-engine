@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppHeader } from '@/components/AppHeader'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 type UserSettings = {
   id: string
@@ -443,7 +444,10 @@ export default function SettingsPage() {
 
                 <div className="space-y-6 px-6 py-6">
                   <div>
-                    <div className="text-sm font-medium text-neutral-900">Scan schedule</div>
+                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                      Scan schedule
+                      <Tooltip text="How often the system scans your watchlist for buy signals. Evening only is recommended — signals arrive after market close and you review them at night before placing pre-market limit orders." />
+                    </div>
                     <p className="mt-1 text-sm text-neutral-600">
                       Evening only is recommended for swing traders who review signals at night and place pre-market orders.
                     </p>
@@ -494,8 +498,9 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <div className="text-sm font-medium text-neutral-900">
+                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
                       Buy signal active for
+                      <Tooltip text="How many trading days a buy signal stays in your Inbox before it expires. After this period, if you haven't acted on it, it is automatically dismissed." />
                     </div>
                     <p className="mt-1 text-sm text-neutral-600">
                       How many trading days a buy signal stays in your Inbox before it expires.
@@ -523,119 +528,174 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <ToggleRow
-                    label="Morning trade monitor"
-                    description="Check open trades at market open (9:45 AM ET) for stop hits at the open."
-                    value={morningTradeMonitorEnabled}
-                    onChange={setMorningTradeMonitorEnabled}
-                  />
+                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                          Morning trade monitor
+                          <Tooltip text="If enabled, the system checks your open trades at 9:45 AM ET for stop losses hit at the market open." />
+                        </div>
+                        <p className="mt-1 text-sm text-neutral-600">
+                          Check open trades at market open (9:45 AM ET) for stop hits at the open.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={morningTradeMonitorEnabled}
+                        onClick={() => setMorningTradeMonitorEnabled(!morningTradeMonitorEnabled)}
+                        className={[
+                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                          morningTradeMonitorEnabled ? 'bg-neutral-900' : 'bg-neutral-300',
+                        ].join(' ')}
+                      >
+                        <span
+                          className={[
+                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                            morningTradeMonitorEnabled ? 'translate-x-6' : 'translate-x-1',
+                          ].join(' ')}
+                        />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
 
             <section className="ui-section">
-  <div className="ui-card rounded-2xl border border-neutral-200">
-    <div className="border-b border-neutral-200 px-6 py-5">
-      <h2 className="text-lg font-semibold text-neutral-900">Screener</h2>
-      <p className="mt-2 text-sm text-neutral-600">
-        The screener runs nightly and automatically discovers stock candidates using Massive market data. Enable it and set your minimum criteria.
-      </p>
-    </div>
+              <div className="ui-card rounded-2xl border border-neutral-200">
+                <div className="border-b border-neutral-200 px-6 py-5">
+                  <h2 className="text-lg font-semibold text-neutral-900">Screener</h2>
+                  <p className="mt-2 text-sm text-neutral-600">
+                    The screener runs nightly and automatically discovers stock candidates using Massive market data. Enable it and set your minimum criteria.
+                  </p>
+                </div>
 
-    <div className="space-y-6 px-6 py-6">
-      <ToggleRow
-        label="Autonomous screener"
-        description="Automatically discover new candidates each night based on your criteria below."
-        value={screenerEnabled}
-        onChange={setScreenerEnabled}
-      />
+                <div className="space-y-6 px-6 py-6">
+                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                          Autonomous screener
+                          <Tooltip text="When enabled, the system automatically scans the market each night for new stock candidates that meet your minimum criteria." />
+                        </div>
+                        <p className="mt-1 text-sm text-neutral-600">
+                          Automatically discover new candidates each night based on your criteria below.
+                        </p>
+                      </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900">
-            Minimum price ($)
-          </span>
-          <input
-            type="number"
-            step="1"
-            className="ui-input"
-            value={screenerMinPrice}
-            onChange={(event) => setScreenerMinPrice(event.target.value)}
-          />
-        </label>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={screenerEnabled}
+                        onClick={() => setScreenerEnabled(!screenerEnabled)}
+                        className={[
+                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+                          screenerEnabled ? 'bg-neutral-900' : 'bg-neutral-300',
+                        ].join(' ')}
+                      >
+                        <span
+                          className={[
+                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                            screenerEnabled ? 'translate-x-6' : 'translate-x-1',
+                          ].join(' ')}
+                        />
+                      </button>
+                    </div>
+                  </div>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900">
-            Minimum average volume
-          </span>
-          <input
-            type="number"
-            step="10000"
-            placeholder="500000"
-            className="ui-input"
-            value={screenerMinAvgVolume}
-            onChange={(event) => setScreenerMinAvgVolume(event.target.value)}
-          />
-        </label>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                        Minimum price ($)
+                        <Tooltip text="Only consider stocks trading above this price. Helps avoid penny stocks and illiquid names." />
+                      </span>
+                      <input
+                        type="number"
+                        step="1"
+                        className="ui-input"
+                        value={screenerMinPrice}
+                        onChange={(event) => setScreenerMinPrice(event.target.value)}
+                      />
+                    </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900">
-            Minimum EPS growth (%)
-          </span>
-          <input
-            type="number"
-            step="1"
-            placeholder="25"
-            className="ui-input"
-            value={screenerMinEpsGrowthPct}
-            onChange={(event) => setScreenerMinEpsGrowthPct(event.target.value)}
-          />
-        </label>
+                    <label className="block">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                        Minimum average volume
+                        <Tooltip text="Only consider stocks with at least this many shares traded per day on average. Ensures you can enter and exit without slippage." />
+                      </span>
+                      <input
+                        type="number"
+                        step="10000"
+                        placeholder="500000"
+                        className="ui-input"
+                        value={screenerMinAvgVolume}
+                        onChange={(event) => setScreenerMinAvgVolume(event.target.value)}
+                      />
+                    </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900">
-            Minimum revenue growth (%)
-          </span>
-          <input
-            type="number"
-            step="1"
-            placeholder="20"
-            className="ui-input"
-            value={screenerMinRevenueGrowthPct}
-            onChange={(event) => setScreenerMinRevenueGrowthPct(event.target.value)}
-          />
-        </label>
-      </div>
+                    <label className="block">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                        Minimum EPS growth (%)
+                        <Tooltip text="Only consider stocks with at least this level of earnings growth year over year. Minervini's baseline is 25%." />
+                      </span>
+                      <input
+                        type="number"
+                        step="1"
+                        placeholder="25"
+                        className="ui-input"
+                        value={screenerMinEpsGrowthPct}
+                        onChange={(event) => setScreenerMinEpsGrowthPct(event.target.value)}
+                      />
+                    </label>
 
-      <div>
-        <div className="text-sm font-medium text-neutral-900">
-          Max new candidates per night
-        </div>
+                    <label className="block">
+                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900">
+                        Minimum revenue growth (%)
+                        <Tooltip text="Only consider stocks with at least this level of sales growth year over year. Confirms the earnings growth is backed by real demand." />
+                      </span>
+                      <input
+                        type="number"
+                        step="1"
+                        placeholder="20"
+                        className="ui-input"
+                        value={screenerMinRevenueGrowthPct}
+                        onChange={(event) => setScreenerMinRevenueGrowthPct(event.target.value)}
+                      />
+                    </label>
+                  </div>
 
-        <div className="mt-4 flex flex-wrap gap-3">
-          {[10, 20, 30].map((count) => {
-            const selected = screenerMaxCandidates === count
+                  <div>
+                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900">
+                      Max new candidates per night
+                      <Tooltip text="The maximum number of new stocks the screener will add to your candidates list in a single night. Keeps your review workload manageable." />
+                    </div>
 
-            return (
-              <button
-                key={count}
-                type="button"
-                onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
-                className={
-                  selected
-                    ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white'
-                    : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700'
-                }
-              >
-                {count}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {[10, 20, 30].map((count) => {
+                        const selected = screenerMaxCandidates === count
+
+                        return (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
+                            className={
+                              selected
+                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white'
+                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700'
+                            }
+                          >
+                            {count}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
 
             <section className="ui-section">
               <div className="ui-card rounded-2xl border border-neutral-200">

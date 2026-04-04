@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 type Props = {
   onSave: (payload: {
@@ -41,7 +42,10 @@ export function MarketSnapshotForm({ onSave }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Market Phase</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Market Phase
+            <Tooltip text="The current broad market condition based on Minervini's timing model. Confirmed uptrend means conditions are good for buying. Correction and Bear mean you should be mostly or fully in cash." />
+          </label>
           <select
             value={marketPhase}
             onChange={(e) => setMarketPhase(e.target.value)}
@@ -56,7 +60,10 @@ export function MarketSnapshotForm({ onSave }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Max Long Exposure %</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Max Long Exposure %
+            <Tooltip text="The maximum percentage of your portfolio you are allowed to deploy in new trades while this market phase is active." />
+          </label>
           <input
             value={maxLongExposurePct}
             onChange={(e) => setMaxLongExposurePct(e.target.value)}
@@ -67,9 +74,9 @@ export function MarketSnapshotForm({ onSave }: Props) {
       </div>
 
       <div className="mt-4">
-<button onClick={handleSubmit} className="ui-btn-primary">
-  Save Market Snapshot
-</button>
+        <button onClick={handleSubmit} className="ui-btn-primary">
+          Save Market Snapshot
+        </button>
       </div>
     </div>
   )

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { AppHeader } from '@/components/AppHeader'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 type CandidateRow = {
   id: string
@@ -440,15 +441,24 @@ export default function CandidatesPage() {
         <>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <div className="text-sm uppercase tracking-wide text-neutral-500">Awaiting research</div>
+              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500">
+                Awaiting research
+                <Tooltip text="Candidates the screener has found but that still need technical fields filled in (RS line, base pattern, entry zone, etc.) before they can be evaluated." />
+              </div>
               <div className="mt-2 text-4xl font-semibold">{awaitingResearchCount}</div>
             </div>
             <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <div className="text-sm uppercase tracking-wide text-neutral-500">Ready for evaluation</div>
+              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500">
+                Ready for evaluation
+                <Tooltip text="Candidates that have been fully researched and are ready for the rule-based evaluation engine to score." />
+              </div>
               <div className="mt-2 text-4xl font-semibold">{readyForEvaluationCount}</div>
             </div>
             <div className="rounded-2xl border border-neutral-200 bg-white p-6">
-              <div className="text-sm uppercase tracking-wide text-neutral-500">Last screener run</div>
+              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500">
+                Last screener run
+                <Tooltip text="The most recent time the automated screener ran and searched for new candidates." />
+              </div>
               <div className="mt-2 text-2xl font-semibold">
                 {lastRunAt ? new Date(lastRunAt).toLocaleString() : 'No runs yet'}
               </div>

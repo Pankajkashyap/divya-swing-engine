@@ -7,6 +7,7 @@ import { PendingActionsTable } from '@/components/inbox/PendingActionsTable'
 import { NotificationLogTable } from '@/components/inbox/NotificationLogTable'
 import { ExecuteBuyDialog } from '@/components/inbox/ExecuteBuyDialog'
 import { ExecuteSellDialog } from '@/components/inbox/ExecuteSellDialog'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 export type PendingAction = {
   id: string
@@ -127,7 +128,6 @@ export default function InboxPage() {
 
     setNotifications((data ?? []) as NotificationLog[])
   }, [supabase])
-
 
   useEffect(() => {
     let cancelled = false
@@ -513,7 +513,10 @@ export default function InboxPage() {
 
         <section className="ui-section">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-neutral-900">Pending Actions</h2>
+            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900">
+              Pending Actions
+              <Tooltip text="Items that require your decision: proposed buy signals, watchlist additions or removals, and system alerts waiting for your confirmation." />
+            </h2>
           </div>
 
           <PendingActionsTable
@@ -531,7 +534,10 @@ export default function InboxPage() {
 
         <section className="ui-section mt-8">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold text-neutral-900">Notification Log</h2>
+            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900">
+              Notification Log
+              <Tooltip text="A record of all emails and alerts the system has sent you." />
+            </h2>
           </div>
 
           <NotificationLogTable notifications={notifications} />

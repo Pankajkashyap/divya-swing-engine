@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { Tooltip } from '@/components/ui/Tooltip'
 
 type Props = {
   onAdd: (payload: {
@@ -212,7 +213,6 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
     setSubmitting(true)
 
     try {
-
       await onAdd({
         ticker,
         companyName,
@@ -298,7 +298,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Setup Grade</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Setup Grade
+            <Tooltip text="Your overall quality rating for this trade setup. A+ is the highest conviction, C is marginal. Only take A and B setups." />
+          </label>
           <select
             value={setupGrade}
             onChange={(e) => setSetupGrade(e.target.value)}
@@ -312,7 +315,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Entry Zone Low</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Entry Zone Low
+            <Tooltip text="The price range where you would place a buy limit order. Ideally as close to the pivot point as possible." />
+          </label>
           <input
             value={entryZoneLow}
             onChange={(e) => setEntryZoneLow(e.target.value)}
@@ -327,7 +333,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Entry Zone High</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Entry Zone High
+            <Tooltip text="The price range where you would place a buy limit order. Ideally as close to the pivot point as possible." />
+          </label>
           <input
             value={entryZoneHigh}
             onChange={(e) => setEntryZoneHigh(e.target.value)}
@@ -342,7 +351,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Stop Price</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Stop Price
+            <Tooltip text="The price at which you will exit the trade to limit your loss. Typically 7-8% below your entry price." />
+          </label>
           <input
             value={stopPrice}
             onChange={(e) => setStopPrice(e.target.value)}
@@ -357,7 +369,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Target 1 Price</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Target 1 Price
+            <Tooltip text="Your first profit target — typically a 20-25% gain from entry. You would sell a portion of your position here." />
+          </label>
           <input
             value={target1Price}
             onChange={(e) => setTarget1Price(e.target.value)}
@@ -372,7 +387,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Target 2 Price</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Target 2 Price
+            <Tooltip text="Your extended profit target if the stock continues to run strongly after Target 1." />
+          </label>
           <input
             value={target2Price}
             onChange={(e) => setTarget2Price(e.target.value)}
@@ -385,8 +403,12 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             <p className="mt-1 text-xs text-red-600">{errors.target2Price}</p>
           ) : null}
         </div>
-                <div>
-          <label className="mb-1 block text-sm font-medium">EPS Growth %</label>
+
+        <div>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            EPS Growth %
+            <Tooltip text="Earnings per share growth compared to the same quarter last year. Minervini looks for 25%+ minimum, 50%+ preferred." />
+          </label>
           <input
             value={epsGrowth}
             onChange={(e) => setEpsGrowth(e.target.value)}
@@ -398,7 +420,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Revenue Growth %</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Revenue Growth %
+            <Tooltip text="Revenue growth compared to the same quarter last year. Confirms the EPS growth is driven by real business growth." />
+          </label>
           <input
             value={revenueGrowth}
             onChange={(e) => setRevenueGrowth(e.target.value)}
@@ -410,8 +435,9 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
             Accumulation / Distribution Rating
+            <Tooltip text="An IBD rating (A through E) showing whether institutions are buying (accumulating) or selling (distributing) the stock. A or B is required." />
           </label>
           <select
             value={accDistRating}
@@ -427,7 +453,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Industry Group Rank</label>
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+            Industry Group Rank
+            <Tooltip text="IBD ranks 197 industry groups by relative strength. You want stocks in the top 20 groups (rank 1-40). Avoid anything ranked below 100." />
+          </label>
           <input
             value={industryRank}
             onChange={(e) => setIndustryRank(e.target.value)}
@@ -439,7 +468,8 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             step="1"
           />
         </div>
-          <div className="md:col-span-2">
+
+        <div className="md:col-span-2">
           <label className="flex items-start gap-3 text-sm">
             <input
               type="checkbox"
@@ -447,7 +477,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setEpsAccelerating(e.target.checked)}
               className="mt-1"
             />
-            <span>EPS Accelerating</span>
+            <span className="flex items-center gap-1">
+              EPS Accelerating
+              <Tooltip text="Whether earnings growth is speeding up quarter over quarter. Acceleration is a key Minervini signal that institutional demand is growing." />
+            </span>
           </label>
         </div>
       </div>
@@ -463,7 +496,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setTrendTemplatePass(e.target.checked)}
               className="mt-1"
             />
-            <span>Trend Template passes all 8 criteria</span>
+            <span className="flex items-center gap-1">
+              Trend Template passes all 8 criteria
+              <Tooltip text="The stock passes all 8 of Minervini's Trend Template rules: price above 50/150/200-day MAs, MAs in the right order, RS line at new highs, stock within 25% of its 52-week high, and above its 52-week low." />
+            </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
@@ -473,7 +509,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setVolumeDryUpPass(e.target.checked)}
               className="mt-1"
             />
-            <span>Volume dry-up confirmed at pivot</span>
+            <span className="flex items-center gap-1">
+              Volume dry-up confirmed at pivot
+              <Tooltip text="Volume contracted (got quieter) as the stock formed its base. This shows sellers exhausted themselves, which is a healthy sign before a breakout." />
+            </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
@@ -483,7 +522,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setRsLineConfirmed(e.target.checked)}
               className="mt-1"
             />
-            <span>RS line confirmed</span>
+            <span className="flex items-center gap-1">
+              RS line confirmed
+              <Tooltip text="The Relative Strength line (comparing this stock to the S&P 500) is trending upward and ideally at or near new highs." />
+            </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
@@ -493,7 +535,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setBasePatternValid(e.target.checked)}
               className="mt-1"
             />
-            <span>Base pattern valid</span>
+            <span className="flex items-center gap-1">
+              Base pattern valid
+              <Tooltip text="The stock's chart pattern qualifies as a recognisable, well-formed base: a VCP, flat base, cup with handle, or similar. Loose, wide patterns fail this." />
+            </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
@@ -503,7 +548,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setEntryNearPivot(e.target.checked)}
               className="mt-1"
             />
-            <span>Entry near pivot</span>
+            <span className="flex items-center gap-1">
+              Entry near pivot
+              <Tooltip text="You are buying within 5% of the exact breakout point, not chasing a stock that has already moved significantly." />
+            </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
@@ -513,7 +561,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setVolumeBreakoutConfirmed(e.target.checked)}
               className="mt-1"
             />
-            <span>Volume breakout confirmed</span>
+            <span className="flex items-center gap-1">
+              Volume breakout confirmed
+              <Tooltip text="The breakout day saw volume at least 40-50% above average, confirming institutional buying is driving the move." />
+            </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
@@ -523,16 +574,23 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setLiquidityPass(e.target.checked)}
               className="mt-1"
             />
-            <span>Liquidity passes</span>
+            <span className="flex items-center gap-1">
+              Liquidity passes
+              <Tooltip text="The stock trades enough average daily volume (typically 250K+ shares) that you can enter and exit without moving the price." />
+            </span>
           </label>
-                    <label className="flex items-start gap-3 text-sm">
+
+          <label className="flex items-start gap-3 text-sm">
             <input
               type="checkbox"
               checked={earningsWithin2Weeks}
               onChange={(e) => setEarningsWithin2Weeks(e.target.checked)}
               className="mt-1"
             />
-            <span>Earnings within 2 weeks</span>
+            <span className="flex items-center gap-1">
+              Earnings within 2 weeks
+              <Tooltip text="An earnings report is due within the next two weeks. This adds binary risk — even a great setup can collapse on a bad earnings reaction." />
+            </span>
           </label>
 
           <label className="flex items-start gap-3 text-sm">
@@ -542,7 +600,10 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               onChange={(e) => setBinaryEventRisk(e.target.checked)}
               className="mt-1"
             />
-            <span>Binary event risk</span>
+            <span className="flex items-center gap-1">
+              Binary event risk
+              <Tooltip text="There is an upcoming event (like an FDA decision or major legal ruling) that could cause a large move in either direction regardless of the setup quality." />
+            </span>
           </label>
         </div>
       </div>
@@ -552,19 +613,28 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
 
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <div>
-            <p className="text-xs text-neutral-500">Risk / Share</p>
+            <p className="flex items-center gap-1 text-xs text-neutral-500">
+              Risk / Share
+              <Tooltip text="How many dollars you lose per share if the stock hits your stop price. Calculated as: Entry Price minus Stop Price." />
+            </p>
             <p className="mt-1 text-lg font-semibold">
               {preview.riskPerShare ?? '—'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500">Reward / Share</p>
+            <p className="flex items-center gap-1 text-xs text-neutral-500">
+              Reward / Share
+              <Tooltip text="How many dollars you gain per share if the stock hits your Target 1. Calculated as: Target 1 minus Entry Price." />
+            </p>
             <p className="mt-1 text-lg font-semibold">
               {preview.rewardPerShare ?? '—'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500">Expected R/R</p>
+            <p className="flex items-center gap-1 text-xs text-neutral-500">
+              Expected R/R
+              <Tooltip text="Reward-to-Risk ratio. A 3:1 means you stand to make $3 for every $1 you risk. Minervini requires a minimum of 3:1 before entering a trade." />
+            </p>
             <p
               className={[
                 'mt-1 text-lg font-semibold',
