@@ -24,7 +24,7 @@ function fmtDate(value: string) {
 }
 
 function inboxUrl(appUrl?: string) {
-  return `${appUrl ?? edgeConfig.NEXT_PUBLIC_APP_URL ?? ''}/inbox`
+  return `${appUrl ?? edgeConfig.appBaseUrl ?? ''}/inbox`
 }
 
 function layout(title: string, body: string) {
