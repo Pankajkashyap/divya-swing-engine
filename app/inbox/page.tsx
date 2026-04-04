@@ -111,7 +111,7 @@ export default function InboxPage() {
     })
 
     setPendingActions(sorted)
-  }, [])
+  }, [supabase])
 
   const loadNotifications = useCallback(async () => {
     const { data, error } = await supabase
