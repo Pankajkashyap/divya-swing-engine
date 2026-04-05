@@ -269,6 +269,20 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
     }
   }
 
+  const rrClass =
+    preview.expectedRR === null
+      ? 'text-neutral-900 dark:text-[#e6eaf0]'
+      : preview.expectedRR >= 2
+        ? 'text-green-700 dark:text-[#8fd0ab]'
+        : 'text-red-700 dark:text-[#f0a3a3]'
+
+  const messageClass =
+    preview.expectedRR === null
+      ? 'mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]'
+      : preview.isValid
+        ? 'mt-3 text-sm font-medium text-green-700 dark:text-[#8fd0ab]'
+        : 'mt-3 text-sm font-medium text-red-700 dark:text-[#f0a3a3]'
+
   return (
     <div className="ui-section mt-8">
       <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
@@ -287,7 +301,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             placeholder="NVDA"
           />
           {errors.ticker ? (
-            <p className="mt-1 text-xs text-red-600">{errors.ticker}</p>
+            <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">{errors.ticker}</p>
           ) : null}
         </div>
 
@@ -334,7 +348,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             step="0.01"
           />
           {errors.entryZoneLow ? (
-            <p className="mt-1 text-xs text-red-600">{errors.entryZoneLow}</p>
+            <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">{errors.entryZoneLow}</p>
           ) : null}
         </div>
 
@@ -352,7 +366,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             step="0.01"
           />
           {errors.entryZoneHigh ? (
-            <p className="mt-1 text-xs text-red-600">{errors.entryZoneHigh}</p>
+            <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">{errors.entryZoneHigh}</p>
           ) : null}
         </div>
 
@@ -370,7 +384,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             step="0.01"
           />
           {errors.stopPrice ? (
-            <p className="mt-1 text-xs text-red-600">{errors.stopPrice}</p>
+            <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">{errors.stopPrice}</p>
           ) : null}
         </div>
 
@@ -388,7 +402,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             step="0.01"
           />
           {errors.target1Price ? (
-            <p className="mt-1 text-xs text-red-600">{errors.target1Price}</p>
+            <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">{errors.target1Price}</p>
           ) : null}
         </div>
 
@@ -406,7 +420,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             step="0.01"
           />
           {errors.target2Price ? (
-            <p className="mt-1 text-xs text-red-600">{errors.target2Price}</p>
+            <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">{errors.target2Price}</p>
           ) : null}
         </div>
 
@@ -645,31 +659,13 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               Expected R/R
               <Tooltip text="Reward-to-Risk ratio. A 3:1 means you stand to make $3 for every $1 you risk. Minervini requires a minimum of 3:1 before entering a trade." />
             </p>
-            <p
-              className={[
-                'mt-1 text-lg font-semibold',
-                preview.expectedRR === null
-                  ? 'text-neutral-900 dark:text-[#e6eaf0]'
-                  : preview.expectedRR >= 2
-                    ? 'text-green-700'
-                    : 'text-red-700',
-              ].join(' ')}
-            >
+            <p className={['mt-1 text-lg font-semibold', rrClass].join(' ')}>
               {preview.expectedRR ?? '—'}
             </p>
           </div>
         </div>
 
-        <p
-          className={[
-            'mt-3 text-sm font-medium',
-            preview.expectedRR === null
-              ? 'text-neutral-600 dark:text-[#a8b2bf]'
-              : preview.isValid
-                ? 'text-green-700'
-                : 'text-red-700',
-          ].join(' ')}
-        >
+        <p className={messageClass}>
           {preview.expectedRR === null
             ? 'Enter entry, stop, and target values to preview setup quality.'
             : preview.isValid
@@ -679,8 +675,8 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
       </div>
 
       {errors.form ? (
-<div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-[#5a2d33] dark:bg-[#3a2227] dark:text-[#f0a3a3]">
-            {errors.form}
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-[#5a2d33] dark:bg-[#3a2227] dark:text-[#f0a3a3]">
+          {errors.form}
         </div>
       ) : null}
 
