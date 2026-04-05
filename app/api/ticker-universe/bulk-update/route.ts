@@ -139,7 +139,9 @@ export async function POST(request: Request) {
 
   let deactivated = 0
 
-  if (incomingTickers.length > 0) {
+  const DEACTIVATION_THRESHOLD = 400
+
+  if (incomingTickers.length > DEACTIVATION_THRESHOLD) {
     const { data: toDeactivate, error: previewError } = await supabase
       .from('ticker_universe')
       .select('ticker')
