@@ -44,6 +44,8 @@ type FinancialResult = {
 type Candidate = {
   ticker: string
   companyName: string | null
+  price: number
+  avgVolume: number
   epsGrowthPct: number | null
   revenueGrowthPct: number | null
 }
@@ -119,7 +121,6 @@ async function safeFinishScanLog(params: {
     changesJson: params.changesJson,
   })
 }
-
 
 Deno.serve(async (request: Request) => {
   let logId: string | null = null
@@ -204,6 +205,7 @@ Deno.serve(async (request: Request) => {
       price_too_low: 0,
       volume_too_low: 0,
       eps_too_low: 0,
+      revenue_too_low: 0,
       already_in_watchlist: 0,
       zero_fundamentals: 0,
     }
@@ -340,26 +342,41 @@ Deno.serve(async (request: Request) => {
         const epsGrowth = calculateGrowth(currentEps, priorEps)
         const revenueGrowth = calculateGrowth(currentRevenue, priorRevenue)
 
-        const hasValidFundamentals =
-          (epsGrowth !== null && epsGrowth > 0) ||
-          (revenueGrowth !== null && revenueGrowth > 0)
-
-        if (!hasValidFundamentals) {
-          rejectionCounts.zero_fundamentals += 1
-          await delay(300)
-          continue
+        const candidate: Candidate = {
+          ticker,
+          companyName: null,
+          price: shortlisted.price,
+          avgVolume: shortlisted.volume,
+          epsGrowthPct: epsGrowth,
+          revenueGrowthPct: revenueGrowth,
         }
+
+        // Explicit minimum-criteria guard. Nulls fail. All four minimums must pass.
+        const minPriceGuard = settings.screener_min_price ?? 10
+        const minVolumeGuard = settings.screener_min_avg_volume ?? 500000
+        const minEpsGuard = settings.screener_min_eps_growth_pct ?? 25
+        const minRevenueGuard = settings.screener_min_revenue_growth_pct ?? 20
 
         if (
-          (epsGrowth === null || epsGrowth <= minEpsGrowth) &&
-          (revenueGrowth === null || revenueGrowth <= minRevenueGrowth)
+          candidate.price == null ||
+          candidate.price < minPriceGuard ||
+          candidate.avgVolume == null ||
+          candidate.avgVolume < minVolumeGuard ||
+          candidate.epsGrowthPct == null ||
+          candidate.epsGrowthPct < minEpsGuard ||
+          candidate.revenueGrowthPct == null ||
+          candidate.revenueGrowthPct < minRevenueGuard
         ) {
-          rejectionCounts.eps_too_low += 1
+          if (candidate.epsGrowthPct == null || candidate.revenueGrowthPct == null) {
+            rejectionCounts.zero_fundamentals += 1
+          } else {
+            if (candidate.epsGrowthPct < minEpsGuard) rejectionCounts.eps_too_low += 1
+            if (candidate.revenueGrowthPct < minRevenueGuard) rejectionCounts.revenue_too_low += 1
+          }
           await delay(300)
           continue
         }
 
-        let companyName: string | null = null
         try {
           const detailUrl =
             `${massiveBaseUrl}/v3/reference/tickers/${encodeURIComponent(ticker)}` +
@@ -367,7 +384,7 @@ Deno.serve(async (request: Request) => {
           const detailResponse = await fetchWithTimeout(detailUrl, {}, 5000)
           if (detailResponse.ok) {
             const detailData = await detailResponse.json()
-            companyName = detailData?.results?.name ?? null
+            candidate.companyName = detailData?.results?.name ?? null
           }
         } catch {
           // company name is optional — continue without it
@@ -396,13 +413,6 @@ Deno.serve(async (request: Request) => {
           rejectionCounts.already_in_watchlist += 1
           await delay(300)
           continue
-        }
-
-        const candidate: Candidate = {
-          ticker,
-          companyName,
-          epsGrowthPct: epsGrowth,
-          revenueGrowthPct: revenueGrowth,
         }
 
         const { error: insertError } = await supabase.from('watchlist').insert({
@@ -504,5 +514,5 @@ Deno.serve(async (request: Request) => {
 
     return jsonResponse({ success: false, reason: errorMessage }, 500)
   }
-})// force redeploy static universe fix
+}) // force redeploy static universe fix
 // force redeploy universe export fix
