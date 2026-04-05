@@ -494,7 +494,7 @@ if (loading) {
 
   return (
           <main className="ui-page">
-            <section className="mx-auto max-w-6xl">
+            <section className="mx-auto max-w-7xl">
           <AppHeader
            title="Inbox"
             subtitle="Pending signals, alerts, and watchlist reviews."

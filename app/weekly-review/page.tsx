@@ -150,7 +150,7 @@ export default function WeeklyReviewPage() {
 
   return (
     <main className="ui-page">
-      <section className="mx-auto max-w-6xl">
+      <section className="mx-auto max-w-7xl">
         <AppHeader
           title="Weekly Review"
           subtitle="Review outcomes, performance, and next-week focus."

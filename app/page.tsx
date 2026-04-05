@@ -1124,7 +1124,7 @@ if (loading) {
 
   return (
 <main className="ui-page">      
-  <section className="mx-auto max-w-6xl">
+  <section className="mx-auto max-w-7xl">
         <AppHeader
           title="Setup Evaluator"
           subtitle="Market-first rule engine, trade planning, execution, and exposure control."
