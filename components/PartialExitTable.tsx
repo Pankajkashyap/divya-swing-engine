@@ -21,8 +21,8 @@ export function PartialExitTable({ savedTrades, onPartialExit }: Props) {
   )
 
   return (
-    <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="ui-section mt-8">
+        <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Partial Exits</h2>
         <p className="text-sm text-neutral-500">{openTrades.length} active trades</p>
       </div>
