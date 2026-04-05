@@ -660,7 +660,7 @@ export function WatchlistSelectionTable({
             </div>
 
             {errors.form ? (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-[#5a2d33] dark:bg-[#3a2227] dark:text-[#f0a3a3]">
                 {errors.form}
               </div>
             ) : null}

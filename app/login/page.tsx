@@ -51,17 +51,17 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-50 px-6 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main className="ui-page">
       <section className="mx-auto max-w-md ui-section">
         <div className="ui-card p-8">
           <div className="mb-6">
-            <p className="text-xs font-medium uppercase tracking-[0.24em] text-neutral-500 dark:text-neutral-400">
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-neutral-500 dark:text-[#a8b2bf]">
               Divya Swing Engine
             </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]">
               Login
             </h1>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
               Enter your email to receive a magic login link.
             </p>
           </div>
@@ -70,7 +70,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="email"
-                className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
+                className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#c7d0db]"
               >
                 Email address
               </label>
@@ -87,13 +87,13 @@ export default function LoginPage() {
             </div>
 
             {errorMessage ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-[#5a2d33] dark:bg-[#3a2227] dark:text-[#f0a3a3]">
                 {errorMessage}
               </div>
             ) : null}
 
             {successMessage ? (
-              <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
+              <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-[#2f5a43] dark:bg-[#1f3329] dark:text-[#8fd0ab]">
                 {successMessage}
               </div>
             ) : null}
