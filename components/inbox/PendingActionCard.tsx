@@ -28,9 +28,9 @@ function formatRelativeTime(dateString: string) {
 }
 
 function getUrgencyDotClass(urgency: PendingAction['urgency']) {
-  if (urgency === 'urgent') return 'bg-red-500'
-  if (urgency === 'normal') return 'bg-amber-500'
-  return 'bg-neutral-400'
+  if (urgency === 'urgent') return 'bg-[#f0a3a3]'
+  if (urgency === 'normal') return 'bg-[#e7c98a]'
+  return 'bg-[#7f8a98]'
 }
 
 export function PendingActionCard({
@@ -43,22 +43,28 @@ export function PendingActionCard({
   onArchiveWatchlistItem,
 }: Props) {
   return (
-    <div className="ui-card rounded-2xl border border-neutral-200 p-4">
+    <div className="ui-card p-4">
       <div className="flex items-start gap-3">
         <span
           className={`mt-2 h-2.5 w-2.5 rounded-full ${getUrgencyDotClass(action.urgency)}`}
         />
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-neutral-900">{action.ticker}</div>
-          <div className="mt-1 text-sm font-medium text-neutral-900">{action.title}</div>
+          <div className="font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            {action.ticker}
+          </div>
+          <div className="mt-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+            {action.title}
+          </div>
           {action.message ? (
-            <div className="mt-1 text-sm text-neutral-500">{action.message}</div>
+            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+              {action.message}
+            </div>
           ) : null}
-          <div className="mt-2 text-xs text-neutral-500">
+          <div className="mt-2 text-xs text-neutral-500 dark:text-[#a8b2bf]">
             Created {formatRelativeTime(action.created_at)}
           </div>
           {action.expires_at ? (
-            <div className="mt-1 text-xs text-neutral-500">
+            <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
               Expires {new Date(action.expires_at).toLocaleString()}
             </div>
           ) : null}
@@ -95,7 +101,7 @@ export function PendingActionCard({
           </>
         ) : null}
 
-        {(action.action_type === 'stop_alert' || action.action_type === 'target_alert') ? (
+        {action.action_type === 'stop_alert' || action.action_type === 'target_alert' ? (
           <>
             <button
               type="button"
