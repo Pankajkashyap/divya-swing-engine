@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { AppHeader } from '@/components/AppHeader'
@@ -45,7 +45,7 @@ const scanScheduleOptions = [
     value: 'evening_only' as const,
     label: 'Evening only',
     description:
-      'Watchlist scans run at 4:30 PM ET after market close. Review signals at night, place limit orders before market open.',
+      'Watchlist scans run at 4:30 PM ET after market close. Review signals at night and place orders before market open.',
   },
   {
     value: 'three_times_daily' as const,
@@ -139,36 +139,64 @@ function ToggleRow({
   onChange: (next: boolean) => void
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-white px-4 py-4 dark:border-neutral-700 dark:bg-neutral-900">
-      <div className="min-w-0">
-        <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{label}</div>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{description}</p>
-      </div>
+    <div className="ui-card px-4 py-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+            {label}
+          </div>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            {description}
+          </p>
+        </div>
 
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        onClick={() => onChange(!value)}
-        className={[
-          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-          value ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-neutral-700',
-        ].join(' ')}
-      >
-        <span
+        <button
+          type="button"
+          role="switch"
+          aria-checked={value}
+          onClick={() => onChange(!value)}
           className={[
-            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform dark:bg-neutral-900',
-            value ? 'translate-x-6' : 'translate-x-1',
+            'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
+            value ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-[#39414d]',
           ].join(' ')}
-        />
-      </button>
+        >
+          <span
+            className={[
+              'inline-block h-4 w-4 transform rounded-full bg-white transition-transform dark:bg-neutral-900',
+              value ? 'translate-x-6' : 'translate-x-1',
+            ].join(' ')}
+          />
+        </button>
+      </div>
     </div>
+  )
+}
+
+function SectionShell({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="ui-section">
+      <div className="border-b border-neutral-200 px-6 py-5 dark:border-[#2a313b]">
+        <h2 className="ui-heading-2">{title}</h2>
+        {description ? (
+          <p className="mt-2 ui-muted">{description}</p>
+        ) : null}
+      </div>
+      <div className="space-y-6 px-6 py-6">{children}</div>
+    </section>
   )
 }
 
 export default function SettingsPage() {
   const router = useRouter()
-  const supabase = createSupabaseBrowserClient()
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const { theme, setTheme } = useTheme()
 
   const [settings, setSettings] = useState<UserSettings | null>(null)
@@ -367,7 +395,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-neutral-50 px-4 py-8 dark:bg-neutral-950 sm:px-6 lg:px-8">
+    <main className="ui-page">
       <div className="mx-auto max-w-5xl">
         <AppHeader
           title="Settings"
@@ -376,474 +404,377 @@ export default function SettingsPage() {
 
         {loading ? (
           <div className="space-y-6">
-            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
-            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-[#20262e]" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-[#20262e]" />
+            <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-[#20262e]" />
           </div>
         ) : (
           <div className="space-y-6">
-            <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
-                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                    Appearance
-                  </h2>
-                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                    Choose how Divya Swing Engine looks.
-                  </p>
-                </div>
+            <SectionShell title="Appearance" description="Choose how Divya Swing Engine looks.">
+              <div className="grid gap-3 md:grid-cols-3">
+                {[
+                  { value: 'light', label: 'Light', icon: <SunIcon /> },
+                  { value: 'dark', label: 'Dark', icon: <MoonIcon /> },
+                  { value: 'system', label: 'System', icon: <SystemIcon /> },
+                ].map((option) => {
+                  const selected = theme === option.value
 
-                <div className="px-6 py-6">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    {[
-                      { value: 'light', label: 'Light', icon: <SunIcon /> },
-                      { value: 'dark', label: 'Dark', icon: <MoonIcon /> },
-                      { value: 'system', label: 'System', icon: <SystemIcon /> },
-                    ].map((option) => {
-                      const selected = theme === option.value
-
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setTheme(option.value)}
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setTheme(option.value)}
+                      className={[
+                        'ui-card w-full p-4 text-left transition-colors',
+                        selected
+                          ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-[#20262e]'
+                          : '',
+                      ].join(' ')}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span
                           className={[
-                            'w-full rounded-xl p-4 text-left transition-colors',
+                            'mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg border',
                             selected
-                              ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-neutral-800'
-                              : 'border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900',
+                              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                              : 'border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-[#2a313b] dark:bg-[#181d23] dark:text-[#a8b2bf]',
                           ].join(' ')}
                         >
-                          <div className="flex items-start gap-3">
-                            <span
-                              className={[
-                                'mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg border',
-                                selected
-                                  ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                                  : 'border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
-                              ].join(' ')}
-                            >
-                              {option.icon}
-                            </span>
+                          {option.icon}
+                        </span>
 
-                            <div>
-                              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                {option.label}
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
-                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Portfolio</h2>
-                </div>
-
-                <div className="px-6 py-6">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      Portfolio Value ($)
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      className="ui-input"
-                      placeholder="100000"
-                      value={portfolioValue}
-                      onChange={(event) => {
-                        setPortfolioValue(event.target.value)
-                        if (portfolioValueError) setPortfolioValueError(null)
-                      }}
-                    />
-                  </label>
-
-                  {portfolioValueError ? (
-                    <p className="mt-2 text-sm text-red-600 dark:text-red-400">{portfolioValueError}</p>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-
-            <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
-                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Notifications</h2>
-                </div>
-
-                <div className="space-y-6 px-6 py-6">
-                  <div>
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        Notification Email
-                      </span>
-                      <input
-                        type="email"
-                        className="ui-input"
-                        placeholder="you@example.com"
-                        value={notificationEmail}
-                        onChange={(event) => {
-                          setNotificationEmail(event.target.value)
-                          if (notificationEmailError) setNotificationEmailError(null)
-                        }}
-                      />
-                    </label>
-
-                    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                      Buy signals, stop alerts, and digests are sent to this address.
-                    </p>
-
-                    {notificationEmailError ? (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">{notificationEmailError}</p>
-                    ) : null}
-                  </div>
-
-                  <div>
-                    <label className="block">
-                      <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        Timezone
-                      </span>
-                      <select
-                        className="ui-select"
-                        value={timezone}
-                        onChange={(event) => setTimezone(event.target.value)}
-                      >
-                        {timezoneOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
+                        <div>
+                          <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                             {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="space-y-3">
-                    <ToggleRow
-                      label="Email notifications"
-                      description="Receive buy signal and alert emails"
-                      value={emailNotificationsEnabled}
-                      onChange={setEmailNotificationsEnabled}
-                    />
-
-                    <ToggleRow
-                      label="Digest emails"
-                      description="Receive daily and weekly summary emails"
-                      value={digestEmailEnabled}
-                      onChange={setDigestEmailEnabled}
-                    />
-
-                    <ToggleRow
-                      label="Urgent alerts"
-                      description="Receive urgent stop and target alert emails"
-                      value={urgentAlertsEnabled}
-                      onChange={setUrgentAlertsEnabled}
-                    />
-                  </div>
-                </div>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-            </section>
+            </SectionShell>
 
-            <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
-                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Workflow preferences</h2>
-                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                    Control when the system scans for setups and how long signals stay active.
+            <SectionShell title="Portfolio">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Portfolio Value ($)
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  className="ui-input"
+                  placeholder="100000"
+                  value={portfolioValue}
+                  onChange={(event) => {
+                    setPortfolioValue(event.target.value)
+                    if (portfolioValueError) setPortfolioValueError(null)
+                  }}
+                />
+              </label>
+
+              {portfolioValueError ? (
+                <p className="text-sm text-red-600 dark:text-[#f0a3a3]">{portfolioValueError}</p>
+              ) : null}
+            </SectionShell>
+
+            <SectionShell title="Notifications">
+              <div>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Notification Email
+                  </span>
+                  <input
+                    type="email"
+                    className="ui-input"
+                    placeholder="you@example.com"
+                    value={notificationEmail}
+                    onChange={(event) => {
+                      setNotificationEmail(event.target.value)
+                      if (notificationEmailError) setNotificationEmailError(null)
+                    }}
+                  />
+                </label>
+
+                <p className="mt-2 ui-muted">
+                  Buy signals, stop alerts, and digests are sent to this address.
+                </p>
+
+                {notificationEmailError ? (
+                  <p className="mt-2 text-sm text-red-600 dark:text-[#f0a3a3]">
+                    {notificationEmailError}
                   </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Timezone
+                  </span>
+                  <select
+                    className="ui-select"
+                    value={timezone}
+                    onChange={(event) => setTimezone(event.target.value)}
+                  >
+                    {timezoneOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="space-y-3">
+                <ToggleRow
+                  label="Email notifications"
+                  description="Receive buy signal and alert emails"
+                  value={emailNotificationsEnabled}
+                  onChange={setEmailNotificationsEnabled}
+                />
+
+                <ToggleRow
+                  label="Digest emails"
+                  description="Receive daily and weekly summary emails"
+                  value={digestEmailEnabled}
+                  onChange={setDigestEmailEnabled}
+                />
+
+                <ToggleRow
+                  label="Urgent alerts"
+                  description="Receive urgent stop and target alert emails"
+                  value={urgentAlertsEnabled}
+                  onChange={setUrgentAlertsEnabled}
+                />
+              </div>
+            </SectionShell>
+
+            <SectionShell
+              title="Workflow preferences"
+              description="Control when the system scans for setups and how long signals stay active."
+            >
+              <div>
+                <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Scan schedule
+                  <Tooltip text="How often the system scans your watchlist for buy signals. Evening only is recommended for swing traders who review signals at night." />
                 </div>
+                <p className="mt-1 ui-muted">
+                  Evening only is recommended for swing traders who review signals at night and place pre-market orders.
+                </p>
 
-                <div className="space-y-6 px-6 py-6">
-                  <div>
-                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      Scan schedule
-                      <Tooltip text="How often the system scans your watchlist for buy signals. Evening only is recommended — signals arrive after market close and you review them at night before placing pre-market limit orders." />
-                    </div>
-                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                      Evening only is recommended for swing traders who review signals at night and place pre-market orders.
-                    </p>
+                <div className="mt-4 space-y-3">
+                  {scanScheduleOptions.map((option) => {
+                    const selected = scanSchedule === option.value
 
-                    <div className="mt-4 space-y-3">
-                      {scanScheduleOptions.map((option) => {
-                        const selected = scanSchedule === option.value
-
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setScanSchedule(option.value)}
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setScanSchedule(option.value)}
+                        className={[
+                          'ui-card w-full cursor-pointer p-4 text-left',
+                          selected
+                            ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-[#20262e]'
+                            : '',
+                        ].join(' ')}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
                             className={[
-                              'w-full cursor-pointer rounded-xl p-4 text-left',
+                              'mt-1 inline-flex h-4 w-4 shrink-0 rounded-full border',
                               selected
-                                ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-neutral-800'
-                                : 'border border-neutral-200 dark:border-neutral-700',
+                                ? 'border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100'
+                                : 'border-neutral-300 bg-white dark:border-[#4a5564] dark:bg-[#181d23]',
                             ].join(' ')}
                           >
-                            <div className="flex items-start gap-3">
-                              <span
-                                className={[
-                                  'mt-1 inline-flex h-4 w-4 shrink-0 rounded-full border',
-                                  selected
-                                    ? 'border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100'
-                                    : 'border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-900',
-                                ].join(' ')}
-                              >
-                                {selected ? (
-                                  <span className="m-auto h-2 w-2 rounded-full bg-white dark:bg-neutral-900" />
-                                ) : null}
-                              </span>
+                            {selected ? (
+                              <span className="m-auto h-2 w-2 rounded-full bg-white dark:bg-neutral-900" />
+                            ) : null}
+                          </span>
 
-                              <div>
-                                <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                  {option.label}
-                                </div>
-                                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                                  {option.description}
-                                </p>
-                              </div>
+                          <div>
+                            <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                              {option.label}
                             </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      Buy signal active for
-                      <Tooltip text="How many trading days a buy signal stays in your Inbox before it expires. After this period, if you haven't acted on it, it is automatically dismissed." />
-                    </div>
-                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                      How many trading days a buy signal stays in your Inbox before it expires.
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-3">
-                      {[1, 2, 3].map((days) => {
-                        const selected = buySignalExpiryDays === days
-
-                        return (
-                          <button
-                            key={days}
-                            type="button"
-                            onClick={() => setBuySignalExpiryDays(days as 1 | 2 | 3)}
-                            className={
-                              selected
-                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
-                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-300'
-                            }
-                          >
-                            {days} day{days > 1 ? 's' : ''}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4 dark:border-neutral-700 dark:bg-neutral-900">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                          Morning trade monitor
-                          <Tooltip text="If enabled, the system checks your open trades at 9:45 AM ET for stop losses hit at the market open." />
+                            <p className="mt-1 ui-muted">{option.description}</p>
+                          </div>
                         </div>
-                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                          Check open trades at market open (9:45 AM ET) for stop hits at the open.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={morningTradeMonitorEnabled}
-                        onClick={() => setMorningTradeMonitorEnabled(!morningTradeMonitorEnabled)}
-                        className={[
-                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-                          morningTradeMonitorEnabled ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-neutral-700',
-                        ].join(' ')}
-                      >
-                        <span
-                          className={[
-                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform dark:bg-neutral-900',
-                            morningTradeMonitorEnabled ? 'translate-x-6' : 'translate-x-1',
-                          ].join(' ')}
-                        />
                       </button>
-                    </div>
-                  </div>
+                    )
+                  })}
                 </div>
               </div>
-            </section>
 
-            <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
-                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Screener</h2>
-                  <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-                    The screener runs nightly and automatically discovers stock candidates using Massive market data. Enable it and set your minimum criteria.
-                  </p>
+              <div>
+                <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Buy signal active for
+                  <Tooltip text="How many trading days a buy signal stays in your Inbox before it expires." />
                 </div>
+                <p className="mt-1 ui-muted">
+                  How many trading days a buy signal stays in your Inbox before it expires.
+                </p>
 
-                <div className="space-y-6 px-6 py-6">
-                  <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-4 dark:border-neutral-700 dark:bg-neutral-900">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                          Autonomous screener
-                          <Tooltip text="When enabled, the system automatically scans the market each night for new stock candidates that meet your minimum criteria." />
-                        </div>
-                        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                          Automatically discover new candidates each night based on your criteria below.
-                        </p>
-                      </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {[1, 2, 3].map((days) => {
+                    const selected = buySignalExpiryDays === days
 
+                    return (
                       <button
+                        key={days}
                         type="button"
-                        role="switch"
-                        aria-checked={screenerEnabled}
-                        onClick={() => setScreenerEnabled(!screenerEnabled)}
-                        className={[
-                          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-                          screenerEnabled ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-neutral-700',
-                        ].join(' ')}
+                        onClick={() => setBuySignalExpiryDays(days as 1 | 2 | 3)}
+                        className={
+                          selected
+                            ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
+                            : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-[#2a313b] dark:text-[#c7d0db]'
+                        }
                       >
-                        <span
-                          className={[
-                            'inline-block h-4 w-4 transform rounded-full bg-white transition-transform dark:bg-neutral-900',
-                            screenerEnabled ? 'translate-x-6' : 'translate-x-1',
-                          ].join(' ')}
-                        />
+                        {days} day{days > 1 ? 's' : ''}
                       </button>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        Minimum price ($)
-                        <Tooltip text="Only consider stocks trading above this price. Helps avoid penny stocks and illiquid names." />
-                      </span>
-                      <input
-                        type="number"
-                        step="1"
-                        className="ui-input"
-                        value={screenerMinPrice}
-                        onChange={(event) => setScreenerMinPrice(event.target.value)}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        Minimum average volume
-                        <Tooltip text="Only consider stocks with at least this many shares traded per day on average. Ensures you can enter and exit without slippage." />
-                      </span>
-                      <input
-                        type="number"
-                        step="10000"
-                        placeholder="500000"
-                        className="ui-input"
-                        value={screenerMinAvgVolume}
-                        onChange={(event) => setScreenerMinAvgVolume(event.target.value)}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        Minimum EPS growth (%)
-                        <Tooltip text="Only consider stocks with at least this level of earnings growth year over year. Minervini's baseline is 25%." />
-                      </span>
-                      <input
-                        type="number"
-                        step="1"
-                        placeholder="25"
-                        className="ui-input"
-                        value={screenerMinEpsGrowthPct}
-                        onChange={(event) => setScreenerMinEpsGrowthPct(event.target.value)}
-                      />
-                    </label>
-
-                    <label className="block">
-                      <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        Minimum revenue growth (%)
-                        <Tooltip text="Only consider stocks with at least this level of sales growth year over year. Confirms the earnings growth is backed by real demand." />
-                      </span>
-                      <input
-                        type="number"
-                        step="1"
-                        placeholder="20"
-                        className="ui-input"
-                        value={screenerMinRevenueGrowthPct}
-                        onChange={(event) => setScreenerMinRevenueGrowthPct(event.target.value)}
-                      />
-                    </label>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      Max new candidates per night
-                      <Tooltip text="The maximum number of new stocks the screener will add to your candidates list in a single night. Keeps your review workload manageable." />
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-3">
-                      {[10, 20, 30].map((count) => {
-                        const selected = screenerMaxCandidates === count
-
-                        return (
-                          <button
-                            key={count}
-                            type="button"
-                            onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
-                            className={
-                              selected
-                                ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
-                                : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-300'
-                            }
-                          >
-                            {count}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
+                    )
+                  })}
                 </div>
               </div>
-            </section>
 
-            <section className="ui-section">
-              <div className="ui-card rounded-2xl border border-neutral-200 dark:border-neutral-700">
-                <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-700">
-                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Account</h2>
+              <ToggleRow
+                label="Morning trade monitor"
+                description="Check open trades at market open for stop hits at the open."
+                value={morningTradeMonitorEnabled}
+                onChange={setMorningTradeMonitorEnabled}
+              />
+            </SectionShell>
+
+            <SectionShell
+              title="Screener"
+              description="The screener runs nightly and automatically discovers stock candidates using market data."
+            >
+              <ToggleRow
+                label="Autonomous screener"
+                description="Automatically discover new candidates each night based on your criteria below."
+                value={screenerEnabled}
+                onChange={setScreenerEnabled}
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Minimum price ($)
+                    <Tooltip text="Only consider stocks trading above this price." />
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    className="ui-input"
+                    value={screenerMinPrice}
+                    onChange={(event) => setScreenerMinPrice(event.target.value)}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Minimum average volume
+                    <Tooltip text="Only consider stocks with at least this many shares traded per day on average." />
+                  </span>
+                  <input
+                    type="number"
+                    step="10000"
+                    placeholder="500000"
+                    className="ui-input"
+                    value={screenerMinAvgVolume}
+                    onChange={(event) => setScreenerMinAvgVolume(event.target.value)}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Minimum EPS growth (%)
+                    <Tooltip text="Only consider stocks with at least this level of earnings growth year over year." />
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    placeholder="25"
+                    className="ui-input"
+                    value={screenerMinEpsGrowthPct}
+                    onChange={(event) => setScreenerMinEpsGrowthPct(event.target.value)}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Minimum revenue growth (%)
+                    <Tooltip text="Only consider stocks with at least this level of sales growth year over year." />
+                  </span>
+                  <input
+                    type="number"
+                    step="1"
+                    placeholder="20"
+                    className="ui-input"
+                    value={screenerMinRevenueGrowthPct}
+                    onChange={(event) => setScreenerMinRevenueGrowthPct(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Max new candidates per night
+                  <Tooltip text="The maximum number of new stocks the screener will add in a single night." />
                 </div>
 
-                <div className="space-y-5 px-6 py-6">
-                  <div>
-                    <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Email address</div>
-                    <div className="mt-1 text-sm text-neutral-900 dark:text-neutral-100">{accountEmail}</div>
-                  </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {[10, 20, 30].map((count) => {
+                    const selected = screenerMaxCandidates === count
 
-                  <div>
-                    <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Member since</div>
-                    <div className="mt-1 text-sm text-neutral-900 dark:text-neutral-100">
-                      {formatMemberSince(settings?.created_at)}
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={handleSignOut}
-                      className="ui-btn-secondary"
-                    >
-                      Sign out
-                    </button>
-                  </div>
+                    return (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
+                        className={
+                          selected
+                            ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
+                            : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-[#2a313b] dark:text-[#c7d0db]'
+                        }
+                      >
+                        {count}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
-            </section>
+            </SectionShell>
+
+            <SectionShell title="Account">
+              <div>
+                <div className="text-sm font-medium text-neutral-500 dark:text-[#a8b2bf]">
+                  Email address
+                </div>
+                <div className="mt-1 text-sm text-neutral-900 dark:text-[#e6eaf0]">
+                  {accountEmail}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-sm font-medium text-neutral-500 dark:text-[#a8b2bf]">
+                  Member since
+                </div>
+                <div className="mt-1 text-sm text-neutral-900 dark:text-[#e6eaf0]">
+                  {formatMemberSince(settings?.created_at)}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="ui-btn-secondary"
+                >
+                  Sign out
+                </button>
+              </div>
+            </SectionShell>
 
             <div className="flex flex-col gap-3">
               <div>
@@ -858,10 +789,14 @@ export default function SettingsPage() {
               </div>
 
               {saveSuccess ? (
-                <p className="text-sm text-green-600 dark:text-green-400">Settings saved successfully.</p>
+                <p className="text-sm text-green-600 dark:text-[#8fd0ab]">
+                  Settings saved successfully.
+                </p>
               ) : null}
 
-              {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+              {error ? (
+                <p className="text-sm text-red-600 dark:text-[#f0a3a3]">{error}</p>
+              ) : null}
             </div>
           </div>
         )}
