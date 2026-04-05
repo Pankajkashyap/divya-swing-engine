@@ -271,11 +271,15 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
 
   return (
     <div className="ui-section mt-8">
-      <h2 className="text-lg font-semibold">Add Watchlist Stock</h2>
+      <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+        Add Watchlist Stock
+      </h2>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">Ticker</label>
+          <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+            Ticker
+          </label>
           <input
             value={ticker}
             onChange={(e) => setTicker(e.target.value.toUpperCase())}
@@ -288,7 +292,9 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">Company Name</label>
+          <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+            Company Name
+          </label>
           <input
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
@@ -298,7 +304,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Setup Grade
             <Tooltip text="Your overall quality rating for this trade setup. A+ is the highest conviction, C is marginal. Only take A and B setups." />
           </label>
@@ -315,7 +321,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Entry Zone Low
             <Tooltip text="The price range where you would place a buy limit order. Ideally as close to the pivot point as possible." />
           </label>
@@ -333,7 +339,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Entry Zone High
             <Tooltip text="The price range where you would place a buy limit order. Ideally as close to the pivot point as possible." />
           </label>
@@ -351,7 +357,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Stop Price
             <Tooltip text="The price at which you will exit the trade to limit your loss. Typically 7-8% below your entry price." />
           </label>
@@ -369,7 +375,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Target 1 Price
             <Tooltip text="Your first profit target — typically a 20-25% gain from entry. You would sell a portion of your position here." />
           </label>
@@ -387,7 +393,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Target 2 Price
             <Tooltip text="Your extended profit target if the stock continues to run strongly after Target 1." />
           </label>
@@ -405,7 +411,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             EPS Growth %
             <Tooltip text="Earnings per share growth compared to the same quarter last year. Minervini looks for 25%+ minimum, 50%+ preferred." />
           </label>
@@ -420,7 +426,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Revenue Growth %
             <Tooltip text="Revenue growth compared to the same quarter last year. Confirms the EPS growth is driven by real business growth." />
           </label>
@@ -435,7 +441,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Accumulation / Distribution Rating
             <Tooltip text="An IBD rating (A through E) showing whether institutions are buying (accumulating) or selling (distributing) the stock. A or B is required." />
           </label>
@@ -453,7 +459,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Industry Group Rank
             <Tooltip text="IBD ranks 197 industry groups by relative strength. You want stocks in the top 20 groups (rank 1-40). Avoid anything ranked below 100." />
           </label>
@@ -470,7 +476,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
 
         <div className="md:col-span-2">
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={epsAccelerating}
@@ -485,11 +491,13 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl border border-neutral-200 p-4">
-        <h3 className="text-sm font-semibold">Rule Confirmation</h3>
+      <div className="mt-6 rounded-xl border border-neutral-200 p-4 dark:border-[#2a313b] dark:bg-[#181d23]">
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          Rule Confirmation
+        </h3>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={trendTemplatePass}
@@ -502,7 +510,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={volumeDryUpPass}
@@ -515,7 +523,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={rsLineConfirmed}
@@ -528,7 +536,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={basePatternValid}
@@ -541,7 +549,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={entryNearPivot}
@@ -554,7 +562,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={volumeBreakoutConfirmed}
@@ -567,7 +575,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={liquidityPass}
@@ -580,7 +588,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={earningsWithin2Weeks}
@@ -593,7 +601,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
             </span>
           </label>
 
-          <label className="flex items-start gap-3 text-sm">
+          <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
             <input
               type="checkbox"
               checked={binaryEventRisk}
@@ -608,30 +616,32 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-        <h3 className="text-sm font-semibold">Live Setup Preview</h3>
+      <div className="mt-5 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-[#2a313b] dark:bg-[#20262e]">
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          Live Setup Preview
+        </h3>
 
         <div className="mt-3 grid gap-4 md:grid-cols-3">
           <div>
-            <p className="flex items-center gap-1 text-xs text-neutral-500">
+            <p className="flex items-center gap-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
               Risk / Share
               <Tooltip text="How many dollars you lose per share if the stock hits your stop price. Calculated as: Entry Price minus Stop Price." />
             </p>
-            <p className="mt-1 text-lg font-semibold">
+            <p className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               {preview.riskPerShare ?? '—'}
             </p>
           </div>
           <div>
-            <p className="flex items-center gap-1 text-xs text-neutral-500">
+            <p className="flex items-center gap-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
               Reward / Share
               <Tooltip text="How many dollars you gain per share if the stock hits your Target 1. Calculated as: Target 1 minus Entry Price." />
             </p>
-            <p className="mt-1 text-lg font-semibold">
+            <p className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               {preview.rewardPerShare ?? '—'}
             </p>
           </div>
           <div>
-            <p className="flex items-center gap-1 text-xs text-neutral-500">
+            <p className="flex items-center gap-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
               Expected R/R
               <Tooltip text="Reward-to-Risk ratio. A 3:1 means you stand to make $3 for every $1 you risk. Minervini requires a minimum of 3:1 before entering a trade." />
             </p>
@@ -639,7 +649,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
               className={[
                 'mt-1 text-lg font-semibold',
                 preview.expectedRR === null
-                  ? 'text-neutral-900'
+                  ? 'text-neutral-900 dark:text-[#e6eaf0]'
                   : preview.expectedRR >= 2
                     ? 'text-green-700'
                     : 'text-red-700',
@@ -654,7 +664,7 @@ export function AddWatchlistStockForm({ onAdd }: Props) {
           className={[
             'mt-3 text-sm font-medium',
             preview.expectedRR === null
-              ? 'text-neutral-600'
+              ? 'text-neutral-600 dark:text-[#a8b2bf]'
               : preview.isValid
                 ? 'text-green-700'
                 : 'text-red-700',
