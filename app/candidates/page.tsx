@@ -64,7 +64,11 @@ function isCandidateReadyForEvaluation(candidate: CandidateRow): boolean {
 }
 
 function isValidImportedRow(row: unknown): row is Record<string, unknown> {
-  return typeof row === 'object' && row !== null && typeof (row as { id?: unknown }).id === 'string'
+  return (
+    typeof row === 'object' &&
+    row !== null &&
+    typeof (row as { id?: unknown }).id === 'string'
+  )
 }
 
 function buildClipboardContent(candidates: CandidateRow[]): string {
@@ -226,7 +230,9 @@ export default function CandidatesPage() {
   const [copySuccess, setCopySuccess] = useState(false)
   const [importText, setImportText] = useState('')
   const [parsedImport, setParsedImport] = useState<Record<string, unknown>[] | null>(null)
-  const [importValidation, setImportValidation] = useState<'empty' | 'valid' | 'invalid' | 'schema'>('empty')
+  const [importValidation, setImportValidation] = useState<
+    'empty' | 'valid' | 'invalid' | 'schema'
+  >('empty')
   const [importing, setImporting] = useState(false)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
@@ -235,10 +241,11 @@ export default function CandidatesPage() {
     const load = async () => {
       setLoading(true)
 
-      const [{ data: candidateData }, { data: settingsData }, { data: scanLogsData }] = await Promise.all([
-        supabase
-          .from('watchlist')
-          .select(`
+      const [{ data: candidateData }, { data: settingsData }, { data: scanLogsData }] =
+        await Promise.all([
+          supabase
+            .from('watchlist')
+            .select(`
             id,
             ticker,
             company_name,
@@ -263,21 +270,21 @@ export default function CandidatesPage() {
             target_1_price,
             target_2_price
           `)
-          .eq('source', 'automation')
-          .eq('signal_state', 'candidate')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('user_settings')
-          .select('screener_enabled')
-          .maybeSingle<UserSettings>(),
-        supabase
-          .from('scan_logs')
-          .select('started_at')
-          .eq('job_type', 'watchlist-screener')
-          .order('started_at', { ascending: false })
-          .limit(1)
-          .maybeSingle<ScanLogRow>(),
-      ])
+            .eq('source', 'automation')
+            .eq('signal_state', 'candidate')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('user_settings')
+            .select('screener_enabled')
+            .maybeSingle<UserSettings>(),
+          supabase
+            .from('scan_logs')
+            .select('started_at')
+            .eq('job_type', 'watchlist-screener')
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .maybeSingle<ScanLogRow>(),
+        ])
 
       setCandidates((candidateData ?? []) as CandidateRow[])
       setScreenerEnabled(settingsData?.screener_enabled ?? false)
@@ -324,16 +331,23 @@ export default function CandidatesPage() {
   }, [importText])
 
   const awaitingResearchCount = useMemo(
-    () => candidates.filter((candidate) => !isCandidateReadyForEvaluation(candidate)).length,
+    () =>
+      candidates.filter((candidate) => !isCandidateReadyForEvaluation(candidate))
+        .length,
     [candidates]
   )
 
   const readyForEvaluationCount = useMemo(
-    () => candidates.filter((candidate) => isCandidateReadyForEvaluation(candidate)).length,
+    () =>
+      candidates.filter((candidate) => isCandidateReadyForEvaluation(candidate))
+        .length,
     [candidates]
   )
 
-  const clipboardContent = useMemo(() => buildClipboardContent(candidates), [candidates])
+  const clipboardContent = useMemo(
+    () => buildClipboardContent(candidates),
+    [candidates]
+  )
   const clipboardPreview = useMemo(
     () => clipboardContent.split('\n').slice(0, 3).join('\n'),
     [clipboardContent]
@@ -359,10 +373,14 @@ export default function CandidatesPage() {
         body: JSON.stringify(parsedImport),
       })
 
-      const result = (await response.json()) as BulkUpdateResult | { error: string }
+      const result = (await response.json()) as
+        | BulkUpdateResult
+        | { error: string }
 
       if (!response.ok) {
-        setImportError('error' in result ? result.error : 'Failed to apply update.')
+        setImportError(
+          'error' in result ? result.error : 'Failed to apply update.'
+        )
         setImporting(false)
         return
       }
@@ -370,7 +388,8 @@ export default function CandidatesPage() {
       const typed = result as BulkUpdateResult
       const msg: string[] = []
       if (typed.updated > 0) msg.push(`${typed.updated} candidates updated`)
-      if (typed.rejected > 0) msg.push(`${typed.rejected} F-grade candidates removed`)
+      if (typed.rejected > 0)
+        msg.push(`${typed.rejected} F-grade candidates removed`)
       setImportSuccess(msg.join('. ') + '.')
 
       setImportText('')
@@ -416,136 +435,161 @@ export default function CandidatesPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8 text-neutral-900 dark:text-neutral-100">
-        <AppHeader
-          title="Candidates"
-          subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
-        />
-        <div className="mt-8 text-sm text-neutral-500 dark:text-neutral-400">Loading candidates...</div>
-      </div>
+      <main className="ui-page">
+        <section className="mx-auto max-w-7xl">
+          <AppHeader
+            title="Candidates"
+            subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
+          />
+          <div className="mt-8 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Loading candidates...
+          </div>
+        </section>
+      </main>
     )
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 text-neutral-900 dark:text-neutral-100">
-      <AppHeader
-        title="Candidates"
-        subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
-      />
+    <main className="ui-page">
+      <section className="mx-auto max-w-7xl">
+        <AppHeader
+          title="Candidates"
+          subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
+        />
 
-      {!screenerEnabled && candidates.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-8 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-          No candidates yet. Enable the screener in Settings and it will run tonight.
-        </div>
-      ) : (
-        <>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
-              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                Awaiting research
-                <Tooltip text="Candidates the screener has found but that still need technical fields filled in (RS line, base pattern, entry zone, etc.) before they can be evaluated." />
-              </div>
-              <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-neutral-100">{awaitingResearchCount}</div>
-            </div>
-
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
-              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                Ready for evaluation
-                <Tooltip text="Candidates that have been fully researched and are ready for the rule-based evaluation engine to score." />
-              </div>
-              <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-neutral-100">{readyForEvaluationCount}</div>
-            </div>
-
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
-              <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                Last screener run
-                <Tooltip text="The most recent time the automated screener ran and searched for new candidates." />
-              </div>
-              <div className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-                {lastRunAt ? new Date(lastRunAt).toLocaleString() : 'No runs yet'}
-              </div>
-            </div>
+        {!screenerEnabled && candidates.length === 0 ? (
+          <div className="ui-section mt-8 text-neutral-700 dark:text-[#a8b2bf]">
+            No candidates yet. Enable the screener in Settings and it will run
+            tonight.
           </div>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
-              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Step 1 — Copy to ChatGPT</h2>
-              <p className="mt-3 text-neutral-600 dark:text-neutral-400">
-                Click copy. Open ChatGPT. Paste. The prompt and candidate data are included.
-              </p>
-              <div className="mt-5 text-lg font-medium text-neutral-900 dark:text-neutral-100">{candidates.length} candidates included</div>
-
-              <textarea
-                readOnly
-                value={clipboardPreview}
-                className="mt-5 h-32 w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
-              />
-
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="ui-btn-primary mt-5"
-              >
-                {copySuccess ? 'Copied!' : 'Copy prompt + data'}
-              </button>
-            </div>
-
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-900">
-              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">Step 2 — Paste ChatGPT output</h2>
-              <p className="mt-3 text-neutral-600 dark:text-neutral-400">
-                Paste the JSON that ChatGPT returned. Click Apply to update all candidates at once.
-              </p>
-
-              <textarea
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder="Paste ChatGPT's JSON output here..."
-                className="mt-5 h-48 w-full rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-              />
-
-              <div className="mt-4 min-h-7">
-                {importValidation === 'valid' && parsedImport && (
-                  <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300">
-                    Valid JSON — {parsedImport.length} candidates ready to apply
-                  </span>
-                )}
-                {importValidation === 'invalid' && (
-                  <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
-                    Invalid JSON — check the output and try again
-                  </span>
-                )}
-                {importValidation === 'schema' && (
-                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-                    JSON structure does not match expected format
-                  </span>
-                )}
+        ) : (
+          <>
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              <div className="ui-card p-6">
+                <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
+                  Awaiting research
+                  <Tooltip text="Candidates the screener has found but that still need technical fields filled in (RS line, base pattern, entry zone, etc.) before they can be evaluated." />
+                </div>
+                <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                  {awaitingResearchCount}
+                </div>
               </div>
 
-              {importSuccess && (
-                <div className="mt-4 text-sm font-medium text-green-700 dark:text-green-300">{importSuccess}</div>
-              )}
+              <div className="ui-card p-6">
+                <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
+                  Ready for evaluation
+                  <Tooltip text="Candidates that have been fully researched and are ready for the rule-based evaluation engine to score." />
+                </div>
+                <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                  {readyForEvaluationCount}
+                </div>
+              </div>
 
-              {importError && (
-                <div className="mt-4 text-sm font-medium text-red-700 dark:text-red-300">{importError}</div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleApply}
-                disabled={importValidation !== 'valid' || importing}
-                className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {importing ? 'Applying...' : 'Apply update'}
-              </button>
+              <div className="ui-card p-6">
+                <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
+                  Last screener run
+                  <Tooltip text="The most recent time the automated screener ran and searched for new candidates." />
+                </div>
+                <div className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                  {lastRunAt ? new Date(lastRunAt).toLocaleString() : 'No runs yet'}
+                </div>
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+
+            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+              <div className="ui-section">
+                <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                  Step 1 — Copy to ChatGPT
+                </h2>
+                <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+                  Click copy. Open ChatGPT. Paste. The prompt and candidate data
+                  are included.
+                </p>
+                <div className="mt-5 text-lg font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  {candidates.length} candidates included
+                </div>
+
+                <textarea
+                  readOnly
+                  value={clipboardPreview}
+                  className="ui-textarea mt-5 h-32 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="ui-btn-primary mt-5"
+                >
+                  {copySuccess ? 'Copied!' : 'Copy prompt + data'}
+                </button>
+              </div>
+
+              <div className="ui-section">
+                <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                  Step 2 — Paste ChatGPT output
+                </h2>
+                <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+                  Paste the JSON that ChatGPT returned. Click Apply to update all
+                  candidates at once.
+                </p>
+
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder="Paste ChatGPT's JSON output here..."
+                  className="ui-textarea mt-5 h-48"
+                />
+
+                <div className="mt-4 min-h-7">
+                  {importValidation === 'valid' && parsedImport && (
+                    <span className="ui-pill-success">
+                      Valid JSON — {parsedImport.length} candidates ready to apply
+                    </span>
+                  )}
+                  {importValidation === 'invalid' && (
+                    <span className="ui-pill-danger">
+                      Invalid JSON — check the output and try again
+                    </span>
+                  )}
+                  {importValidation === 'schema' && (
+                    <span className="ui-pill-warning">
+                      JSON structure does not match expected format
+                    </span>
+                  )}
+                </div>
+
+                {importSuccess && (
+                  <div className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
+                    {importSuccess}
+                  </div>
+                )}
+
+                {importError && (
+                  <div className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
+                    {importError}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleApply}
+                  disabled={importValidation !== 'valid' || importing}
+                  className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {importing ? 'Applying...' : 'Apply update'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+    </main>
   )
 }
 
-function isCandidateReadyForApply(row: unknown): row is Record<string, unknown> {
+function isCandidateReadyForApply(
+  row: unknown
+): row is Record<string, unknown> {
   if (!isValidImportedRow(row)) return false
   const r = row as Record<string, unknown>
 
@@ -553,9 +597,14 @@ function isCandidateReadyForApply(row: unknown): row is Record<string, unknown> 
   if (typeof r.id !== 'string' || !r.id.trim()) return false
 
   const booleanFields = [
-    'trend_template_pass', 'rs_line_confirmed', 'base_pattern_valid',
-    'entry_near_pivot', 'volume_dry_up_pass', 'volume_breakout_confirmed',
-    'earnings_within_2_weeks', 'binary_event_risk',
+    'trend_template_pass',
+    'rs_line_confirmed',
+    'base_pattern_valid',
+    'entry_near_pivot',
+    'volume_dry_up_pass',
+    'volume_breakout_confirmed',
+    'earnings_within_2_weeks',
+    'binary_event_risk',
   ]
 
   for (const field of booleanFields) {
@@ -563,9 +612,14 @@ function isCandidateReadyForApply(row: unknown): row is Record<string, unknown> 
   }
 
   const numericFields = [
-    'eps_growth_pct', 'revenue_growth_pct', 'industry_group_rank',
-    'entry_zone_low', 'entry_zone_high', 'stop_price',
-    'target_1_price', 'target_2_price',
+    'eps_growth_pct',
+    'revenue_growth_pct',
+    'industry_group_rank',
+    'entry_zone_low',
+    'entry_zone_high',
+    'stop_price',
+    'target_1_price',
+    'target_2_price',
   ]
 
   for (const field of numericFields) {
