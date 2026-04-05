@@ -35,13 +35,14 @@ function getUrgencyDotClass(urgency: PendingAction['urgency']) {
 }
 
 function getActionTypeBadge(actionType: PendingAction['action_type']) {
-  const labelMap: Record<PendingAction['action_type'], string> = {
-    buy_signal: 'Buy signal',
-    stop_alert: 'Stop alert',
-    target_alert: 'Target alert',
-    watchlist_review: 'Watchlist review',
-    manual_reconciliation: 'Manual reconciliation',
-  }
+const labelMap: Record<PendingAction['action_type'], string> = {
+  buy_signal: 'Buy signal',
+  stop_alert: 'Stop alert',
+  target_alert: 'Target alert',
+  watchlist_review: 'Watchlist review',
+  watchlist_removal: 'Watchlist removal',
+  manual_reconciliation: 'Manual reconciliation',
+}
 
   return <span className="ui-pill-neutral">{labelMap[actionType]}</span>
 }
