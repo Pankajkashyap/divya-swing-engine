@@ -27,12 +27,16 @@ export function MarketSnapshotForm({ onSave }: Props) {
   }
 
   return (
-    <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
-      <h2 className="text-lg font-semibold">Market Snapshot</h2>
+    <div className="ui-section mt-8">
+      <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+        Market Snapshot
+      </h2>
 
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <div>
-          <label className="mb-1 block text-sm font-medium">Snapshot Date</label>
+          <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+            Snapshot Date
+          </label>
           <input
             type="date"
             value={snapshotDate}
@@ -42,7 +46,7 @@ export function MarketSnapshotForm({ onSave }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Market Phase
             <Tooltip text="The current broad market condition based on Minervini's timing model. Confirmed uptrend means conditions are good for buying. Correction and Bear mean you should be mostly or fully in cash." />
           </label>
@@ -60,7 +64,7 @@ export function MarketSnapshotForm({ onSave }: Props) {
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-1 text-sm font-medium">
+          <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Max Long Exposure %
             <Tooltip text="The maximum percentage of your portfolio you are allowed to deploy in new trades while this market phase is active." />
           </label>
