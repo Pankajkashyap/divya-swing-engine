@@ -26,55 +26,104 @@ type UniverseImportRow = {
   index_membership: string | null
 }
 
-function buildUniversePrompt() {
+function buildSP500Prompt(): string {
   const today = new Date().toISOString().slice(0, 10)
-
-  return `You are a financial data analyst. Your job is to return the
-current constituents of the S&P 500 and NASDAQ 100 indices
-as a clean JSON array.
+  return `You are a financial data analyst. Return the current S&P 500
+constituents as a clean JSON array.
 
 STRICT OUTPUT RULES:
 - Return ONLY a valid JSON array. No markdown, no explanation,
   no backticks, no preamble, no trailing text.
-- Every element must be an object with exactly these three fields:
+- Every element must have exactly three fields:
   ticker, company_name, index_membership
+- index_membership must be exactly: "S&P 500"
 - Do not add, rename, or remove any fields.
 
+QUALITY RULES:
+- Only include stocks that are CONFIRMED current S&P 500
+  constituents as of today.
+- If you are not certain a ticker is in the S&P 500, omit it
+  entirely. Do not guess. An omission is better than a wrong entry.
+- Do not include ETFs, funds, warrants, or non-equity instruments.
+- Do not include any ticker you cannot verify with a real
+  company name from a reliable source.
+- The S&P 500 contains approximately 503 tickers. If your list
+  is significantly shorter (below 450) or longer (above 520),
+  re-check your source before returning.
+
 RESEARCH INSTRUCTIONS:
-Using your web browsing capability, look up the current
-official constituent lists for:
-1. S&P 500 — all 503 tickers (some share classes count separately)
-2. NASDAQ 100 — all 100 tickers
+Using your web browsing capability, look up the current official
+S&P 500 constituent list from a reliable source such as:
+- Wikipedia "List of S&P 500 companies"
+- S&P Global official constituent list
+- Slickcharts.com S&P 500 list
 
-For each stock:
-- ticker: the official US exchange ticker symbol (e.g. "AAPL")
-- company_name: the full official company name (e.g. "Apple Inc.")
-- index_membership: which index or indices this ticker belongs to.
-  Use one of:
-  "S&P 500" — in S&P 500 only
-  "NASDAQ 100" — in NASDAQ 100 only
-  "S&P 500, NASDAQ 100" — in both
+Use the official US exchange ticker symbol for each company.
 
-DEDUPLICATION:
-If a ticker appears in both indices, include it ONCE with
-index_membership set to "S&P 500, NASDAQ 100".
+SELF-CHECK BEFORE RETURNING:
+Count your entries. If the count is below 450 or above 520,
+stop and re-fetch the source. Return only after confirming
+the count is in range.
 
-RETURN THIS EXACT STRUCTURE:
+TODAY'S DATE: ${today}
+
+RETURN THIS EXACT STRUCTURE (no other text):
 [
   {
     "ticker": "AAPL",
     "company_name": "Apple Inc.",
-    "index_membership": "S&P 500, NASDAQ 100"
-  },
-  {
-    "ticker": "NSC",
-    "company_name": "Norfolk Southern Corp.",
     "index_membership": "S&P 500"
   }
-]
+]`
+}
 
-Do not include ETFs, funds, or non-equity instruments.
-Today's date is: ${today}`
+function buildNASDAQ100Prompt(): string {
+  const today = new Date().toISOString().slice(0, 10)
+  return `You are a financial data analyst. Return the current NASDAQ 100
+constituents as a clean JSON array.
+
+STRICT OUTPUT RULES:
+- Return ONLY a valid JSON array. No markdown, no explanation,
+  no backticks, no preamble, no trailing text.
+- Every element must have exactly three fields:
+  ticker, company_name, index_membership
+- index_membership must be exactly: "NASDAQ 100"
+- Do not add, rename, or remove any fields.
+
+QUALITY RULES:
+- Only include stocks that are CONFIRMED current NASDAQ 100
+  constituents as of today.
+- If you are not certain a ticker is in the NASDAQ 100, omit it
+  entirely. Do not guess. An omission is better than a wrong entry.
+- Do not include ETFs, funds, warrants, or non-equity instruments.
+- Do not include any ticker you cannot verify with a real
+  company name from a reliable source.
+- The NASDAQ 100 contains approximately 101 tickers. If your list
+  is significantly outside this range, re-check your source.
+
+RESEARCH INSTRUCTIONS:
+Using your web browsing capability, look up the current official
+NASDAQ 100 constituent list from a reliable source such as:
+- Wikipedia "Nasdaq-100"
+- Nasdaq official site
+- Slickcharts.com NASDAQ 100 list
+
+Use the official US exchange ticker symbol for each company.
+
+SELF-CHECK BEFORE RETURNING:
+Count your entries. If the count is below 95 or above 110,
+stop and re-fetch the source before returning.
+
+TODAY'S DATE: ${today}
+
+RETURN THIS EXACT STRUCTURE (no other text):
+[
+  {
+    "ticker": "AAPL",
+    "company_name": "Apple Inc.",
+    "index_membership": "NASDAQ 100"
+  }
+]`
 }
 
 async function copyTextWithFallback(text: string): Promise<void> {
@@ -120,7 +169,9 @@ export default function UniversePage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
-  const [copySuccess, setCopySuccess] = useState(false)
+  const [copySP500Success, setCopySP500Success] = useState(false)
+  const [copyNASDAQSuccess, setCopyNASDAQSuccess] = useState(false)
+
   const [importText, setImportText] = useState('')
   const [parsedImport, setParsedImport] = useState<UniverseImportRow[] | null>(null)
   const [importValidation, setImportValidation] = useState<
@@ -197,10 +248,16 @@ export default function UniversePage() {
     }
   }, [importText])
 
-  const promptText = useMemo(() => buildUniversePrompt(), [])
-  const promptPreview = useMemo(
-    () => promptText.split('\n').slice(0, 3).join('\n'),
-    [promptText]
+  const sp500PromptText = useMemo(() => buildSP500Prompt(), [])
+  const nasdaqPromptText = useMemo(() => buildNASDAQ100Prompt(), [])
+
+  const sp500PromptPreview = useMemo(
+    () => sp500PromptText.split('\n').slice(0, 3).join('\n'),
+    [sp500PromptText]
+  )
+  const nasdaqPromptPreview = useMemo(
+    () => nasdaqPromptText.split('\n').slice(0, 3).join('\n'),
+    [nasdaqPromptText]
   )
 
   const activeCount = useMemo(
@@ -224,10 +281,16 @@ export default function UniversePage() {
     })
   }, [rows, search])
 
-  const handleCopy = async () => {
-    await copyTextWithFallback(promptText)
-    setCopySuccess(true)
-    window.setTimeout(() => setCopySuccess(false), 2000)
+  const handleCopySP500 = async () => {
+    await copyTextWithFallback(sp500PromptText)
+    setCopySP500Success(true)
+    window.setTimeout(() => setCopySP500Success(false), 2000)
+  }
+
+  const handleCopyNASDAQ = async () => {
+    await copyTextWithFallback(nasdaqPromptText)
+    setCopyNASDAQSuccess(true)
+    window.setTimeout(() => setCopyNASDAQSuccess(false), 2000)
   }
 
   const handleApply = async () => {
@@ -303,7 +366,11 @@ export default function UniversePage() {
                   <Tooltip text="The indices whose constituents make up the universe. Update quarterly or after major index rebalancing." />
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  S&amp;P 500 + NASDAQ 100
+                  <div>S&amp;P 500</div>
+                  <div>NASDAQ 100</div>
+                  <div className="text-sm font-normal text-neutral-500 dark:text-[#a8b2bf] mt-1">
+                    Applied separately
+                  </div>
                 </div>
               </div>
             </div>
@@ -311,26 +378,60 @@ export default function UniversePage() {
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
               <div className="ui-section">
                 <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Step 1 — Copy Universe Prompt
+                  Step 1 — Copy prompts
                 </h2>
                 <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                  Click copy. Open ChatGPT with web browsing enabled. Paste. ChatGPT
-                  will return the current index constituents as JSON.
+                  Run both prompts separately in ChatGPT with web browsing enabled.
+                  Paste each result into Step 2 and apply one at a time.
                 </p>
 
-                <textarea
-                  readOnly
-                  value={promptPreview}
-                  className="ui-textarea mt-5 h-32 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
-                />
+                <div className="mt-5 space-y-4">
+                  <div className="ui-card p-4">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      S&amp;P 500
+                    </div>
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      ~503 tickers. Paste result into Step 2, then apply.
+                    </p>
 
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="ui-btn-primary mt-5"
-                >
-                  {copySuccess ? 'Copied!' : 'Copy prompt'}
-                </button>
+                    <textarea
+                      readOnly
+                      value={sp500PromptPreview}
+                      className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleCopySP500}
+                      className="ui-btn-secondary mt-4"
+                    >
+                      {copySP500Success ? 'Copied!' : 'Copy S&P 500 prompt'}
+                    </button>
+                  </div>
+
+                  <div className="ui-card p-4">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      NASDAQ 100
+                    </div>
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      ~101 tickers. Run after S&amp;P 500. Apply separately.
+                    </p>
+
+                    <textarea
+                      readOnly
+                      value={nasdaqPromptPreview}
+                      className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleCopyNASDAQ}
+                      className="ui-btn-secondary mt-4"
+                    >
+                      {copyNASDAQSuccess ? 'Copied!' : 'Copy NASDAQ 100 prompt'}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="ui-section">
@@ -338,8 +439,9 @@ export default function UniversePage() {
                   Step 2 — Paste ChatGPT output
                 </h2>
                 <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                  Paste the JSON array ChatGPT returned. Click Apply to update the
-                  universe.
+                  Paste the JSON array ChatGPT returned for either prompt.
+                  Click Apply. Run both prompts and apply each one separately
+                  to build the full universe.
                 </p>
 
                 <textarea
