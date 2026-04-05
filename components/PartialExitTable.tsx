@@ -30,10 +30,10 @@ export function PartialExitTable({ savedTrades, onPartialExit }: Props) {
       {openTrades.length === 0 ? (
         <p className="text-neutral-600">No active trades available for partial exits.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="ui-table-wrap">
+          <table className="ui-table">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-neutral-500">
+              <tr>
                 <th className="py-3 pr-4">Ticker</th>
                 <th className="py-3 pr-4">Status</th>
                 <th className="py-3 pr-4">Entry Price</th>
@@ -59,7 +59,7 @@ export function PartialExitTable({ savedTrades, onPartialExit }: Props) {
                           [row.id]: e.target.value,
                         }))
                       }
-                      className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-sm"
+                      className="ui-input w-24 px-2 py-1 text-sm"
                       placeholder="price"
                     />
                   </td>
@@ -72,7 +72,7 @@ export function PartialExitTable({ savedTrades, onPartialExit }: Props) {
         [row.id]: e.target.value,
       }))
     }
-    className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-sm"
+    className="ui-input w-24 px-2 py-1 text-sm"
     placeholder="shares"
   />
 </td>

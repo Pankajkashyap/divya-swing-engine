@@ -1116,14 +1116,14 @@ const createTradeBlockReason = !stock
 
 if (loading) {
   return (
-    <main className="p-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main className="ui-page">
       Loading...
     </main>
   )
 }
 
   return (
-<main className="min-h-screen bg-white px-6 py-10 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">      
+<main className="ui-page">      
   <section className="mx-auto max-w-6xl">
         <AppHeader
           title="Setup Evaluator"
