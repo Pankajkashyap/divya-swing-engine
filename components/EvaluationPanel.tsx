@@ -9,40 +9,44 @@ export function EvaluationPanel({ result }: Props) {
   if (!result) return null
 
   return (
-    <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
-      <h2 className="text-lg font-semibold">Evaluation Result</h2>
-      <p className="mt-3 text-sm text-neutral-500">
+    <div className="ui-section mt-8">
+      <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+        Evaluation Result
+      </h2>
+      <p className="mt-3 text-sm text-neutral-500 dark:text-[#a8b2bf]">
         Saved evaluation ID: {result.id ?? '—'}
       </p>
-      <p className="mt-2">
+      <p className="mt-2 text-neutral-900 dark:text-[#e6eaf0]">
         <span className="font-medium">Verdict:</span> {result.verdict}
       </p>
-      <p className="mt-2">
+      <p className="mt-2 text-neutral-900 dark:text-[#e6eaf0]">
         <span className="font-medium">Score:</span> {result.score_total}
         <span className="font-medium">/9</span>
       </p>
-      <p className="mt-2">
+      <p className="mt-2 text-neutral-900 dark:text-[#e6eaf0]">
         <span className="font-medium">Decision reason:</span>{' '}
         {result.fail_reason ?? result.notes ?? '—'}
       </p>
-      <p className="mt-2">
+      <p className="mt-2 text-neutral-900 dark:text-[#e6eaf0]">
         <span className="font-medium">Notes:</span> {result.notes ?? '—'}
       </p>
 
       <div className="mt-6">
-        <h3 className="text-base font-semibold">Rule Breakdown</h3>
+        <h3 className="text-base font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          Rule Breakdown
+        </h3>
 
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="mt-4 ui-table-wrap">
+          <table className="ui-table">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-neutral-500">
-                <th className="py-3 pr-4">Rule</th>
-                <th className="py-3 pr-4">Result</th>
-                <th className="py-3 pr-4">Detail</th>
+              <tr>
+                <th>Rule</th>
+                <th>Result</th>
+                <th>Detail</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Market Phase
@@ -57,7 +61,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Trend Template
@@ -72,7 +76,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Liquidity
@@ -87,7 +91,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Base Pattern
@@ -100,7 +104,7 @@ export function EvaluationPanel({ result }: Props) {
                 <td className="py-3 pr-4">Pattern structure must be valid</td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Volume Pattern
@@ -115,7 +119,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     RS Confirmation
@@ -130,7 +134,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Entry Near Pivot
@@ -145,7 +149,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Breakout Volume
@@ -160,7 +164,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">Fundamental Quality</td>
                 <td className="py-3 pr-4">
                   {result.fundamental_pass ? 'Pass' : 'Fail'}
@@ -170,7 +174,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Setup Grade
@@ -183,7 +187,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Earnings Risk
@@ -198,7 +202,7 @@ export function EvaluationPanel({ result }: Props) {
                 </td>
               </tr>
 
-              <tr className="border-b border-neutral-100">
+              <tr>
                 <td className="py-3 pr-4">
                   <span className="inline-flex items-center gap-1">
                     Binary Event Risk

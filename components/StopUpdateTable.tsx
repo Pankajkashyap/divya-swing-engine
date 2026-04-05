@@ -16,31 +16,37 @@ export function StopUpdateTable({ savedTrades, onUpdateStop }: Props) {
   )
 
   return (
-    <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+    <div className="ui-section mt-8">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Stop Updates</h2>
-        <p className="text-sm text-neutral-500">{openTrades.length} open trades</p>
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          Stop Updates
+        </h2>
+        <p className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+          {openTrades.length} open trades
+        </p>
       </div>
 
       {openTrades.length === 0 ? (
-        <p className="text-neutral-600">No open trades available for stop updates.</p>
+        <p className="text-neutral-600 dark:text-[#a8b2bf]">
+          No open trades available for stop updates.
+        </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="ui-table-wrap">
+          <table className="ui-table">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-neutral-500">
-                <th className="py-3 pr-4">Ticker</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="py-3 pr-4">Entry Price</th>
-                <th className="py-3 pr-4">Initial Stop</th>
-                <th className="py-3 pr-4">Current Stop</th>
-                <th className="py-3 pr-4">New Stop</th>
-                <th className="py-3 pr-4">Action</th>
+              <tr>
+                <th>Ticker</th>
+                <th>Status</th>
+                <th>Entry Price</th>
+                <th>Initial Stop</th>
+                <th>Current Stop</th>
+                <th>New Stop</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {openTrades.map((row) => (
-                <tr key={row.id} className="border-b border-neutral-100">
+                <tr key={row.id}>
                   <td className="py-3 pr-4 font-medium">{row.ticker}</td>
                   <td className="py-3 pr-4">{row.status}</td>
                   <td className="py-3 pr-4">{row.entry_price_actual ?? '—'}</td>
@@ -55,7 +61,7 @@ export function StopUpdateTable({ savedTrades, onUpdateStop }: Props) {
                           [row.id]: e.target.value,
                         }))
                       }
-                      className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-sm"
+                      className="ui-input w-24 px-2 py-1 text-sm"
                       placeholder="new stop"
                     />
                   </td>

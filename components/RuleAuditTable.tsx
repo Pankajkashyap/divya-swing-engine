@@ -15,31 +15,37 @@ type Props = {
 
 export function RuleAuditTable({ rows }: Props) {
   return (
-    <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+    <div className="ui-section mt-8">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Rule Audit Trail</h2>
-        <p className="text-sm text-neutral-500">{rows.length} records</p>
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          Rule Audit Trail
+        </h2>
+        <p className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+          {rows.length} records
+        </p>
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-neutral-600">No rule audit rows yet.</p>
+        <p className="text-neutral-600 dark:text-[#a8b2bf]">
+          No rule audit rows yet.
+        </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="ui-table-wrap">
+          <table className="ui-table">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-neutral-500">
-                <th className="py-3 pr-4">Evaluation ID</th>
-                <th className="py-3 pr-4">Rule Code</th>
-                <th className="py-3 pr-4">Rule Name</th>
-                <th className="py-3 pr-4">Passed</th>
-                <th className="py-3 pr-4">Actual Text</th>
-                <th className="py-3 pr-4">Actual Numeric</th>
-                <th className="py-3 pr-4">Notes</th>
+              <tr>
+                <th>Evaluation ID</th>
+                <th>Rule Code</th>
+                <th>Rule Name</th>
+                <th>Passed</th>
+                <th>Actual Text</th>
+                <th>Actual Numeric</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-neutral-100">
+                <tr key={row.id}>
                   <td className="py-3 pr-4">{row.setup_evaluation_id}</td>
                   <td className="py-3 pr-4">{row.rule_code}</td>
                   <td className="py-3 pr-4">{row.rule_name}</td>

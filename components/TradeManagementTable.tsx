@@ -15,33 +15,39 @@ export function TradeManagementTable({
   const [exitPrices, setExitPrices] = useState<Record<string, string>>({})
 
   return (
-    <div className="mt-8 rounded-2xl border border-neutral-200 p-5">
+    <div className="ui-section mt-8">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Trade Management</h2>
-        <p className="text-sm text-neutral-500">{savedTrades.length} records</p>
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          Trade Management
+        </h2>
+        <p className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+          {savedTrades.length} records
+        </p>
       </div>
 
       {savedTrades.length === 0 ? (
-        <p className="text-neutral-600">No trades created yet.</p>
+        <p className="text-neutral-600 dark:text-[#a8b2bf]">
+          No trades created yet.
+        </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="ui-table-wrap">
+          <table className="ui-table">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-neutral-500">
-                <th className="py-3 pr-4">Ticker</th>
-                <th className="py-3 pr-4">Side</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="py-3 pr-4">Entry Date</th>
-                <th className="py-3 pr-4">Entry Price</th>
-                <th className="py-3 pr-4">Shares</th>
-                <th className="py-3 pr-4">Initial Stop</th>
-                <th className="py-3 pr-4">Target 1</th>
-                <th className="py-3 pr-4">Target 2</th>
-                <th className="py-3 pr-4">Exit Price</th>
-                <th className="py-3 pr-4">Exit Date</th>
-                <th className="py-3 pr-4">P&L $</th>
-                <th className="py-3 pr-4">P&L %</th>
-                <th className="py-3 pr-4">Action</th>
+              <tr>
+                <th>Ticker</th>
+                <th>Side</th>
+                <th>Status</th>
+                <th>Entry Date</th>
+                <th>Entry Price</th>
+                <th>Shares</th>
+                <th>Initial Stop</th>
+                <th>Target 1</th>
+                <th>Target 2</th>
+                <th>Exit Price</th>
+                <th>Exit Date</th>
+                <th>P&amp;L $</th>
+                <th>P&amp;L %</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -49,7 +55,7 @@ export function TradeManagementTable({
                 const isOpen = row.status === 'open' || row.status === 'partial'
 
                 return (
-                  <tr key={row.id} className="border-b border-neutral-100">
+                  <tr key={row.id}>
                     <td className="py-3 pr-4 font-medium">{row.ticker}</td>
                     <td className="py-3 pr-4">{row.side}</td>
                     <td className="py-3 pr-4">{row.status}</td>
@@ -69,7 +75,7 @@ export function TradeManagementTable({
                               [row.id]: e.target.value,
                             }))
                           }
-                          className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-sm"
+                          className="ui-input w-24 px-2 py-1 text-sm"
                           placeholder="105"
                         />
                       ) : (
