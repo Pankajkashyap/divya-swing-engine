@@ -57,7 +57,7 @@ function getWatchlistQuality(row: WatchlistRow): {
   if (!hasCoreFields) {
     return {
       label: 'Incomplete',
-      className: 'bg-neutral-100 text-neutral-700',
+      className: 'ui-pill-neutral',
       reason: 'Missing required trade-planning fields.',
     }
   }
@@ -65,7 +65,7 @@ function getWatchlistQuality(row: WatchlistRow): {
   if (entryHigh < entryLow) {
     return {
       label: 'Invalid',
-      className: 'bg-red-100 text-red-700',
+      className: 'ui-pill-danger',
       reason: 'Entry Zone High is below Entry Zone Low.',
     }
   }
@@ -73,7 +73,7 @@ function getWatchlistQuality(row: WatchlistRow): {
   if (stop >= entryLow) {
     return {
       label: 'Invalid',
-      className: 'bg-red-100 text-red-700',
+      className: 'ui-pill-danger',
       reason: 'Stop must be below Entry Zone Low for long trades.',
     }
   }
@@ -81,7 +81,7 @@ function getWatchlistQuality(row: WatchlistRow): {
   if (target1 <= entryLow) {
     return {
       label: 'Invalid',
-      className: 'bg-red-100 text-red-700',
+      className: 'ui-pill-danger',
       reason: 'Target 1 must be above Entry Zone Low.',
     }
   }
@@ -93,14 +93,14 @@ function getWatchlistQuality(row: WatchlistRow): {
   if (expectedRR < 2) {
     return {
       label: 'Invalid',
-      className: 'bg-red-100 text-red-700',
+      className: 'ui-pill-danger',
       reason: `Expected R/R is ${expectedRR.toFixed(2)}. Minimum is 2.00.`,
     }
   }
 
   return {
     label: 'Valid',
-    className: 'bg-green-100 text-green-700',
+    className: 'ui-pill-success',
     reason: null,
   }
 }
@@ -324,16 +324,29 @@ export function WatchlistSelectionTable({
     await onDelete(row.id, row.ticker)
   }
 
+  const rrClass =
+    preview.expectedRR === null
+      ? 'text-neutral-900 dark:text-[#e6eaf0]'
+      : preview.expectedRR >= 2
+        ? 'text-green-700 dark:text-[#8fd0ab]'
+        : 'text-red-700 dark:text-[#f0a3a3]'
+
   return (
     <>
       <div className="ui-section mt-8">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Watchlist Selection</h2>
-          <p className="text-sm text-neutral-500">{watchlist.length} records</p>
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Watchlist Selection
+          </h2>
+          <p className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+            {watchlist.length} records
+          </p>
         </div>
 
         {watchlist.length === 0 ? (
-          <p className="text-neutral-600">No watchlist stocks yet.</p>
+          <p className="text-neutral-600 dark:text-[#a8b2bf]">
+            No watchlist stocks yet.
+          </p>
         ) : (
           <div className="ui-table-wrap">
             <table className="ui-table">
@@ -394,14 +407,7 @@ export function WatchlistSelectionTable({
                       <td className="font-medium">{row.ticker}</td>
                       <td>{row.company_name ?? '—'}</td>
                       <td>
-                        <span
-                          className={[
-                            'inline-flex rounded-full px-2.5 py-1 text-xs font-medium',
-                            quality.className,
-                          ].join(' ')}
-                        >
-                          {quality.label}
-                        </span>
+                        <span className={quality.className}>{quality.label}</span>
                       </td>
                       <td>{row.setup_grade ?? '—'}</td>
                       <td>
@@ -419,13 +425,13 @@ export function WatchlistSelectionTable({
 
       {editingRow ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+          <div className="ui-modal max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-semibold">
+                <h3 className="text-xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                   Edit Watchlist Row — {editingRow.ticker}
                 </h3>
-                <p className="mt-1 text-sm text-neutral-500">
+                <p className="mt-1 text-sm text-neutral-500 dark:text-[#a8b2bf]">
                   Fix incomplete or invalid data and save changes.
                 </p>
               </div>
@@ -440,7 +446,9 @@ export function WatchlistSelectionTable({
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium">Company Name</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Company Name
+                </label>
                 <input
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
@@ -449,7 +457,9 @@ export function WatchlistSelectionTable({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Setup Grade</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Setup Grade
+                </label>
                 <select
                   value={setupGrade}
                   onChange={(e) => setSetupGrade(e.target.value)}
@@ -463,7 +473,9 @@ export function WatchlistSelectionTable({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Entry Zone Low</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Entry Zone Low
+                </label>
                 <input
                   value={entryZoneLow}
                   onChange={(e) => setEntryZoneLow(e.target.value)}
@@ -472,12 +484,16 @@ export function WatchlistSelectionTable({
                   step="0.01"
                 />
                 {errors.entryZoneLow ? (
-                  <p className="mt-1 text-xs text-red-600">{errors.entryZoneLow}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">
+                    {errors.entryZoneLow}
+                  </p>
                 ) : null}
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Entry Zone High</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Entry Zone High
+                </label>
                 <input
                   value={entryZoneHigh}
                   onChange={(e) => setEntryZoneHigh(e.target.value)}
@@ -486,12 +502,16 @@ export function WatchlistSelectionTable({
                   step="0.01"
                 />
                 {errors.entryZoneHigh ? (
-                  <p className="mt-1 text-xs text-red-600">{errors.entryZoneHigh}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">
+                    {errors.entryZoneHigh}
+                  </p>
                 ) : null}
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Stop Price</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Stop Price
+                </label>
                 <input
                   value={stopPrice}
                   onChange={(e) => setStopPrice(e.target.value)}
@@ -500,12 +520,16 @@ export function WatchlistSelectionTable({
                   step="0.01"
                 />
                 {errors.stopPrice ? (
-                  <p className="mt-1 text-xs text-red-600">{errors.stopPrice}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">
+                    {errors.stopPrice}
+                  </p>
                 ) : null}
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Target 1 Price</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Target 1 Price
+                </label>
                 <input
                   value={target1Price}
                   onChange={(e) => setTarget1Price(e.target.value)}
@@ -514,12 +538,16 @@ export function WatchlistSelectionTable({
                   step="0.01"
                 />
                 {errors.target1Price ? (
-                  <p className="mt-1 text-xs text-red-600">{errors.target1Price}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">
+                    {errors.target1Price}
+                  </p>
                 ) : null}
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">Target 2 Price</label>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Target 2 Price
+                </label>
                 <input
                   value={target2Price}
                   onChange={(e) => setTarget2Price(e.target.value)}
@@ -528,11 +556,14 @@ export function WatchlistSelectionTable({
                   step="0.01"
                 />
                 {errors.target2Price ? (
-                  <p className="mt-1 text-xs text-red-600">{errors.target2Price}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-[#f0a3a3]">
+                    {errors.target2Price}
+                  </p>
                 ) : null}
               </div>
+
               <div>
-                <label className="mb-1 block text-sm font-medium">
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                   EPS Growth %
                 </label>
                 <input
@@ -545,7 +576,7 @@ export function WatchlistSelectionTable({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                   Revenue Growth %
                 </label>
                 <input
@@ -558,7 +589,7 @@ export function WatchlistSelectionTable({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                   Accumulation / Distribution Rating
                 </label>
                 <select
@@ -575,7 +606,7 @@ export function WatchlistSelectionTable({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium">
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                   Industry Group Rank
                 </label>
                 <input
@@ -588,8 +619,9 @@ export function WatchlistSelectionTable({
                   step="1"
                 />
               </div>
+
               <div className="md:col-span-2">
-                <label className="flex items-start gap-3 text-sm">
+                <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
                   <input
                     type="checkbox"
                     checked={epsAccelerating}
@@ -601,7 +633,7 @@ export function WatchlistSelectionTable({
               </div>
 
               <div className="md:col-span-2">
-                <label className="flex items-start gap-3 text-sm">
+                <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
                   <input
                     type="checkbox"
                     checked={earningsWithin2Weeks}
@@ -613,7 +645,7 @@ export function WatchlistSelectionTable({
               </div>
 
               <div className="md:col-span-2">
-                <label className="flex items-start gap-3 text-sm">
+                <label className="flex items-start gap-3 text-sm text-neutral-900 dark:text-[#e6eaf0]">
                   <input
                     type="checkbox"
                     checked={binaryEventRisk}
@@ -625,34 +657,33 @@ export function WatchlistSelectionTable({
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-              <h4 className="text-sm font-semibold">Live Setup Preview</h4>
+            <div className="mt-5 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-[#2a313b] dark:bg-[#20262e]">
+              <h4 className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                Live Setup Preview
+              </h4>
 
               <div className="mt-3 grid gap-4 md:grid-cols-3">
                 <div>
-                  <p className="text-xs text-neutral-500">Risk / Share</p>
-                  <p className="mt-1 text-lg font-semibold">
+                  <p className="text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    Risk / Share
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                     {preview.riskPerShare ?? '—'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-neutral-500">Reward / Share</p>
-                  <p className="mt-1 text-lg font-semibold">
+                  <p className="text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    Reward / Share
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                     {preview.rewardPerShare ?? '—'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-neutral-500">Expected R/R</p>
-                  <p
-                    className={[
-                      'mt-1 text-lg font-semibold',
-                      preview.expectedRR === null
-                        ? 'text-neutral-900'
-                        : preview.expectedRR >= 2
-                          ? 'text-green-700'
-                          : 'text-red-700',
-                    ].join(' ')}
-                  >
+                  <p className="text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    Expected R/R
+                  </p>
+                  <p className={['mt-1 text-lg font-semibold', rrClass].join(' ')}>
                     {preview.expectedRR ?? '—'}
                   </p>
                 </div>
