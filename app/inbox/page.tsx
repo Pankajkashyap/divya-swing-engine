@@ -17,12 +17,14 @@ export type PendingAction = {
     | 'stop_alert'
     | 'target_alert'
     | 'watchlist_review'
+    | 'watchlist_removal'
     | 'manual_reconciliation'
   state:
     | 'awaiting_confirmation'
     | 'snoozed'
     | 'dismissed'
     | 'executed'
+    | 'confirmed'
     | 'expired'
   urgency: 'urgent' | 'normal' | 'low'
   title: string
@@ -221,6 +223,73 @@ export default function InboxPage() {
     if (pendingActionError) {
       console.error('Dismiss pending action after archive error:', pendingActionError)
       alert('Failed to dismiss pending action')
+      setExecutingId(null)
+      return
+    }
+
+    await loadPendingActions()
+    setExecutingId(null)
+  }
+
+  const handleRemoveWatchlistCandidate = async (action: PendingAction) => {
+    const watchlistId =
+      action.watchlist_id ??
+      (typeof action.payload_json?.watchlistId === 'string'
+        ? action.payload_json.watchlistId
+        : null)
+
+    if (!watchlistId) {
+      alert('Watchlist item is missing')
+      return
+    }
+
+    setExecutingId(action.id)
+
+    const { error: watchlistError } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('id', watchlistId)
+
+    if (watchlistError) {
+      console.error('Remove watchlist candidate error:', watchlistError)
+      alert('Failed to remove watchlist item')
+      setExecutingId(null)
+      return
+    }
+
+    const { error: pendingActionError } = await supabase
+      .from('pending_actions')
+      .update({
+        state: 'confirmed',
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('id', action.id)
+
+    if (pendingActionError) {
+      console.error('Confirm removal pending action error:', pendingActionError)
+      alert('Watchlist item removed, but pending action update failed')
+      setExecutingId(null)
+      return
+    }
+
+    await loadPendingActions()
+    setExecutingId(null)
+  }
+
+  const handleKeepWatchlistCandidate = async (actionId: string) => {
+    setExecutingId(actionId)
+
+    const { error } = await supabase
+      .from('pending_actions')
+      .update({
+        state: 'dismissed',
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('id', actionId)
+
+    if (error) {
+      console.error('Keep watchlist candidate error:', error)
+      alert('Failed to dismiss action')
       setExecutingId(null)
       return
     }
@@ -488,28 +557,77 @@ export default function InboxPage() {
     setExecutingId(null)
   }
 
-if (loading) {
-  return <main className="ui-page">Loading inbox...</main>
-}
+  const watchlistRemovalActions = pendingActions.filter(
+    (action) => action.action_type === 'watchlist_removal'
+  )
+
+  const tableActions = pendingActions.filter(
+    (action) => action.action_type !== 'watchlist_removal'
+  )
+
+  if (loading) {
+    return <main className="ui-page">Loading inbox...</main>
+  }
 
   return (
-          <main className="ui-page">
-            <section className="mx-auto max-w-7xl">
-          <AppHeader
-           title="Inbox"
-            subtitle="Pending signals, alerts, and watchlist reviews."
-          />
+    <main className="ui-page">
+      <section className="mx-auto max-w-7xl">
+        <AppHeader
+          title="Inbox"
+          subtitle="Pending signals, alerts, and watchlist reviews."
+        />
 
         <section className="ui-section">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                Pending Actions
+              Pending Actions
               <Tooltip text="Items that require your decision: proposed buy signals, watchlist additions or removals, and system alerts waiting for your confirmation." />
             </h2>
           </div>
 
+          {watchlistRemovalActions.length > 0 ? (
+            <div className="mb-6 space-y-3">
+              {watchlistRemovalActions.map((action) => (
+                <div key={action.id} className="ui-card p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {action.title}
+                      </div>
+                      {action.message ? (
+                        <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                          {action.message}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="ui-pill-warning shrink-0">Removal proposal</span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="ui-btn-danger"
+                      onClick={() => handleRemoveWatchlistCandidate(action)}
+                      disabled={executingId === action.id}
+                    >
+                      {executingId === action.id ? 'Working...' : 'Remove from watchlist'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ui-btn-secondary"
+                      onClick={() => handleKeepWatchlistCandidate(action.id)}
+                      disabled={executingId === action.id}
+                    >
+                      Keep
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           <PendingActionsTable
-            actions={pendingActions}
+            actions={tableActions}
             executingId={executingId}
             onExecuteBuy={(action: PendingAction) => setBuyDialogAction(action)}
             onExecuteSell={(action: PendingAction, mode: 'full' | 'partial') =>
@@ -524,7 +642,7 @@ if (loading) {
         <section className="ui-section mt-8">
           <div className="mb-4">
             <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                Notification Log
+              Notification Log
               <Tooltip text="A record of all emails and alerts the system has sent you." />
             </h2>
           </div>

@@ -24,6 +24,10 @@ const supabase = createClient(
 type UserSettingsRow = {
   user_id: string
   notification_email: string | null
+  screener_min_eps_growth_pct: number | null
+  screener_min_revenue_growth_pct: number | null
+  screener_min_price: number | null
+  screener_min_avg_volume: number | null
 }
 
 type WatchlistRow = {
@@ -39,6 +43,17 @@ type FlaggedStock = {
   ticker: string
   consecutiveFailCount: number
   lastHardFailReason: string | null
+}
+
+type RemovalCandidate = {
+  id: string
+  ticker: string
+  company_name: string | null
+  setup_grade: string | null
+  eps_growth_pct: number | null
+  revenue_growth_pct: number | null
+  price: number | null
+  removal_reason: string
 }
 
 function jsonResponse(payload: unknown, status: number): Response {
@@ -83,7 +98,9 @@ Deno.serve(async (request: Request) => {
 
     const { data: userSettings, error: userSettingsError } = await supabase
       .from('user_settings')
-      .select('user_id, notification_email')
+      .select(
+        'user_id, notification_email, screener_min_eps_growth_pct, screener_min_revenue_growth_pct, screener_min_price, screener_min_avg_volume'
+      )
       .limit(1)
       .maybeSingle()
 
@@ -155,33 +172,12 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    if (!stocksToFlag || stocksToFlag.length === 0) {
-      await safeFinishScanLog({
-        logId,
-        status: 'completed',
-        message: 'No stocks to flag',
-        changesJson: {
-          flagged: 0,
-          tickers: [],
-          windowKey,
-        },
-      })
-
-      return jsonResponse(
-        {
-          success: true,
-          flagged: 0,
-          windowKey,
-        },
-        200
-      )
-    }
-
     let flagged = 0
     const tickers: string[] = []
     const flaggedStocks: FlaggedStock[] = []
+    let removalProposals = 0
 
-    for (const stock of stocksToFlag as WatchlistRow[]) {
+    for (const stock of (stocksToFlag ?? []) as WatchlistRow[]) {
       try {
         const failCount = Number(stock.consecutive_fail_count ?? 0)
 
@@ -246,6 +242,103 @@ Deno.serve(async (request: Request) => {
       }
     }
 
+    const { data: removalCandidatesData, error: removalCandidatesError } = await supabase
+      .from('watchlist')
+      .select(
+        'id, ticker, company_name, setup_grade, eps_growth_pct, revenue_growth_pct, price'
+      )
+      .eq('user_id', userId)
+      .eq('source', 'automation')
+      .eq('signal_state', 'candidate')
+
+    if (removalCandidatesError) {
+      await safeFinishScanLog({
+        logId,
+        status: 'failed',
+        message: `Failed to load removal proposal candidates: ${removalCandidatesError.message}`,
+      })
+
+      return jsonResponse(
+        { success: false, reason: 'Failed to load removal proposal candidates' },
+        500
+      )
+    }
+
+    const minEps = Number(settings.screener_min_eps_growth_pct ?? 25)
+    const minRevenue = Number(settings.screener_min_revenue_growth_pct ?? 20)
+    const minPrice = Number(settings.screener_min_price ?? 10)
+
+    for (const candidate of (removalCandidatesData ?? []) as Omit<RemovalCandidate, 'removal_reason'>[]) {
+      const reasons: string[] = []
+
+      if (candidate.setup_grade === 'F') {
+        reasons.push('Setup graded F by research')
+      }
+      if (
+        candidate.eps_growth_pct !== null &&
+        candidate.eps_growth_pct < minEps
+      ) {
+        reasons.push(
+          `EPS growth ${candidate.eps_growth_pct}% is below minimum ${minEps}%`
+        )
+      }
+      if (
+        candidate.revenue_growth_pct !== null &&
+        candidate.revenue_growth_pct < minRevenue
+      ) {
+        reasons.push(
+          `Revenue growth ${candidate.revenue_growth_pct}% is below minimum ${minRevenue}%`
+        )
+      }
+      if (
+        candidate.price !== null &&
+        candidate.price < minPrice
+      ) {
+        reasons.push(
+          `Price $${candidate.price} is below minimum $${minPrice}`
+        )
+      }
+
+      if (reasons.length === 0) continue
+
+      const removalReason = reasons.join('. ')
+
+      const existingRemovalAction = await getUnresolvedPendingAction({
+        userId,
+        ticker: candidate.ticker,
+        actionType: 'watchlist_removal',
+      })
+
+      if (existingRemovalAction) continue
+
+      const pendingActionResult = await createPendingAction({
+        userId,
+        ticker: candidate.ticker,
+        actionType: 'watchlist_removal',
+        urgency: 'low',
+        title: `Remove candidate: ${candidate.ticker}`,
+        message: removalReason,
+        watchlistId: candidate.id,
+        expiresAt: undefined,
+        payloadJson: {
+          removalReason,
+          setupGrade: candidate.setup_grade,
+          epsGrowthPct: candidate.eps_growth_pct,
+          revenueGrowthPct: candidate.revenue_growth_pct,
+          source: 'automation',
+        },
+      })
+
+      if (!pendingActionResult.created) {
+        console.error(
+          `[watchlist-review] Failed to create removal proposal for ${candidate.ticker}: ${pendingActionResult.reason}`
+        )
+        continue
+      }
+
+      removalProposals += 1
+    }
+
     if (flaggedStocks.length > 0 && recipientEmail) {
       try {
         const { subject, html } = watchlistReviewDigest({
@@ -283,9 +376,10 @@ Deno.serve(async (request: Request) => {
     await safeFinishScanLog({
       logId,
       status: 'completed',
-      message: `Watchlist review complete. Flagged: ${flagged}`,
+      message: `Watchlist review complete. Flagged: ${flagged}. Removal proposals: ${removalProposals}`,
       changesJson: {
         flagged,
+        removalProposals,
         tickers,
         windowKey,
       },
@@ -295,6 +389,7 @@ Deno.serve(async (request: Request) => {
       {
         success: true,
         flagged,
+        removalProposals,
         windowKey,
       },
       200
