@@ -61,9 +61,9 @@ export function PendingActionsTable({
 }: Props) {
   if (actions.length === 0) {
     return (
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
-        No pending actions. The system is up to date.
-      </div>
+        <div className="ui-card text-sm text-neutral-600 dark:text-[#a8b2bf]">
+             No pending actions. The system is up to date.
+        </div>
     )
   }
 

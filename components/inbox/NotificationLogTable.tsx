@@ -9,9 +9,9 @@ type Props = {
 export function NotificationLogTable({ notifications }: Props) {
   if (notifications.length === 0) {
     return (
-      <div className="rounded-2xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600">
-        No notifications sent yet.
-      </div>
+          <div className="ui-card text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No notifications sent yet.
+          </div>
     )
   }
 
