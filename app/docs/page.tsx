@@ -39,7 +39,7 @@ function Term({
 export default function DocsPage() {
   return (
     <main className="ui-page">
-      <section className="mx-auto max-w-5xl space-y-8">
+      <section className="mx-auto max-w-7xl space-y-8">
         <AppHeader
           title="Documentation & Learning Guide"
           subtitle="This page explains how to use the platform step by step, what the main trading terms mean, and how the engine makes decisions. It is written for someone who is new to trading and new to this app."

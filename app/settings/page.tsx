@@ -396,7 +396,7 @@ export default function SettingsPage() {
 
   return (
     <main className="ui-page">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
         <AppHeader
           title="Settings"
           subtitle="Manage your portfolio value, notification preferences, and account settings."
