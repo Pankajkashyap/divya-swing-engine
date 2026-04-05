@@ -150,29 +150,61 @@ sources from Wikipedia. Your job is NOT to regenerate this
 list — it is to audit it for errors and very recent changes
 that may not yet be reflected in the source data.
 
-AUDIT TASKS:
-Using your web browsing capability, check for:
+MANDATORY SPECIFIC CHECKS — you MUST look up each of these
+individually using your web browsing capability and return a
+finding for each one:
 
-1. REMOVALS — Any ticker on this list that should be removed:
-   - Company was acquired and no longer trades independently
-   - Company was delisted or went bankrupt
-   - Ticker changed to a new symbol (handle as ticker_change)
+1. TICKER "Q" (listed as "Qnity Electronics") — Search for
+   "Q stock ticker S&P 500" and confirm whether this is a
+   real S&P 500 constituent with a real company behind it.
+   If you cannot confirm a real company, flag for removal.
 
-2. ADDITIONS — Any ticker NOT on this list confirmed added
-   to the S&P 500 in the last 90 days via official S&P
-   announcement
+2. TICKER "MRSH" (listed as "Marsh McLennan") — Search for
+   "Marsh McLennan stock ticker" and confirm whether the
+   correct current ticker is MRSH or MMC. Flag as a
+   ticker_change if the ticker is wrong.
 
-3. TICKER CHANGES — Any company whose ticker symbol changed
-   recently (e.g. SQ → XYZ for Block Inc.)
+3. TICKER "FISV" (listed as "Fiserv") — Search for "Fiserv
+   stock ticker" and confirm whether the current ticker is
+   FISV or FI. If FISV is the old ticker, flag as a
+   ticker_change from FISV to FI.
+
+4. TICKER "PSKY" (listed as "Paramount Skydance") — Search
+   for "Paramount Skydance merger ticker" and confirm the
+   current active S&P 500 ticker post-merger. If PSKY is
+   not the correct current ticker, flag accordingly.
+
+5. TICKER "SATS" (listed as "EchoStar") — Confirm whether
+   EchoStar (SATS) is currently an active S&P 500
+   constituent or was removed. EchoStar has had financial
+   difficulties. Look this up and flag for removal if it
+   is no longer a constituent.
+
+6. RECENT ADDITIONS — Search for "S&P 500 additions 2026"
+   and check if any companies were added to the S&P 500
+   in the last 90 days that are NOT in the list below.
+   Only include confirmed official additions.
+
+7. RECENT REMOVALS — Search for "S&P 500 removals 2026"
+   and check if any companies on this list were removed
+   from the S&P 500 in the last 90 days. Only include
+   confirmed official removals.
+
+GENERAL AUDIT TASKS:
+After completing the mandatory checks above, scan the full
+list for any other obvious issues:
+- Companies acquired and no longer trading independently
+- Companies delisted or bankrupt
+- Any other ticker symbol changes you can confirm
 
 STRICT RULES:
-- Only flag changes you can confirm from a live web source today
+- Only flag changes you can confirm from a live web source
 - If uncertain about any change, omit it entirely
-- Do not remove tickers just because a company had bad earnings
-  or stock price decline — only remove confirmed delistings or
-  acquisitions where the stock no longer trades independently
-- An empty result with confirmed_clean: true is a valid and
-  good response
+- Do not remove tickers due to bad earnings or price decline
+- Return findings for ALL 7 mandatory checks even if the
+  finding is "confirmed correct — no change needed"
+- Include a "notes" field in your response summarising your
+  findings for each mandatory check
 
 RETURN THIS EXACT JSON STRUCTURE (no other text):
 {
@@ -191,7 +223,16 @@ RETURN THIS EXACT JSON STRUCTURE (no other text):
       "company_name": "Company Name Inc."
     }
   ],
-  "confirmed_clean": true
+  "confirmed_clean": false,
+  "notes": {
+    "Q": "finding here",
+    "MRSH": "finding here",
+    "FISV": "finding here",
+    "PSKY": "finding here",
+    "SATS": "finding here",
+    "recent_additions": "finding here",
+    "recent_removals": "finding here"
+  }
 }
 
 TODAY'S DATE: ${today}
