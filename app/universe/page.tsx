@@ -26,6 +26,16 @@ type UniverseImportRow = {
   index_membership: string | null
 }
 
+type AuditDiff = {
+  remove?: string[]
+  add?: UniverseImportRow[]
+  ticker_changes?: Array<{
+    old: string
+    new: string
+    company_name: string | null
+  }>
+}
+
 function buildSP500Prompt(): string {
   const today = new Date().toISOString().slice(0, 10)
   return `You are a financial data analyst. Return the current S&P 500
@@ -126,6 +136,70 @@ RETURN THIS EXACT STRUCTURE (no other text):
 ]`
 }
 
+function buildAuditPrompt(tickers: UniverseImportRow[]): string {
+  const today = new Date().toISOString().slice(0, 10)
+  const tickerList = tickers
+    .map((t) => `${t.ticker} — ${t.company_name ?? 'Unknown'}`)
+    .join('\n')
+
+  return `You are a financial data analyst auditing an S&P 500
+constituent list for accuracy.
+
+I fetched this list from a maintained GitHub dataset that
+sources from Wikipedia. Your job is NOT to regenerate this
+list — it is to audit it for errors and very recent changes
+that may not yet be reflected in the source data.
+
+AUDIT TASKS:
+Using your web browsing capability, check for:
+
+1. REMOVALS — Any ticker on this list that should be removed:
+   - Company was acquired and no longer trades independently
+   - Company was delisted or went bankrupt
+   - Ticker changed to a new symbol (handle as ticker_change)
+
+2. ADDITIONS — Any ticker NOT on this list confirmed added
+   to the S&P 500 in the last 90 days via official S&P
+   announcement
+
+3. TICKER CHANGES — Any company whose ticker symbol changed
+   recently (e.g. SQ → XYZ for Block Inc.)
+
+STRICT RULES:
+- Only flag changes you can confirm from a live web source today
+- If uncertain about any change, omit it entirely
+- Do not remove tickers just because a company had bad earnings
+  or stock price decline — only remove confirmed delistings or
+  acquisitions where the stock no longer trades independently
+- An empty result with confirmed_clean: true is a valid and
+  good response
+
+RETURN THIS EXACT JSON STRUCTURE (no other text):
+{
+  "remove": ["TICKER1", "TICKER2"],
+  "add": [
+    {
+      "ticker": "NEW",
+      "company_name": "New Company Inc.",
+      "index_membership": "S&P 500"
+    }
+  ],
+  "ticker_changes": [
+    {
+      "old": "OLDTICKER",
+      "new": "NEWTICKER",
+      "company_name": "Company Name Inc."
+    }
+  ],
+  "confirmed_clean": true
+}
+
+TODAY'S DATE: ${today}
+
+CURRENT TICKER LIST TO AUDIT (${tickers.length} tickers):
+${tickerList}`
+}
+
 async function copyTextWithFallback(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text)
@@ -180,6 +254,21 @@ export default function UniversePage() {
   const [applying, setApplying] = useState(false)
   const [applySuccess, setApplySuccess] = useState<string | null>(null)
   const [applyError, setApplyError] = useState<string | null>(null)
+
+  const [syncing, setSyncing] = useState(false)
+  const [syncedTickers, setSyncedTickers] = useState<UniverseImportRow[] | null>(null)
+  const [syncCount, setSyncCount] = useState<number | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [copyAuditSuccess, setCopyAuditSuccess] = useState(false)
+
+  const [auditText, setAuditText] = useState('')
+  const [auditValidation, setAuditValidation] = useState<
+    'empty' | 'valid' | 'invalid' | 'schema'
+  >('empty')
+  const [parsedAudit, setParsedAudit] = useState<AuditDiff | null>(null)
+  const [applyingAudit, setApplyingAudit] = useState(false)
+  const [auditSuccess, setAuditSuccess] = useState<string | null>(null)
+  const [auditError, setAuditError] = useState<string | null>(null)
 
   const loadUniverse = useMemo(
     () => async () => {
@@ -248,8 +337,72 @@ export default function UniversePage() {
     }
   }, [importText])
 
+  useEffect(() => {
+    setAuditSuccess(null)
+    setAuditError(null)
+
+    if (!auditText.trim()) {
+      setAuditValidation('empty')
+      setParsedAudit(null)
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(auditText) as unknown
+      if (typeof parsed !== 'object' || parsed === null) {
+        setAuditValidation('schema')
+        setParsedAudit(null)
+        return
+      }
+
+      const p = parsed as Record<string, unknown>
+
+      const removeOk =
+        !p.remove ||
+        (Array.isArray(p.remove) &&
+          p.remove.every((t) => typeof t === 'string'))
+
+      const addOk =
+        !p.add ||
+        (Array.isArray(p.add) &&
+          p.add.every(
+            (t) =>
+              typeof t === 'object' &&
+              t !== null &&
+              typeof (t as Record<string, unknown>).ticker === 'string'
+          ))
+
+      const changesOk =
+        !p.ticker_changes ||
+        (Array.isArray(p.ticker_changes) &&
+          p.ticker_changes.every(
+            (t) =>
+              typeof t === 'object' &&
+              t !== null &&
+              typeof (t as Record<string, unknown>).old === 'string' &&
+              typeof (t as Record<string, unknown>).new === 'string'
+          ))
+
+      if (!removeOk || !addOk || !changesOk) {
+        setAuditValidation('schema')
+        setParsedAudit(null)
+        return
+      }
+
+      setAuditValidation('valid')
+      setParsedAudit(p as AuditDiff)
+    } catch {
+      setAuditValidation('invalid')
+      setParsedAudit(null)
+    }
+  }, [auditText])
+
   const sp500PromptText = useMemo(() => buildSP500Prompt(), [])
   const nasdaqPromptText = useMemo(() => buildNASDAQ100Prompt(), [])
+  const auditPromptText = useMemo(
+    () => (syncedTickers ? buildAuditPrompt(syncedTickers) : ''),
+    [syncedTickers]
+  )
 
   const sp500PromptPreview = useMemo(
     () => sp500PromptText.split('\n').slice(0, 3).join('\n'),
@@ -258,6 +411,10 @@ export default function UniversePage() {
   const nasdaqPromptPreview = useMemo(
     () => nasdaqPromptText.split('\n').slice(0, 3).join('\n'),
     [nasdaqPromptText]
+  )
+  const auditPromptPreview = useMemo(
+    () => auditPromptText.split('\n').slice(0, 3).join('\n'),
+    [auditPromptText]
   )
 
   const activeCount = useMemo(
@@ -291,6 +448,105 @@ export default function UniversePage() {
     await copyTextWithFallback(nasdaqPromptText)
     setCopyNASDAQSuccess(true)
     window.setTimeout(() => setCopyNASDAQSuccess(false), 2000)
+  }
+
+  const handleSyncFromGitHub = async () => {
+    setSyncing(true)
+    setSyncError(null)
+    setSyncedTickers(null)
+    setSyncCount(null)
+
+    try {
+      const response = await fetch('/api/ticker-universe/fetch-github')
+      const result = (await response.json()) as {
+        tickers?: UniverseImportRow[]
+        count?: number
+        error?: string
+      }
+
+      if (!response.ok || result.error) {
+        setSyncError(result.error ?? 'Failed to fetch from GitHub')
+        return
+      }
+
+      if (!result.tickers || result.tickers.length === 0) {
+        setSyncError('No tickers returned from GitHub')
+        return
+      }
+
+      const applyResponse = await fetch('/api/ticker-universe/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result.tickers),
+      })
+
+      if (!applyResponse.ok) {
+        setSyncError('Failed to apply GitHub universe to database')
+        return
+      }
+
+      setSyncedTickers(result.tickers)
+      setSyncCount(result.count ?? result.tickers.length)
+      await loadUniverse()
+    } catch {
+      setSyncError('Failed to fetch from GitHub')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const handleCopyAuditPrompt = async () => {
+    if (!syncedTickers) return
+    const prompt = buildAuditPrompt(syncedTickers)
+    await copyTextWithFallback(prompt)
+    setCopyAuditSuccess(true)
+    window.setTimeout(() => setCopyAuditSuccess(false), 2000)
+  }
+
+  const handleApplyAudit = async () => {
+    if (!parsedAudit) return
+
+    setApplyingAudit(true)
+    setAuditSuccess(null)
+    setAuditError(null)
+
+    try {
+      const response = await fetch('/api/ticker-universe/apply-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsedAudit),
+      })
+
+      const result = (await response.json()) as {
+        removed?: number
+        added?: number
+        ticker_changes_applied?: number
+        errors?: string[]
+      }
+
+      if (!response.ok) {
+        setAuditError(result.errors?.[0] ?? 'Failed to apply audit')
+        return
+      }
+
+      const parts: string[] = []
+      if ((result.removed ?? 0) > 0) parts.push(`${result.removed} removed`)
+      if ((result.added ?? 0) > 0) parts.push(`${result.added} added`)
+      if ((result.ticker_changes_applied ?? 0) > 0) {
+        parts.push(`${result.ticker_changes_applied} ticker changes applied`)
+      }
+      if (parts.length === 0) {
+        parts.push('No changes needed — universe confirmed clean')
+      }
+
+      setAuditSuccess(parts.join(', '))
+      setAuditText('')
+      await loadUniverse()
+    } catch {
+      setAuditError('Failed to apply audit')
+    } finally {
+      setApplyingAudit(false)
+    }
   }
 
   const handleApply = async () => {
@@ -375,122 +631,287 @@ export default function UniversePage() {
               </div>
             </div>
 
+            <section className="ui-section mt-8">
+              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                Step 1 — Sync from GitHub
+              </h2>
+              <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+                Fetches the current S&amp;P 500 constituent list from a
+                community-maintained GitHub dataset sourced from Wikipedia. This is
+                the source of truth.
+              </p>
+
+              <button
+                type="button"
+                onClick={handleSyncFromGitHub}
+                disabled={syncing}
+                className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {syncing ? 'Syncing...' : 'Sync S&P 500 from GitHub'}
+              </button>
+
+              {syncing ? (
+                <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  Fetching from GitHub...
+                </p>
+              ) : null}
+
+              {syncError ? (
+                <p className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
+                  {syncError}
+                </p>
+              ) : null}
+
+              {syncCount !== null && syncedTickers ? (
+                <p className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
+                  ✓ {syncCount} tickers synced from GitHub. Copy the audit prompt below to check for recent changes.
+                </p>
+              ) : null}
+            </section>
+
             <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <div className="ui-section">
+              <div
+                className={[
+                  'ui-section',
+                  !syncedTickers ? 'opacity-50 pointer-events-none' : '',
+                ].join(' ')}
+              >
                 <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Step 1 — Copy prompts
+                  Step 2 — Audit with ChatGPT
                 </h2>
                 <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                  Run both prompts separately in ChatGPT with web browsing enabled.
-                  Paste each result into Step 2 and apply one at a time.
+                  Copy this prompt and paste into ChatGPT with web browsing enabled.
+                  ChatGPT will check the GitHub list for recent acquisitions,
+                  delistings, and ticker changes.
                 </p>
 
-                <div className="mt-5 space-y-4">
-                  <div className="ui-card p-4">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                      S&amp;P 500
-                    </div>
-                    <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                      ~503 tickers. Paste result into Step 2, then apply.
+                {!syncedTickers ? (
+                  <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                    Complete Step 1 first.
+                  </p>
+                ) : (
+                  <>
+                    <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      {syncCount} tickers loaded from GitHub
                     </p>
 
                     <textarea
                       readOnly
-                      value={sp500PromptPreview}
-                      className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                      value={auditPromptPreview}
+                      className="ui-textarea mt-5 h-24 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
                     />
 
                     <button
                       type="button"
-                      onClick={handleCopySP500}
-                      className="ui-btn-secondary mt-4"
+                      onClick={handleCopyAuditPrompt}
+                      disabled={!syncedTickers}
+                      className="ui-btn-secondary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {copySP500Success ? 'Copied!' : 'Copy S&P 500 prompt'}
+                      {copyAuditSuccess ? 'Copied!' : 'Copy audit prompt'}
                     </button>
-                  </div>
-
-                  <div className="ui-card p-4">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                      NASDAQ 100
-                    </div>
-                    <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                      ~101 tickers. Run after S&amp;P 500. Apply separately.
-                    </p>
-
-                    <textarea
-                      readOnly
-                      value={nasdaqPromptPreview}
-                      className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={handleCopyNASDAQ}
-                      className="ui-btn-secondary mt-4"
-                    >
-                      {copyNASDAQSuccess ? 'Copied!' : 'Copy NASDAQ 100 prompt'}
-                    </button>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
 
-              <div className="ui-section">
+              <div
+                className={[
+                  'ui-section',
+                  !syncedTickers ? 'opacity-50 pointer-events-none' : '',
+                ].join(' ')}
+              >
                 <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Step 2 — Paste ChatGPT output
+                  Step 3 — Paste audit result
                 </h2>
                 <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                  Paste the JSON array ChatGPT returned for either prompt.
-                  Click Apply. Run both prompts and apply each one separately
-                  to build the full universe.
+                  Paste the JSON diff ChatGPT returned. Click Apply to update the
+                  universe with any confirmed changes.
                 </p>
 
+                {!syncedTickers ? (
+                  <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                    Complete Step 1 first.
+                  </p>
+                ) : null}
+
                 <textarea
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder="Paste ChatGPT's JSON output here..."
+                  value={auditText}
+                  onChange={(e) => setAuditText(e.target.value)}
+                  placeholder="Paste ChatGPT's audit diff here..."
                   className="ui-textarea mt-5 h-48"
                 />
 
                 <div className="mt-4 min-h-7">
-                  {importValidation === 'valid' && parsedImport && (
+                  {auditValidation === 'valid' && (
                     <span className="ui-pill-success">
-                      Valid JSON — {parsedImport.length} tickers ready to apply
+                      Valid diff — ready to apply
                     </span>
                   )}
-                  {importValidation === 'invalid' && (
+                  {auditValidation === 'invalid' && (
                     <span className="ui-pill-danger">
                       Invalid JSON — check the output
                     </span>
                   )}
-                  {importValidation === 'schema' && (
+                  {auditValidation === 'schema' && (
                     <span className="ui-pill-warning">
-                      JSON structure does not match expected format
+                      JSON structure does not match
                     </span>
                   )}
                 </div>
 
-                {applySuccess ? (
+                {auditValidation === 'valid' && parsedAudit ? (
+                  <p className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                    Removing: {parsedAudit.remove?.length ?? 0} | Adding: {parsedAudit.add?.length ?? 0} | Ticker changes: {parsedAudit.ticker_changes?.length ?? 0}
+                  </p>
+                ) : null}
+
+                {auditSuccess ? (
                   <div className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
-                    {applySuccess}
+                    {auditSuccess}
                   </div>
                 ) : null}
 
-                {applyError ? (
+                {auditError ? (
                   <div className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
-                    {applyError}
+                    {auditError}
                   </div>
                 ) : null}
 
                 <button
                   type="button"
-                  onClick={handleApply}
-                  disabled={importValidation !== 'valid' || applying}
+                  onClick={handleApplyAudit}
+                  disabled={auditValidation !== 'valid' || applyingAudit || syncedTickers === null}
                   className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {applying ? 'Applying...' : 'Apply update'}
+                  {applyingAudit ? 'Applying...' : 'Apply audit changes'}
                 </button>
               </div>
             </div>
+
+            <section className="ui-section mt-8">
+              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                Manual workflow (NASDAQ 100 + fallback)
+              </h2>
+              <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+                Use these prompts to manually update the NASDAQ 100, or as a fallback if the GitHub sync fails.
+              </p>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                <div className="ui-section">
+                  <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                    Step 1 — Copy prompts
+                  </h2>
+                  <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+                    Run both prompts separately in ChatGPT with web browsing enabled.
+                    Paste each result into Step 2 and apply one at a time.
+                  </p>
+
+                  <div className="mt-5 space-y-4">
+                    <div className="ui-card p-4">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        S&amp;P 500
+                      </div>
+                      <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        ~503 tickers. Paste result into Step 2, then apply.
+                      </p>
+
+                      <textarea
+                        readOnly
+                        value={sp500PromptPreview}
+                        className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={handleCopySP500}
+                        className="ui-btn-secondary mt-4"
+                      >
+                        {copySP500Success ? 'Copied!' : 'Copy S&P 500 prompt'}
+                      </button>
+                    </div>
+
+                    <div className="ui-card p-4">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        NASDAQ 100
+                      </div>
+                      <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        ~101 tickers. Run after S&amp;P 500. Apply separately.
+                      </p>
+
+                      <textarea
+                        readOnly
+                        value={nasdaqPromptPreview}
+                        className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={handleCopyNASDAQ}
+                        className="ui-btn-secondary mt-4"
+                      >
+                        {copyNASDAQSuccess ? 'Copied!' : 'Copy NASDAQ 100 prompt'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="ui-section">
+                  <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                    Step 2 — Paste ChatGPT output
+                  </h2>
+                  <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+                    Paste the JSON array ChatGPT returned for either prompt.
+                    Click Apply. Run both prompts and apply each one separately
+                    to build the full universe.
+                  </p>
+
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    placeholder="Paste ChatGPT's JSON output here..."
+                    className="ui-textarea mt-5 h-48"
+                  />
+
+                  <div className="mt-4 min-h-7">
+                    {importValidation === 'valid' && parsedImport && (
+                      <span className="ui-pill-success">
+                        Valid JSON — {parsedImport.length} tickers ready to apply
+                      </span>
+                    )}
+                    {importValidation === 'invalid' && (
+                      <span className="ui-pill-danger">
+                        Invalid JSON — check the output
+                      </span>
+                    )}
+                    {importValidation === 'schema' && (
+                      <span className="ui-pill-warning">
+                        JSON structure does not match expected format
+                      </span>
+                    )}
+                  </div>
+
+                  {applySuccess ? (
+                    <div className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
+                      {applySuccess}
+                    </div>
+                  ) : null}
+
+                  {applyError ? (
+                    <div className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
+                      {applyError}
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={handleApply}
+                    disabled={importValidation !== 'valid' || applying}
+                    className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {applying ? 'Applying...' : 'Apply update'}
+                  </button>
+                </div>
+              </div>
+            </section>
 
             <section className="ui-section mt-8">
               <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
