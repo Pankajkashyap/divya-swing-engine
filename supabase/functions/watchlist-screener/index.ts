@@ -181,8 +181,6 @@ Deno.serve(async (request: Request) => {
 
     const minPrice = Number(settings.screener_min_price ?? 10)
     const minAvgVolume = Number(settings.screener_min_avg_volume ?? 500000)
-    const minEpsGrowth = Number(settings.screener_min_eps_growth_pct ?? 25)
-    const minRevenueGrowth = Number(settings.screener_min_revenue_growth_pct ?? 20)
     const maxCandidates = Number(settings.screener_max_candidates ?? 20)
 
     const preFiltered = TICKER_UNIVERSE.filter((ticker) => {
