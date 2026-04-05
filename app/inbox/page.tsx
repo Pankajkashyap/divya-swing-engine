@@ -489,7 +489,7 @@ export default function InboxPage() {
   }
 
 if (loading) {
-  return <main className="p-10 text-neutral-900 dark:text-neutral-100">Loading inbox...</main>
+  return <main className="ui-page">Loading inbox...</main>
 }
 
   return (

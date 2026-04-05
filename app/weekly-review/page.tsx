@@ -60,7 +60,7 @@ export default function WeeklyReviewPage() {
       setLoading(false)
     }
 
-    loadData()
+    void loadData()
   }, [supabase])
 
   const metrics = useMemo(() => {
@@ -145,12 +145,12 @@ export default function WeeklyReviewPage() {
   }
 
   if (loading) {
-    return <main className="p-10 text-neutral-900 dark:text-neutral-100">Loading weekly review...</main>
+    return <main className="ui-page">Loading weekly review...</main>
   }
 
   return (
-        <main className="ui-page">
-        <section className="mx-auto max-w-6xl">
+    <main className="ui-page">
+      <section className="mx-auto max-w-6xl">
         <AppHeader
           title="Weekly Review"
           subtitle="Review outcomes, performance, and next-week focus."
@@ -167,28 +167,34 @@ export default function WeeklyReviewPage() {
           avgLoss={metrics.avgLoss}
         />
 
-        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-900">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Closed Trades</h2>
+        <div className="ui-section mt-8">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Closed Trades
+          </h2>
 
           {metrics.closedTrades.length === 0 ? (
-            <p className="mt-4 text-neutral-600 dark:text-neutral-400">No closed trades yet.</p>
+            <p className="mt-4 text-neutral-600 dark:text-[#a8b2bf]">
+              No closed trades yet.
+            </p>
           ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full border-collapse text-sm">
+            <div className="mt-4 ui-table-wrap">
+              <table className="ui-table">
                 <thead>
-                  <tr className="border-b border-neutral-200 text-left text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
-                    <th className="py-3 pr-4">Ticker</th>
-                    <th className="py-3 pr-4">Entry Date</th>
-                    <th className="py-3 pr-4">Exit Date</th>
-                    <th className="py-3 pr-4">Exit Price</th>
-                    <th className="py-3 pr-4">P&amp;L $</th>
-                    <th className="py-3 pr-4">P&amp;L %</th>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>Entry Date</th>
+                    <th>Exit Date</th>
+                    <th>Exit Price</th>
+                    <th>P&amp;L $</th>
+                    <th>P&amp;L %</th>
                   </tr>
                 </thead>
                 <tbody>
                   {metrics.closedTrades.map((trade) => (
-                    <tr key={trade.id} className="border-b border-neutral-100 dark:border-neutral-800">
-                      <td className="py-3 pr-4 font-medium text-neutral-900 dark:text-neutral-100">{trade.ticker}</td>
+                    <tr key={trade.id}>
+                      <td className="py-3 pr-4 font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                        {trade.ticker}
+                      </td>
                       <td className="py-3 pr-4">{trade.entry_date ?? '—'}</td>
                       <td className="py-3 pr-4">{trade.exit_date ?? '—'}</td>
                       <td className="py-3 pr-4">
@@ -204,52 +210,56 @@ export default function WeeklyReviewPage() {
           )}
         </div>
 
-        <div className="mt-8 rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-900">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Weekly Review Notes</h2>
+        <div className="ui-section mt-8">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Weekly Review Notes
+          </h2>
 
           <div className="mt-4 grid gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                 Primary Focus for Next Week
               </label>
               <input
                 value={primaryFocus}
                 onChange={(e) => setPrimaryFocus(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                className="ui-input"
                 placeholder="Focus on A-grade setups only"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                 Biggest Rule Issue
               </label>
               <input
                 value={biggestRuleIssue}
                 onChange={(e) => setBiggestRuleIssue(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                className="ui-input"
                 placeholder="Entered too far from pivot"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                 Next Week Triggers
               </label>
               <input
                 value={nextWeekTriggers}
                 onChange={(e) => setNextWeekTriggers(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                className="ui-input"
                 placeholder="Watch for confirmed_uptrend continuation"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-neutral-100">Notes</label>
+              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                Notes
+              </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="min-h-32 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100"
+                className="ui-textarea min-h-32"
                 placeholder="Weekly reflection..."
               />
             </div>
