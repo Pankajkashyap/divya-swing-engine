@@ -47,6 +47,7 @@ export function AppHeader({ title, subtitle }: Props) {
     { label: 'Dashboard', href: '/' },
     { label: 'Inbox', href: '/inbox', badge: pendingCount },
     { label: 'Candidates', href: '/candidates' },
+    { label: 'Universe', href: '/universe' },
     { label: 'Weekly Review', href: '/weekly-review' },
     { label: 'Docs', href: '/docs' },
     { label: 'Settings', href: '/settings' },

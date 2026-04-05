@@ -5,7 +5,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { validateCronSecret } from '../_shared/cronAuth.ts'
 import { getCadenceWindowKey } from '../_shared/marketHours.ts'
 import { startScanLog, finishScanLog, hasAlreadyProcessed } from '../_shared/scanLog.ts'
-import { TICKER_UNIVERSE } from '../_shared/ticker-universe.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -153,6 +152,26 @@ Deno.serve(async (request: Request) => {
 
     const settings = userSettings as UserSettingsRow
     const userId = settings.user_id
+
+    const { data: universeData, error: universeError } = await supabase
+      .from('ticker_universe')
+      .select('ticker')
+      .eq('is_active', true)
+
+    const FALLBACK_TICKERS = [
+      'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA',
+      'JPM', 'V', 'UNH', 'LLY', 'AVGO', 'XOM', 'MA', 'JNJ',
+      'HD', 'COST', 'PG', 'ABBV', 'MRK'
+    ]
+
+    if (universeError || !universeData || universeData.length === 0) {
+      console.warn('[watchlist-screener] ticker_universe table empty or failed to load. Using fallback.')
+    }
+
+    const TICKER_UNIVERSE: string[] =
+      universeError || !universeData || universeData.length === 0
+        ? FALLBACK_TICKERS
+        : universeData.map((r) => r.ticker)
 
     if (settings.screener_enabled === false) {
       return jsonResponse({ skipped: true, reason: 'Screener disabled in settings' }, 200)
@@ -349,7 +368,6 @@ Deno.serve(async (request: Request) => {
           revenueGrowthPct: revenueGrowth,
         }
 
-        // Explicit minimum-criteria guard. Nulls fail. All four minimums must pass.
         const minPriceGuard = settings.screener_min_price ?? 10
         const minVolumeGuard = settings.screener_min_avg_volume ?? 500000
         const minEpsGuard = settings.screener_min_eps_growth_pct ?? 25
