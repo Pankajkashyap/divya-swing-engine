@@ -61,9 +61,9 @@ export function AppHeader({ title, subtitle }: Props) {
   return (
     <header className="mb-10">
       <div className="ui-section rounded-3xl px-6 py-5">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <div className="ui-pill-neutral text-[11px] uppercase tracking-[0.24em]">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="ui-pill-neutral w-fit text-[11px] uppercase tracking-[0.24em]">
               Divya Swing Engine
             </div>
 
@@ -78,10 +78,19 @@ export function AppHeader({ title, subtitle }: Props) {
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <ThemeToggle />
+          <div className="flex min-w-0 flex-col items-start gap-3 xl:items-end">
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="ui-btn-secondary"
+              >
+                Logout
+              </button>
+            </div>
 
-            <nav className="flex flex-wrap items-center gap-2">
+            <nav className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
               {navItems.map((item) => {
                 const isActive =
                   item.href === '/'
@@ -92,9 +101,9 @@ export function AppHeader({ title, subtitle }: Props) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={isActive ? 'ui-link-pill-active' : 'ui-link-pill-idle'}
+                    className={`shrink-0 ${isActive ? 'ui-link-pill-active' : 'ui-link-pill-idle'}`}
                   >
-                    <span className="inline-flex items-center gap-2">
+                    <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       {item.label}
                       {'badge' in item && item.badge && item.badge > 0 ? (
                         <span className="ui-pill-neutral px-2 py-0.5 text-[11px]">
@@ -106,14 +115,6 @@ export function AppHeader({ title, subtitle }: Props) {
                 )
               })}
             </nav>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="ui-btn-secondary"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </div>
