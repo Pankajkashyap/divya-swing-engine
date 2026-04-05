@@ -37,25 +37,31 @@ export function ExposurePreviewPanel({
     portfolioValue > 0 &&
     postTradeExposurePct > exposureLimitPct
 
-  const statusClass = !hasValidPlan
-    ? 'bg-neutral-100 text-neutral-600 dark:bg-[#20262e] dark:text-[#a8b2bf] dark:border dark:border-[#2a313b]'
+  const statusPillClass = !hasValidPlan
+    ? 'ui-pill-neutral'
     : willBlock
-      ? 'bg-red-100 text-red-700 dark:bg-[#3a2227] dark:text-[#f0a3a3] dark:border dark:border-[#5a2d33]'
-      : 'bg-green-100 text-green-700 dark:bg-[#1f3329] dark:text-[#8fd0ab] dark:border dark:border-[#2f5a43]'
+      ? 'ui-pill-danger'
+      : 'ui-pill-success'
+
+  const statusLabel = !hasValidPlan
+    ? 'Waiting for valid trade plan'
+    : willBlock
+      ? 'Will be blocked'
+      : 'Within limit'
+
+  const messageClass = !hasValidPlan
+    ? 'mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]'
+    : willBlock
+      ? 'mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]'
+      : 'mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]'
 
   return (
     <div className="ui-section mt-8">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
           Exposure Preview
         </h2>
-        <p className={['rounded-full px-3 py-1 text-xs font-medium', statusClass].join(' ')}>
-          {!hasValidPlan
-            ? 'Waiting for valid trade plan'
-            : willBlock
-              ? 'Will be blocked'
-              : 'Within limit'}
-        </p>
+        <p className={statusPillClass}>{statusLabel}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -100,22 +106,13 @@ export function ExposurePreviewPanel({
         </div>
       </div>
 
-      {hasValidPlan ? (
-        <p
-          className={[
-            'mt-4 text-sm font-medium',
-            willBlock ? 'text-red-700 dark:text-[#f0a3a3]' : 'text-green-700 dark:text-[#8fd0ab]',
-          ].join(' ')}
-        >
-          {willBlock
+      <p className={messageClass}>
+        {!hasValidPlan
+          ? 'Generate a valid trade plan to preview exposure impact.'
+          : willBlock
             ? `This trade will be blocked because post-trade exposure (${postTradeExposurePct}%) exceeds the limit (${exposureLimitPct}%).`
             : `This trade is within the current exposure limit. Post-trade exposure will be ${postTradeExposurePct}%.`}
-        </p>
-      ) : (
-        <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-          Generate a valid trade plan to preview exposure impact.
-        </p>
-      )}
+      </p>
     </div>
   )
 }
