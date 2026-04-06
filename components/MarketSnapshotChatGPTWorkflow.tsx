@@ -243,11 +243,13 @@ export function MarketSnapshotChatGPTWorkflow() {
     setImportError(null)
 
     try {
-      const response = await fetch('/api/market-snapshot/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsedImport),
-      })
+          const localDate = new Date().toLocaleDateString('en-CA')
+
+          const response = await fetch('/api/market-snapshot/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...parsedImport, snapshot_date: localDate }),
+        })
 
       const result = (await response.json()) as ApplyResult
 

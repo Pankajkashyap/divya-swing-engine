@@ -11,6 +11,7 @@ type MarketPhase =
   | 'bear'
 
 type RequestBody = {
+    snapshot_date: string
   market_phase: MarketPhase
   max_long_exposure_pct: 0 | 25 | 50 | 100
   spy_price: number
@@ -62,6 +63,8 @@ function isValidPayload(body: unknown): body is RequestBody {
   const validExposureValues = [0, 25, 50, 100]
 
   return (
+    typeof b.snapshot_date === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(b.snapshot_date as string) &&
     typeof b.market_phase === 'string' &&
     validMarketPhases.includes(b.market_phase as MarketPhase) &&
     typeof b.max_long_exposure_pct === 'number' &&
@@ -109,7 +112,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = body.snapshot_date
 
   const fullPayload = {
     user_id: user.id,
