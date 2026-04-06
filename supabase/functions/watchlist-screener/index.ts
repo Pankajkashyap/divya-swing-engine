@@ -161,7 +161,7 @@ Deno.serve(async (request: Request) => {
     const FALLBACK_TICKERS = [
       'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA',
       'JPM', 'V', 'UNH', 'LLY', 'AVGO', 'XOM', 'MA', 'JNJ',
-      'HD', 'COST', 'PG', 'ABBV', 'MRK'
+      'HD', 'COST', 'PG', 'ABBV', 'MRK',
     ]
 
     if (universeError || !universeData || universeData.length === 0) {
@@ -228,6 +228,7 @@ Deno.serve(async (request: Request) => {
     }
 
     const pricePassList: PricePassCandidate[] = []
+    const candidateLogIds = new Map<string, string>()
 
     console.log(
       `[watchlist-screener] Pass 1 starting. Deep-processing ${tickersToProcess.length} tickers from static universe of ${TICKER_UNIVERSE.length}.`
@@ -250,6 +251,26 @@ Deno.serve(async (request: Request) => {
 
         if (!aggResponse.ok) {
           rejectionCounts.fetch_error += 1
+          try {
+            const { data: logRow } = await supabase
+              .from('screener_candidate_log')
+              .insert({
+                user_id: userId,
+                screener_run_id: logId ?? windowKey,
+                ticker,
+                pass1_price: null,
+                pass1_volume: null,
+                pass1_passed: false,
+                pass2_passed: false,
+                final_passed: false,
+                rejection_reason: 'fetch_error',
+              })
+              .select('id')
+              .single()
+            if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+          } catch (logErr) {
+            console.error('[screener-log] Pass 1 fetch_error log failed:', logErr)
+          }
           await delay(12500)
           continue
         }
@@ -259,6 +280,26 @@ Deno.serve(async (request: Request) => {
 
         if (bars.length === 0) {
           rejectionCounts.fetch_error += 1
+          try {
+            const { data: logRow } = await supabase
+              .from('screener_candidate_log')
+              .insert({
+                user_id: userId,
+                screener_run_id: logId ?? windowKey,
+                ticker,
+                pass1_price: null,
+                pass1_volume: null,
+                pass1_passed: false,
+                pass2_passed: false,
+                final_passed: false,
+                rejection_reason: 'fetch_error',
+              })
+              .select('id')
+              .single()
+            if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+          } catch (logErr) {
+            console.error('[screener-log] Pass 1 fetch_error log failed:', logErr)
+          }
           await delay(12500)
           continue
         }
@@ -270,24 +311,104 @@ Deno.serve(async (request: Request) => {
 
         if (price === null) {
           rejectionCounts.fetch_error += 1
+          try {
+            const { data: logRow } = await supabase
+              .from('screener_candidate_log')
+              .insert({
+                user_id: userId,
+                screener_run_id: logId ?? windowKey,
+                ticker,
+                pass1_price: null,
+                pass1_volume: null,
+                pass1_passed: false,
+                pass2_passed: false,
+                final_passed: false,
+                rejection_reason: 'fetch_error',
+              })
+              .select('id')
+              .single()
+            if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+          } catch (logErr) {
+            console.error('[screener-log] Pass 1 fetch_error log failed:', logErr)
+          }
           await delay(12500)
           continue
         }
 
         if (price < minPrice) {
           rejectionCounts.price_too_low += 1
+          try {
+            const { data: logRow } = await supabase
+              .from('screener_candidate_log')
+              .insert({
+                user_id: userId,
+                screener_run_id: logId ?? windowKey,
+                ticker,
+                pass1_price: price,
+                pass1_volume: null,
+                pass1_passed: false,
+                pass2_passed: false,
+                final_passed: false,
+                rejection_reason: 'price_too_low',
+              })
+              .select('id')
+              .single()
+            if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+          } catch (logErr) {
+            console.error('[screener-log] Pass 1 price_too_low log failed:', logErr)
+          }
           await delay(12500)
           continue
         }
 
         if (volume === null) {
           rejectionCounts.fetch_error += 1
+          try {
+            const { data: logRow } = await supabase
+              .from('screener_candidate_log')
+              .insert({
+                user_id: userId,
+                screener_run_id: logId ?? windowKey,
+                ticker,
+                pass1_price: price,
+                pass1_volume: null,
+                pass1_passed: false,
+                pass2_passed: false,
+                final_passed: false,
+                rejection_reason: 'fetch_error',
+              })
+              .select('id')
+              .single()
+            if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+          } catch (logErr) {
+            console.error('[screener-log] Pass 1 fetch_error log failed:', logErr)
+          }
           await delay(12500)
           continue
         }
 
         if (volume < minAvgVolume) {
           rejectionCounts.volume_too_low += 1
+          try {
+            const { data: logRow } = await supabase
+              .from('screener_candidate_log')
+              .insert({
+                user_id: userId,
+                screener_run_id: logId ?? windowKey,
+                ticker,
+                pass1_price: price,
+                pass1_volume: volume,
+                pass1_passed: false,
+                pass2_passed: false,
+                final_passed: false,
+                rejection_reason: 'volume_too_low',
+              })
+              .select('id')
+              .single()
+            if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+          } catch (logErr) {
+            console.error('[screener-log] Pass 1 volume_too_low log failed:', logErr)
+          }
           await delay(12500)
           continue
         }
@@ -297,9 +418,50 @@ Deno.serve(async (request: Request) => {
           price,
           volume,
         })
+
+        try {
+          const { data: logRow } = await supabase
+            .from('screener_candidate_log')
+            .insert({
+              user_id: userId,
+              screener_run_id: logId ?? windowKey,
+              ticker,
+              pass1_price: price,
+              pass1_volume: volume,
+              pass1_passed: true,
+              pass2_passed: false,
+              final_passed: false,
+              rejection_reason: null,
+            })
+            .select('id')
+            .single()
+          if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+        } catch (logErr) {
+          console.error('[screener-log] Pass 1 pass log failed:', logErr)
+        }
       } catch (error) {
         rejectionCounts.fetch_error += 1
         console.error(`[watchlist-screener] Pass 1 aggregate fetch failed for ${ticker}:`, error)
+        try {
+          const { data: logRow } = await supabase
+            .from('screener_candidate_log')
+            .insert({
+              user_id: userId,
+              screener_run_id: logId ?? windowKey,
+              ticker,
+              pass1_price: null,
+              pass1_volume: null,
+              pass1_passed: false,
+              pass2_passed: false,
+              final_passed: false,
+              rejection_reason: 'fetch_error',
+            })
+            .select('id')
+            .single()
+          if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+        } catch (logErr) {
+          console.error('[screener-log] Pass 1 fetch_error log failed:', logErr)
+        }
       }
 
       await delay(12500)
@@ -389,6 +551,34 @@ Deno.serve(async (request: Request) => {
             if (candidate.epsGrowthPct < minEpsGuard) rejectionCounts.eps_too_low += 1
             if (candidate.revenueGrowthPct < minRevenueGuard) rejectionCounts.revenue_too_low += 1
           }
+
+          try {
+            const logRowId = candidateLogIds.get(ticker)
+            if (logRowId) {
+              const rejectionReason =
+                candidate.epsGrowthPct == null ||
+                candidate.revenueGrowthPct == null
+                  ? 'zero_fundamentals'
+                  : candidate.epsGrowthPct < minEpsGuard
+                    ? 'eps_too_low'
+                    : 'revenue_too_low'
+
+              await supabase
+                .from('screener_candidate_log')
+                .update({
+                  company_name: candidate.companyName,
+                  pass2_eps_growth_pct: candidate.epsGrowthPct,
+                  pass2_revenue_growth_pct: candidate.revenueGrowthPct,
+                  pass2_passed: false,
+                  final_passed: false,
+                  rejection_reason: rejectionReason,
+                })
+                .eq('id', logRowId)
+            }
+          } catch (logErr) {
+            console.error('[screener-log] Pass 2 reject log failed:', logErr)
+          }
+
           await delay(300)
           continue
         }
@@ -427,49 +617,100 @@ Deno.serve(async (request: Request) => {
 
         if (existing?.ticker) {
           rejectionCounts.already_in_watchlist += 1
+
+          try {
+            const logRowId = candidateLogIds.get(ticker)
+            if (logRowId) {
+              await supabase
+                .from('screener_candidate_log')
+                .update({
+                  company_name: candidate.companyName,
+                  pass2_eps_growth_pct: candidate.epsGrowthPct,
+                  pass2_revenue_growth_pct: candidate.revenueGrowthPct,
+                  pass2_passed: false,
+                  final_passed: false,
+                  rejection_reason: 'already_in_watchlist',
+                })
+                .eq('id', logRowId)
+            }
+          } catch (logErr) {
+            console.error('[screener-log] Pass 2 already_in_watchlist log failed:', logErr)
+          }
+
           await delay(300)
           continue
         }
 
-        const { error: insertError } = await supabase.from('watchlist').insert({
-          user_id: userId,
-          ticker: candidate.ticker,
-          company_name: candidate.companyName,
-          source: 'automation',
-          signal_state: 'candidate',
-          status: 'watchlist',
-          action_status: 'watchlist',
-          setup_type: 'breakout',
-          setup_grade: null,
-          entry_zone_low: null,
-          entry_zone_high: null,
-          stop_price: null,
-          target_1_price: null,
-          target_2_price: null,
-          trend_template_pass: null,
-          volume_dry_up_pass: null,
-          rs_line_confirmed: null,
-          base_pattern_valid: null,
-          entry_near_pivot: null,
-          volume_breakout_confirmed: null,
-          liquidity_pass: null,
-          earnings_within_2_weeks: false,
-          binary_event_risk: false,
-          eps_growth_pct: candidate.epsGrowthPct,
-          revenue_growth_pct: candidate.revenueGrowthPct,
-          acc_dist_rating: null,
-          industry_group_rank: null,
-          eps_accelerating: null,
-          data_status: 'fresh',
-          consecutive_fail_count: 0,
-          flagged_for_review: false,
-        })
+        const { data: insertedRow, error: insertError } =
+          await supabase
+            .from('watchlist')
+            .insert({
+              user_id: userId,
+              ticker: candidate.ticker,
+              company_name: candidate.companyName,
+              source: 'automation',
+              signal_state: 'candidate',
+              status: 'watchlist',
+              action_status: 'watchlist',
+              setup_type: 'breakout',
+              setup_grade: null,
+              entry_zone_low: null,
+              entry_zone_high: null,
+              stop_price: null,
+              target_1_price: null,
+              target_2_price: null,
+              trend_template_pass: null,
+              volume_dry_up_pass: null,
+              rs_line_confirmed: null,
+              base_pattern_valid: null,
+              entry_near_pivot: null,
+              volume_breakout_confirmed: null,
+              liquidity_pass: null,
+              earnings_within_2_weeks: false,
+              binary_event_risk: false,
+              eps_growth_pct: candidate.epsGrowthPct,
+              revenue_growth_pct: candidate.revenueGrowthPct,
+              acc_dist_rating: null,
+              industry_group_rank: null,
+              eps_accelerating: null,
+              data_status: 'fresh',
+              consecutive_fail_count: 0,
+              flagged_for_review: false,
+              screener_run_id: logId ?? windowKey,
+              screened_price: candidate.price,
+              screened_avg_volume: candidate.avgVolume,
+              screened_eps_growth_pct: candidate.epsGrowthPct,
+              screened_revenue_growth_pct: candidate.revenueGrowthPct,
+              screened_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single()
 
         if (insertError) {
           console.error(`[watchlist-screener] Failed to insert ${candidate.ticker}:`, insertError.message)
           rejectionCounts.fetch_error += 1
           await delay(300)
           continue
+        }
+
+        try {
+          const logRowId = candidateLogIds.get(ticker)
+          if (logRowId) {
+            await supabase
+              .from('screener_candidate_log')
+              .update({
+                company_name: candidate.companyName,
+                pass2_eps_growth_pct: candidate.epsGrowthPct,
+                pass2_revenue_growth_pct: candidate.revenueGrowthPct,
+                pass2_passed: true,
+                final_passed: true,
+                rejection_reason: null,
+                watchlist_id: insertedRow?.id ?? null,
+              })
+              .eq('id', logRowId)
+          }
+        } catch (logErr) {
+          console.error('[screener-log] Final pass log failed:', logErr)
         }
 
         addedCount += 1

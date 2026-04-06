@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { WatchlistRow } from '@/app/page'
+import { WatchlistLogModal } from '@/components/WatchlistLogModal'
 
 type Props = {
   watchlist: WatchlistRow[]
@@ -129,6 +130,8 @@ export function WatchlistSelectionTable({
   const [industryRank, setIndustryRank] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
   const [savingEdit, setSavingEdit] = useState(false)
+  const [logModalRow, setLogModalRow] = useState<{ ticker: string; id: string } | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!editingRow) return
@@ -320,8 +323,9 @@ export function WatchlistSelectionTable({
     }
   }
 
-  const handleDelete = async (row: WatchlistRow) => {
+  const handleDeleteConfirm = async (row: WatchlistRow) => {
     await onDelete(row.id, row.ticker)
+    setPendingDeleteId(null)
   }
 
   const rrClass =
@@ -354,6 +358,7 @@ export function WatchlistSelectionTable({
                 <tr>
                   <th>Select</th>
                   <th>Edit</th>
+                  <th>Log</th>
                   <th>Delete</th>
                   <th>Ticker</th>
                   <th>Company</th>
@@ -398,11 +403,64 @@ export function WatchlistSelectionTable({
                       </td>
                       <td>
                         <button
-                          onClick={() => void handleDelete(row)}
-                          className="ui-btn-danger px-3 py-1 text-xs"
+                          type="button"
+                          onClick={() =>
+                            setLogModalRow({
+                              ticker: row.ticker,
+                              id: row.id,
+                            })
+                          }
+                          className="text-neutral-400 hover:text-neutral-700 dark:text-[#a8b2bf] dark:hover:text-[#e6eaf0] transition-colors"
+                          title="View history"
                         >
-                          Delete
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16 a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
+                          </svg>
                         </button>
+                      </td>
+                      <td>
+                        {pendingDeleteId !== row.id ? (
+                          <button
+                            onClick={() => setPendingDeleteId(row.id)}
+                            className="ui-btn-danger px-3 py-1 text-xs"
+                          >
+                            Delete
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => void handleDeleteConfirm(row)}
+                                className="ui-btn-danger px-3 py-1 text-xs"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setPendingDeleteId(null)}
+                                className="ui-btn-secondary px-3 py-1 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                            <p className="text-xs text-red-600 dark:text-[#f0a3a3]">
+                              This cannot be undone.
+                            </p>
+                          </div>
+                        )}
                       </td>
                       <td className="font-medium">{row.ticker}</td>
                       <td>{row.company_name ?? '—'}</td>
@@ -714,6 +772,14 @@ export function WatchlistSelectionTable({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {logModalRow ? (
+        <WatchlistLogModal
+          ticker={logModalRow.ticker}
+          watchlistId={logModalRow.id}
+          onClose={() => setLogModalRow(null)}
+        />
       ) : null}
     </>
   )
