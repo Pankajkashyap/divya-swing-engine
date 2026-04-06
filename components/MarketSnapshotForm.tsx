@@ -12,7 +12,7 @@ type Props = {
 }
 
 export function MarketSnapshotForm({ onSave }: Props) {
-  const today = new Date().toISOString().slice(0, 10)
+const today = new Date().toLocaleDateString('en-CA')
 
   const [snapshotDate, setSnapshotDate] = useState(today)
   const [marketPhase, setMarketPhase] = useState('confirmed_uptrend')
