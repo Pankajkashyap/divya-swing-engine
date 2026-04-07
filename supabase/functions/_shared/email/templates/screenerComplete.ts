@@ -18,6 +18,11 @@ function fmtPrice(value: number) {
   return `$${value.toFixed(2)}`
 }
 
+function fmtGrowth(value: number | null) {
+  if (value === null) return '—'
+  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
+}
+
 function candidatesUrl(appUrl?: string) {
   return `${appUrl ?? Deno.env.get('APP_BASE_URL') ?? ''}/candidates`
 }
@@ -35,30 +40,25 @@ function layout(title: string, body: string) {
   `
 }
 
-function fmtGrowth(value: number | null) {
-  if (value === null) return '—'
-  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
-}
-
 export function screenerComplete(data: ScreenerCompleteData): {
   subject: string
   html: string
 } {
-  const subject =
-    data.addedCount > 0
-      ? `🔍 ${data.addedCount} new candidates ready for research`
-      : `🔍 Screener ran — no new candidates tonight`
+  const subject = data.addedCount > 0
+    ? `🔍 ${data.addedCount} new candidate${data.addedCount === 1 ? '' : 's'} ready for research`
+    : `🔍 Screener ran — no new candidates tonight`
+
   const url = candidatesUrl(data.appUrl)
 
   const candidateRows = data.candidates
     .map(
-      (candidate) => `
+      (c) => `
       <tr>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;font-weight:600;">${candidate.ticker}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">${candidate.companyName ?? '—'}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;color:${candidate.epsGrowthPct !== null && candidate.epsGrowthPct > 0 ? '#15803d' : '#171717'};">${fmtGrowth(candidate.epsGrowthPct)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;color:${candidate.revenueGrowthPct !== null && candidate.revenueGrowthPct > 0 ? '#15803d' : '#171717'};">${fmtGrowth(candidate.revenueGrowthPct)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;">${candidate.screenedPrice !== null ? fmtPrice(candidate.screenedPrice) : '—'}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;font-weight:600;">${c.ticker}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">${c.companyName ?? '—'}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;color:${c.epsGrowthPct !== null && c.epsGrowthPct > 0 ? '#15803d' : '#171717'};">${fmtGrowth(c.epsGrowthPct)}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;color:${c.revenueGrowthPct !== null && c.revenueGrowthPct > 0 ? '#15803d' : '#171717'};">${fmtGrowth(c.revenueGrowthPct)}</td>
+        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;">${c.screenedPrice !== null ? fmtPrice(c.screenedPrice) : '—'}</td>
       </tr>
     `
     )
@@ -73,33 +73,28 @@ export function screenerComplete(data: ScreenerCompleteData): {
       <tr><td style="padding:10px 0;color:#737373;">Date</td><td style="padding:10px 0;text-align:right;font-weight:600;">${data.date}</td></tr>
     </table>
 
-    ${
-      data.addedCount > 0
-        ? `
-      <div style="margin-top:20px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
-        <div style="font-size:16px;font-weight:700;color:#15803d;">Your next step: run the ChatGPT research workflow on the Candidates page before 3:30 PM MT tomorrow. Researched candidates will be evaluated in the evening scan.</div>
+    ${data.addedCount > 0 ? `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
+        <div style="font-size:15px;font-weight:700;color:#15803d;">Your next step</div>
+        <div style="margin-top:6px;color:#166534;font-size:14px;line-height:1.6;">Run the ChatGPT research workflow on the Candidates page before 3:30 PM MT tomorrow. Researched candidates will be evaluated in the evening scan.</div>
       </div>
 
       <div style="margin-top:28px;font-size:18px;font-weight:700;">New Candidates</div>
       <table style="width:100%;border-collapse:collapse;margin-top:12px;">
         <tr>
-          <th style="text-align:left;padding-bottom:10px;">Ticker</th>
-          <th style="text-align:left;padding-bottom:10px;">Company</th>
-          <th style="text-align:right;padding-bottom:10px;">EPS Growth</th>
-          <th style="text-align:right;padding-bottom:10px;">Revenue Growth</th>
-          <th style="text-align:right;padding-bottom:10px;">Price</th>
+          <th style="text-align:left;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Ticker</th>
+          <th style="text-align:left;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Company</th>
+          <th style="text-align:right;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">EPS Growth</th>
+          <th style="text-align:right;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Rev Growth</th>
+          <th style="text-align:right;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Price</th>
         </tr>
         ${candidateRows}
       </table>
-    `
-        : `
+    ` : `
       <p style="margin-top:28px;color:#737373;line-height:1.6;">
-        The screener ran through ${data.scannedCount} tickers tonight and none passed all four
-        filters (price, volume, EPS growth, revenue growth). This is normal — quality is more
-        important than quantity. The screener will run again tomorrow night.
+        The screener ran through ${data.scannedCount} tickers tonight and none passed all four filters (price, volume, EPS growth, revenue growth). This is normal — quality is more important than quantity. The screener will run again tomorrow night.
       </p>
-    `
-    }
+    `}
 
     <div style="margin-top:28px;">
       <a href="${url}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;">
@@ -107,10 +102,9 @@ export function screenerComplete(data: ScreenerCompleteData): {
       </a>
     </div>
 
-    <p style="margin-top:16px;color:#737373;font-size:13px;line-height:1.6;">
-      Use extended thinking mode in ChatGPT for best research results. Apply the
-      results before 3:30 PM MT to ensure they are included in tonight's evaluation.
-    </p>
+    <div style="margin-top:16px;color:#737373;font-size:13px;line-height:1.6;">
+      Use extended thinking mode in ChatGPT for best research results. Apply the results before 3:30 PM MT to ensure they are included in tonight's evaluation.
+    </div>
     `
   )
 

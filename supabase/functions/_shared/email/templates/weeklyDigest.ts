@@ -1,27 +1,45 @@
 // Server only — do not import in client components
 
-export type DailyDigestData = {
-  date: string
+export type WeeklyDigestData = {
+  weekEnding: string
   marketPhase: string
   openTradesCount: number
-  signalsFiredCount: number
-  flaggedWatchlistCount: number
-  unresolvedActionsCount: number
-  openTrades: Array<{
-    ticker: string
-    entryPrice: number
-    currentStop: number
-    target1: number
-  }>
+  closedTradesCount: number
+  winsCount: number
+  lossesCount: number
+  totalRealizedPnl: number
+  avgWin: number
+  avgLoss: number
+  watchlistCount: number
+  flaggedCount: number
   appUrl?: string
 }
 
-function fmtPrice(value: number) {
-  return `$${value.toFixed(2)}`
+function fmtMoney(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+}
+
+function fmtPnl(value: number) {
+  const formatted = fmtMoney(Math.abs(value))
+  if (value > 0) return `<span style="color:#15803d;font-weight:600;">+${formatted}</span>`
+  if (value < 0) return `<span style="color:#dc2626;font-weight:600;">-${formatted}</span>`
+  return `<span style="font-weight:600;">${formatted}</span>`
+}
+
+function weeklyReviewUrl(appUrl?: string) {
+  return `${appUrl ?? Deno.env.get('APP_BASE_URL') ?? ''}/weekly-review`
 }
 
 function inboxUrl(appUrl?: string) {
   return `${appUrl ?? Deno.env.get('APP_BASE_URL') ?? ''}/inbox`
+}
+
+function candidatesUrl(appUrl?: string) {
+  return `${appUrl ?? Deno.env.get('APP_BASE_URL') ?? ''}/candidates`
+}
+
+function dashboardUrl(appUrl?: string) {
+  return `${appUrl ?? Deno.env.get('APP_BASE_URL') ?? ''}/`
 }
 
 function layout(title: string, body: string) {
@@ -37,117 +55,71 @@ function layout(title: string, body: string) {
   `
 }
 
-export function dailyDigest(data: DailyDigestData): {
-  subject: string
-  html: string
-} {
-  const subject = `📊 Daily Digest — ${data.date} · ${data.marketPhase}`
-  const url = inboxUrl(data.appUrl)
+export function weeklyDigest(data: WeeklyDigestData): { subject: string; html: string } {
+  const subject = `📈 Weekly Review — Week ending ${data.weekEnding}`
+  const reviewUrl = weeklyReviewUrl(data.appUrl)
+  const inbox = inboxUrl(data.appUrl)
+  const candidates = candidatesUrl(data.appUrl)
+  const dashboard = dashboardUrl(data.appUrl)
 
-  const tradeRows = data.openTrades
-    .map(
-      (trade) => `
-      <tr>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;font-weight:600;">${trade.ticker}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;">${fmtPrice(trade.entryPrice)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;">${fmtPrice(trade.currentStop)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;">${fmtPrice(trade.target1)}</td>
-      </tr>
-    `
-    )
-    .join('')
-
-  const phaseBanner =
-    data.marketPhase === 'confirmed_uptrend'
-      ? `
-      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;">
-        ✅ Market is in a confirmed uptrend. New long entries are permitted.
-      </div>
-    `
-      : data.marketPhase === 'under_pressure'
-        ? `
-      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;">
-        ⚠️ Market is under pressure. Reduce new long exposure. Be selective.
-      </div>
-    `
-        : data.marketPhase === 'rally_attempt'
-          ? `
-      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fefce8;border:1px solid #fef08a;color:#a16207;">
-        👀 Rally attempt in progress. Wait for a confirmed Follow-Through Day before adding new positions.
-      </div>
-    `
-          : data.marketPhase === 'correction'
-            ? `
-      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;">
-        🔴 Market is in correction. No new long entries. Stay in cash.
-      </div>
-    `
-            : `
-      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;">
-        🐻 Bear market conditions. No new long entries under any circumstances.
-      </div>
-    `
+  const winRate =
+    data.closedTradesCount > 0
+      ? `${((data.winsCount / data.closedTradesCount) * 100).toFixed(1)}%`
+      : '—'
 
   const html = layout(
-    `<div style="font-size:28px;font-weight:700;">Daily Digest</div>`,
     `
-    ${phaseBanner}
-
-    <table style="width:100%;border-collapse:collapse;margin-top:24px;">
-      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Market phase</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.marketPhase}</td></tr>
-      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Open trades</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.openTradesCount}</td></tr>
-      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Signals fired</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.signalsFiredCount}</td></tr>
-      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Flagged watchlist</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.flaggedWatchlistCount}</td></tr>
-      <tr><td style="padding:10px 0;color:#737373;">Unresolved actions</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;">${data.unresolvedActionsCount}</td></tr>
+    <div style="font-size:28px;font-weight:700;">Weekly Review</div>
+    <div style="margin-top:6px;color:#737373;font-size:14px;">Week ending ${data.weekEnding}</div>
+    `,
+    `
+    <div style="margin-top:24px;font-size:18px;font-weight:700;">Performance</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Closed trades</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.closedTradesCount}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Wins</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;color:#15803d;">${data.winsCount}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Losses</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;color:#dc2626;">${data.lossesCount}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Win rate</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${winRate}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Realized P&L</td><td style="padding:10px 0;text-align:right;border-bottom:1px solid #e5e5e5;">${fmtPnl(data.totalRealizedPnl)}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Avg win</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;color:#15803d;">${fmtMoney(data.avgWin)}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;">Avg loss</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;color:#dc2626;">${fmtMoney(data.avgLoss)}</td></tr>
     </table>
 
-    ${
-      data.openTradesCount === 0 && data.signalsFiredCount === 0
-        ? `
-      <p style="margin-top:20px;color:#737373;line-height:1.6;">
-        No signals fired today. This is normal in the current market environment. The system continues
-        to monitor your watchlist and will alert you when a qualifying setup emerges.
-      </p>
-    `
-        : ''
-    }
+    ${data.closedTradesCount === 0 ? `
+      <p style="margin-top:16px;color:#737373;font-size:14px;line-height:1.6;">
+        No trades were closed this week. Keep building the watchlist and waiting for
+        the right market conditions.
+      </p>` : ''}
 
-    ${
-      data.unresolvedActionsCount > 0
-        ? `
-      <div style="margin-top:20px;padding:16px;border-radius:8px;background:#fefce8;border:1px solid #fef08a;color:#a16207;">
-        You have ${data.unresolvedActionsCount} unresolved action(s) in your Inbox. Review them before
-        placing any new trades.
-      </div>
-    `
-        : ''
-    }
+    <div style="margin-top:28px;font-size:18px;font-weight:700;">Portfolio</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Open trades</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.openTradesCount}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Watchlist</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.watchlistCount}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Flagged stocks</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.flaggedCount}</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;">Market phase</td><td style="padding:10px 0;text-align:right;font-weight:600;">${data.marketPhase.replace(/_/g, ' ')}</td></tr>
+    </table>
 
-    ${
-      data.openTrades.length > 0
-        ? `
-      <div style="margin-top:28px;font-size:18px;font-weight:700;">Open Trades</div>
-      <div style="margin-top:8px;color:#737373;font-size:14px;line-height:1.6;">
-        Monitor these positions. If a stop is hit, exit in Wealthsimple immediately then confirm
-        in the Inbox.
+    <div style="margin-top:28px;padding:16px;border-radius:8px;background:#f5f5f5;border:1px solid #e5e5e5;">
+      <div style="font-size:15px;font-weight:700;margin-bottom:10px;">Your Sunday evening checklist</div>
+      <div style="font-size:14px;line-height:1.9;color:#525252;">
+        <div>1. <a href="${dashboard}" style="color:#171717;text-decoration:underline;">Update the market snapshot</a> using the ChatGPT prompt on the Dashboard</div>
+        <div>2. <a href="${reviewUrl}" style="color:#171717;text-decoration:underline;">Complete your Weekly Review</a> — wins, losses, lessons, focus for next week</div>
+        <div>3. <a href="${candidates}" style="color:#171717;text-decoration:underline;">Check the Candidates page</a> for stocks awaiting ChatGPT research</div>
+        <div>4. <a href="${inbox}" style="color:#171717;text-decoration:underline;">Clear your Inbox</a> — resolve any pending actions from the week</div>
       </div>
-      <table style="width:100%;border-collapse:collapse;margin-top:12px;">
-        <tr>
-          <th style="text-align:left;padding-bottom:10px;">Ticker</th>
-          <th style="text-align:right;padding-bottom:10px;">Entry</th>
-          <th style="text-align:right;padding-bottom:10px;">Stop</th>
-          <th style="text-align:right;padding-bottom:10px;">Target 1</th>
-        </tr>
-        ${tradeRows}
-      </table>
-    `
-        : ''
-    }
+    </div>
 
     <div style="margin-top:28px;">
-      <a href="${url}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;">
-        Open Inbox →
+      <a href="${reviewUrl}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">
+        Complete Weekly Review →
       </a>
+    </div>
+
+    <div style="margin-top:12px;">
+      <a href="${inbox}" style="color:#737373;font-size:13px;text-decoration:underline;">Open Inbox</a>
+    </div>
+
+    <div style="margin-top:20px;color:#a3a3a3;font-size:12px;line-height:1.6;border-top:1px solid #e5e5e5;padding-top:16px;">
+      Divya Swing Engine · Weekly performance summary · All execution is manual in Wealthsimple
     </div>
     `
   )
