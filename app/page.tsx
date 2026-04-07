@@ -175,11 +175,7 @@ export default function HomePage() {
   return (
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
-        <AppHeader
-          title="Setup Evaluator"
-          subtitle="Market-first rule engine, trade planning, execution, and exposure control."
-        />
-
+<AppHeader title="Setup Evaluator" />
         <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
           {(['overview', 'watchlist', 'trades', 'review'] as const).map((tab) => (
             <button
