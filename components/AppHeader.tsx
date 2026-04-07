@@ -54,49 +54,45 @@ export function AppHeader({ title }: Props) {
 
   return (
     <header className="mb-4 border-b border-neutral-200 pb-3 dark:border-neutral-800">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]">
-            {title}
-          </h1>
-        </div>
-        <div className="flex min-w-0 flex-col items-start gap-2 xl:items-end">
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="ui-btn-secondary"
-            >
-              Logout
-            </button>
-          </div>
-          <nav className="flex flex-wrap items-center gap-1.5 xl:flex-nowrap">
-            {navItems.map((item) => {
-              const isActive =
-                item.href === '/'
-                  ? pathname === '/'
-                  : pathname.startsWith(item.href)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`shrink-0 ${isActive ? 'ui-link-pill-active' : 'ui-link-pill-idle'}`}
-                >
-                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                    {item.label}
-                    {'badge' in item && item.badge && item.badge > 0 ? (
-                      <span className="ui-pill-neutral px-2 py-0.5 text-[11px]">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </span>
-                </Link>
-              )
-            })}
-          </nav>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]">
+          {title}
+        </h1>
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="ui-btn-secondary"
+          >
+            Logout
+          </button>
         </div>
       </div>
+      <nav className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        {navItems.map((item) => {
+          const isActive =
+            item.href === '/'
+              ? pathname === '/'
+              : pathname.startsWith(item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`shrink-0 ${isActive ? 'ui-link-pill-active' : 'ui-link-pill-idle'}`}
+            >
+              <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                {item.label}
+                {'badge' in item && item.badge && item.badge > 0 ? (
+                  <span className="ui-pill-neutral px-2 py-0.5 text-[11px]">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+          )
+        })}
+      </nav>
     </header>
   )
 }
