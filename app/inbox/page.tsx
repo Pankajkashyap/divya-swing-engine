@@ -574,7 +574,6 @@ export default function InboxPage() {
       <section className="mx-auto max-w-7xl">
         <AppHeader
           title="Inbox"
-          subtitle="Pending signals, alerts, and watchlist reviews."
         />
 
         <section className="ui-section">

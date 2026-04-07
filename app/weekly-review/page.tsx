@@ -153,7 +153,6 @@ export default function WeeklyReviewPage() {
       <section className="mx-auto max-w-7xl">
         <AppHeader
           title="Weekly Review"
-          subtitle="Review outcomes, performance, and next-week focus."
         />
 
         <WeeklyReviewSummary

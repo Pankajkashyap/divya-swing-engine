@@ -437,10 +437,7 @@ export default function CandidatesPage() {
     return (
       <main className="ui-page">
         <section className="mx-auto max-w-7xl">
-          <AppHeader
-            title="Candidates"
-            subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
-          />
+        <AppHeader title="Candidates" />
           <div className="mt-8 text-sm text-neutral-600 dark:text-[#a8b2bf]">
             Loading candidates...
           </div>
@@ -452,10 +449,7 @@ export default function CandidatesPage() {
   return (
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
-        <AppHeader
-          title="Candidates"
-          subtitle="Review screener candidates, export to ChatGPT for research, and import the results."
-        />
+      <AppHeader title="Candidates" />
 
         {!screenerEnabled && candidates.length === 0 ? (
           <div className="ui-section mt-8 text-neutral-700 dark:text-[#a8b2bf]">

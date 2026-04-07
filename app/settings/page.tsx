@@ -399,7 +399,6 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-7xl">
         <AppHeader
           title="Settings"
-          subtitle="Manage your portfolio value, notification preferences, and account settings."
         />
 
         {loading ? (

@@ -627,7 +627,6 @@ export default function UniversePage() {
       <section className="mx-auto max-w-7xl">
         <AppHeader
           title="Universe"
-          subtitle="Manage the ticker universe the screener draws from."
         />
 
         {loading ? (

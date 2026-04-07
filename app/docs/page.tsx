@@ -42,7 +42,6 @@ export default function DocsPage() {
       <section className="mx-auto max-w-7xl space-y-8">
         <AppHeader
           title="Documentation & Learning Guide"
-          subtitle="This page explains how to use the platform step by step, what the main trading terms mean, and how the engine makes decisions. It is written for someone who is new to trading and new to this app."
         />
 
         <Section title="1. Start Here: What This Platform Does">
