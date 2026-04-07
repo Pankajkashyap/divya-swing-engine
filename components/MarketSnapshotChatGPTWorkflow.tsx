@@ -133,6 +133,7 @@ function isValidMarketSnapshotJson(
   if (typeof row !== 'object' || row === null) return false
 
   const r = row as Record<string, unknown>
+
   const validPhases = [
     'confirmed_uptrend',
     'under_pressure',
@@ -140,10 +141,12 @@ function isValidMarketSnapshotJson(
     'correction',
     'bear',
   ]
-  const validExposures = [0, 25, 50, 100]
-
   if (!validPhases.includes(r.market_phase as string)) return false
-  if (!validExposures.includes(r.max_long_exposure_pct as number)) return false
+  if (
+    typeof r.max_long_exposure_pct !== 'number' ||
+    r.max_long_exposure_pct < 0 ||
+    r.max_long_exposure_pct > 100
+  ) return false
   if (typeof r.spy_price !== 'number' || r.spy_price <= 0) return false
   if (typeof r.spy_change_pct !== 'number') return false
   if (typeof r.spy_above_50dma !== 'boolean') return false
@@ -153,13 +156,9 @@ function isValidMarketSnapshotJson(
     typeof r.distribution_days !== 'number' ||
     r.distribution_days < 0 ||
     !Number.isInteger(r.distribution_days)
-  ) {
-    return false
-  }
+  ) return false
   if (typeof r.ftd_active !== 'boolean') return false
-  if (typeof r.leading_sectors !== 'string' || !r.leading_sectors.trim()) {
-    return false
-  }
+  if (typeof r.leading_sectors !== 'string' || !r.leading_sectors.trim()) return false
   if (typeof r.reasoning !== 'string' || !r.reasoning.trim()) return false
 
   return true
@@ -186,9 +185,7 @@ export function MarketSnapshotChatGPTWorkflow() {
   const router = useRouter()
   const [copySuccess, setCopySuccess] = useState(false)
   const [importText, setImportText] = useState('')
-  const [parsedImport, setParsedImport] = useState<MarketSnapshotPayload | null>(
-    null
-  )
+  const [parsedImport, setParsedImport] = useState<MarketSnapshotPayload | null>(null)
   const [importValidation, setImportValidation] = useState<
     'empty' | 'valid' | 'invalid' | 'schema'
   >('empty')
@@ -243,13 +240,13 @@ export function MarketSnapshotChatGPTWorkflow() {
     setImportError(null)
 
     try {
-          const localDate = new Date().toLocaleDateString('en-CA')
+      const localDate = new Date().toLocaleDateString('en-CA')
 
-          const response = await fetch('/api/market-snapshot/apply', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...parsedImport, snapshot_date: localDate }),
-        })
+      const response = await fetch('/api/market-snapshot/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...parsedImport, snapshot_date: localDate }),
+      })
 
       const result = (await response.json()) as ApplyResult
 
@@ -317,9 +314,7 @@ export function MarketSnapshotChatGPTWorkflow() {
 
         <div className="mt-4 min-h-7">
           {importValidation === 'valid' && (
-            <span className="ui-pill-success">
-              Valid JSON — ready to apply
-            </span>
+            <span className="ui-pill-success">Valid JSON — ready to apply</span>
           )}
           {importValidation === 'invalid' && (
             <span className="ui-pill-danger">
