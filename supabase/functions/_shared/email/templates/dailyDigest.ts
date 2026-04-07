@@ -41,7 +41,7 @@ export function dailyDigest(data: DailyDigestData): {
   subject: string
   html: string
 } {
-  const subject = `📊 Daily Digest — ${data.date}`
+  const subject = `📊 Daily Digest — ${data.date} · ${data.marketPhase}`
   const url = inboxUrl(data.appUrl)
 
   const tradeRows = data.openTrades
@@ -57,9 +57,42 @@ export function dailyDigest(data: DailyDigestData): {
     )
     .join('')
 
+  const phaseBanner =
+    data.marketPhase === 'confirmed_uptrend'
+      ? `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;">
+        ✅ Market is in a confirmed uptrend. New long entries are permitted.
+      </div>
+    `
+      : data.marketPhase === 'under_pressure'
+        ? `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;">
+        ⚠️ Market is under pressure. Reduce new long exposure. Be selective.
+      </div>
+    `
+        : data.marketPhase === 'rally_attempt'
+          ? `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fefce8;border:1px solid #fef08a;color:#a16207;">
+        👀 Rally attempt in progress. Wait for a confirmed Follow-Through Day before adding new positions.
+      </div>
+    `
+          : data.marketPhase === 'correction'
+            ? `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;">
+        🔴 Market is in correction. No new long entries. Stay in cash.
+      </div>
+    `
+            : `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;">
+        🐻 Bear market conditions. No new long entries under any circumstances.
+      </div>
+    `
+
   const html = layout(
     `<div style="font-size:28px;font-weight:700;">Daily Digest</div>`,
     `
+    ${phaseBanner}
+
     <table style="width:100%;border-collapse:collapse;margin-top:24px;">
       <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Market phase</td><td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.marketPhase}</td></tr>
       <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Open trades</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.openTradesCount}</td></tr>
@@ -69,9 +102,35 @@ export function dailyDigest(data: DailyDigestData): {
     </table>
 
     ${
+      data.openTradesCount === 0 && data.signalsFiredCount === 0
+        ? `
+      <p style="margin-top:20px;color:#737373;line-height:1.6;">
+        No signals fired today. This is normal in the current market environment. The system continues
+        to monitor your watchlist and will alert you when a qualifying setup emerges.
+      </p>
+    `
+        : ''
+    }
+
+    ${
+      data.unresolvedActionsCount > 0
+        ? `
+      <div style="margin-top:20px;padding:16px;border-radius:8px;background:#fefce8;border:1px solid #fef08a;color:#a16207;">
+        You have ${data.unresolvedActionsCount} unresolved action(s) in your Inbox. Review them before
+        placing any new trades.
+      </div>
+    `
+        : ''
+    }
+
+    ${
       data.openTrades.length > 0
         ? `
       <div style="margin-top:28px;font-size:18px;font-weight:700;">Open Trades</div>
+      <div style="margin-top:8px;color:#737373;font-size:14px;line-height:1.6;">
+        Monitor these positions. If a stop is hit, exit in Wealthsimple immediately then confirm
+        in the Inbox.
+      </div>
       <table style="width:100%;border-collapse:collapse;margin-top:12px;">
         <tr>
           <th style="text-align:left;padding-bottom:10px;">Ticker</th>
@@ -87,7 +146,7 @@ export function dailyDigest(data: DailyDigestData): {
 
     <div style="margin-top:28px;">
       <a href="${url}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;">
-        Open Inbox
+        Open Inbox →
       </a>
     </div>
     `

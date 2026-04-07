@@ -2,7 +2,6 @@
 
 import { edgeConfig } from '../../config.ts'
 
-
 export type TargetAlertData = {
   ticker: string
   currentPrice: number
@@ -52,8 +51,21 @@ export function targetAlert(data: TargetAlertData): {
   subject: string
   html: string
 } {
-  const subject = `🟡 Target ${data.targetNumber} Hit: ${data.ticker} at ${fmtPrice(data.currentPrice)}`
+  const subject = `🟡 Target ${data.targetNumber} Hit: ${data.ticker}`
   const url = inboxUrl(data.appUrl)
+
+  const guidance =
+    data.targetNumber === 1
+      ? `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
+        <div style="font-size:16px;font-weight:700;color:#16a34a;">Target 1 reached. Consider selling 1/3 to 1/2 of your position to lock in gains. Move your stop up to breakeven on the remaining shares and let the rest run toward Target 2.</div>
+      </div>
+    `
+      : `
+      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
+        <div style="font-size:16px;font-weight:700;color:#16a34a;">Target 2 reached. Consider selling the remaining position or trailing your stop tightly to protect gains. Exceptional performers can be held with a very tight trailing stop.</div>
+      </div>
+    `
 
   const html = layout(
     `
@@ -61,8 +73,22 @@ export function targetAlert(data: TargetAlertData): {
     <div style="margin-top:8px;font-size:18px;font-weight:600;">${data.ticker}</div>
     `,
     `
-    <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
-      <div style="font-size:16px;font-weight:700;color:#16a34a;">Consider taking profit in Wealthsimple</div>
+    <div style="margin-top:24px;font-size:24px;font-weight:700;color:#15803d;">
+      Estimated gain: ${fmtMoney(data.estimatedGain)}
+    </div>
+    <div style="margin-top:4px;color:#737373;font-size:14px;">
+      (${fmtPercent(data.estimatedGainPct)} from entry)
+    </div>
+
+    ${guidance}
+
+    <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f5f5f5;border:1px solid #e5e5e5;">
+      <div style="line-height:1.8;">
+        <div><strong>Step 1</strong> — Open Wealthsimple</div>
+        <div><strong>Step 2</strong> — Execute your partial or full profit-taking decision</div>
+        <div><strong>Step 3</strong> — Update stop to breakeven in the app if holding remaining shares</div>
+        <div><strong>Step 4</strong> — Confirm in the Inbox</div>
+      </div>
     </div>
 
     <table style="width:100%;border-collapse:collapse;margin-top:24px;">
@@ -70,12 +96,12 @@ export function targetAlert(data: TargetAlertData): {
       <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Target price</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtPrice(data.targetPrice)}</td></tr>
       <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Entry price</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtPrice(data.entryPrice)}</td></tr>
       <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Shares held</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.sharesHeld}</td></tr>
-      <tr><td style="padding:10px 0;color:#737373;">Estimated gain</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;">${fmtMoney(data.estimatedGain)} (${fmtPercent(data.estimatedGainPct)})</td></tr>
+      <tr><td style="padding:10px 0;color:#737373;">Trade ID</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;">${data.tradeId}</td></tr>
     </table>
 
     <div style="margin-top:28px;">
       <a href="${url}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;">
-        Open Inbox
+        Manage Trade in Inbox →
       </a>
     </div>
     `

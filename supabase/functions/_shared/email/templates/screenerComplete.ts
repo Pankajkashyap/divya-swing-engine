@@ -44,7 +44,10 @@ export function screenerComplete(data: ScreenerCompleteData): {
   subject: string
   html: string
 } {
-  const subject = `🔍 Screener Complete — ${data.addedCount} new candidates ready`
+  const subject =
+    data.addedCount > 0
+      ? `🔍 ${data.addedCount} new candidates ready for research`
+      : `🔍 Screener ran — no new candidates tonight`
   const url = candidatesUrl(data.appUrl)
 
   const candidateRows = data.candidates
@@ -73,6 +76,10 @@ export function screenerComplete(data: ScreenerCompleteData): {
     ${
       data.addedCount > 0
         ? `
+      <div style="margin-top:20px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
+        <div style="font-size:16px;font-weight:700;color:#15803d;">Your next step: run the ChatGPT research workflow on the Candidates page before 3:30 PM MT tomorrow. Researched candidates will be evaluated in the evening scan.</div>
+      </div>
+
       <div style="margin-top:28px;font-size:18px;font-weight:700;">New Candidates</div>
       <table style="width:100%;border-collapse:collapse;margin-top:12px;">
         <tr>
@@ -87,8 +94,9 @@ export function screenerComplete(data: ScreenerCompleteData): {
     `
         : `
       <p style="margin-top:28px;color:#737373;line-height:1.6;">
-        No new candidates passed the screener filters tonight.
-        The screener will run again tomorrow night.
+        The screener ran through ${data.scannedCount} tickers tonight and none passed all four
+        filters (price, volume, EPS growth, revenue growth). This is normal — quality is more
+        important than quantity. The screener will run again tomorrow night.
       </p>
     `
     }
@@ -100,9 +108,8 @@ export function screenerComplete(data: ScreenerCompleteData): {
     </div>
 
     <p style="margin-top:16px;color:#737373;font-size:13px;line-height:1.6;">
-      Open the Candidates page, copy the research prompt,
-      paste into ChatGPT with web browsing enabled, and
-      import the results before 3:30 PM MT tomorrow.
+      Use extended thinking mode in ChatGPT for best research results. Apply the
+      results before 3:30 PM MT to ensure they are included in tonight's evaluation.
     </p>
     `
   )
