@@ -49,23 +49,6 @@ function getTodayDateString(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10)
 }
 
-function determineMarketPhase(params: {
-  spyPrice: number
-  spyVolume: number
-  marketWindow: string
-  lastKnownPhase: string | null
-}): string {
-  const { marketWindow, lastKnownPhase } = params
-
-  if (marketWindow === 'closed' || marketWindow === 'pre_market') {
-    return lastKnownPhase ?? 'confirmed_uptrend'
-  }
-
-  // TODO: replace with real phase logic using moving averages,
-  // distribution days, trend confirmation, and broader market conditions.
-  return 'confirmed_uptrend'
-}
-
 Deno.serve(async (request: Request) => {
   let logId: string | null = null
 
@@ -156,29 +139,42 @@ Deno.serve(async (request: Request) => {
       ? null
       : latestSnapshot?.market_phase ?? null
 
-    const marketWindow = getMarketWindow()
-    const newPhase = determineMarketPhase({
-      spyPrice: marketIndex.spyPrice,
-      spyVolume: marketIndex.spyVolume,
-      marketWindow,
-      lastKnownPhase: lastPhase,
-    })
+    getMarketWindow()
 
     const snapshotDate = getTodayDateString()
     const scanTimestamp = new Date().toISOString()
 
-    const { error: upsertError } = await supabase
+    const { data: existingSnapshot } = await supabase
       .from('market_snapshots')
-      .upsert(
-        {
+      .select('id, market_phase')
+      .eq('snapshot_date', snapshotDate)
+      .maybeSingle()
+
+    let upsertError = null
+
+    if (existingSnapshot) {
+      const { error } = await supabase
+        .from('market_snapshots')
+        .update({
+          last_market_scan_at: scanTimestamp,
+          spy_price: marketIndex.spyPrice,
+        })
+        .eq('snapshot_date', snapshotDate)
+      upsertError = error
+    } else {
+      const { error } = await supabase
+        .from('market_snapshots')
+        .insert({
           user_id: userId,
           snapshot_date: snapshotDate,
-          market_phase: newPhase,
+          market_phase: 'correction',
+          max_long_exposure_pct: 0,
           source: 'automation',
           last_market_scan_at: scanTimestamp,
-        },
-        { onConflict: 'snapshot_date' }
-      )
+          spy_price: marketIndex.spyPrice,
+        })
+      upsertError = error
+    }
 
     if (upsertError) {
       await safeFinishScanLog({
@@ -193,16 +189,18 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    const phaseChanged = lastPhase !== null && lastPhase !== newPhase
+    const effectivePhase = existingSnapshot
+      ? existingSnapshot.market_phase
+      : 'correction'
 
     await safeFinishScanLog({
       logId,
       status: 'completed',
-      message: `Market scan completed. Phase: ${newPhase}`,
+      message: `Market scan completed. Phase: ${effectivePhase}`,
       changesJson: {
         previousPhase: lastPhase,
-        newPhase,
-        phaseChanged,
+        newPhase: effectivePhase,
+        phaseChanged: false,
         spyPrice: marketIndex.spyPrice,
         windowKey,
       },
@@ -211,9 +209,9 @@ Deno.serve(async (request: Request) => {
     return jsonResponse(
       {
         success: true,
-        phaseChanged,
+        phaseChanged: false,
         previousPhase: lastPhase,
-        newPhase,
+        newPhase: effectivePhase,
         spyPrice: marketIndex.spyPrice,
         windowKey,
       },

@@ -5,6 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { validateCronSecret } from '../_shared/cronAuth.ts'
 import { getCadenceWindowKey } from '../_shared/marketHours.ts'
 import { startScanLog, finishScanLog, hasAlreadyProcessed } from '../_shared/scanLog.ts'
+import { sendEmail } from '../_shared/email/resend.ts'
+import { screenerComplete } from '../_shared/email/templates/screenerComplete.ts'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -16,6 +18,7 @@ const massiveBaseUrl = 'https://api.polygon.io'
 
 type UserSettingsRow = {
   user_id: string
+  notification_email: string | null
   screener_enabled: boolean | null
   screener_min_price: number | null
   screener_min_avg_volume: number | null
@@ -134,7 +137,7 @@ Deno.serve(async (request: Request) => {
     const { data: userSettings, error: userSettingsError } = await supabase
       .from('user_settings')
       .select(
-        'user_id, screener_enabled, screener_min_price, screener_min_avg_volume, screener_min_eps_growth_pct, screener_min_revenue_growth_pct, screener_exchanges, screener_max_candidates'
+        'user_id, notification_email, screener_enabled, screener_min_price, screener_min_avg_volume, screener_min_eps_growth_pct, screener_min_revenue_growth_pct, screener_exchanges, screener_max_candidates'
       )
       .limit(1)
       .maybeSingle()
@@ -217,6 +220,14 @@ Deno.serve(async (request: Request) => {
 
     let passedCount = 0
     let addedCount = 0
+    type AddedCandidate = {
+      ticker: string
+      companyName: string | null
+      epsGrowthPct: number | null
+      revenueGrowthPct: number | null
+      screenedPrice: number | null
+    }
+    const addedCandidates: AddedCandidate[] = []
     const rejectionCounts = {
       fetch_error: 0,
       price_too_low: 0,
@@ -714,6 +725,13 @@ Deno.serve(async (request: Request) => {
         }
 
         addedCount += 1
+        addedCandidates.push({
+          ticker: candidate.ticker,
+          companyName: candidate.companyName,
+          epsGrowthPct: candidate.epsGrowthPct,
+          revenueGrowthPct: candidate.revenueGrowthPct,
+          screenedPrice: candidate.price,
+        })
       } catch (error) {
         rejectionCounts.fetch_error += 1
         console.error(`[watchlist-screener] Pass 2 financials fetch failed for ${ticker}:`, error)
@@ -745,6 +763,43 @@ Deno.serve(async (request: Request) => {
         windowKey,
       },
     })
+
+    const recipientEmail = settings.notification_email
+
+    if (recipientEmail) {
+      try {
+        const { subject, html } = screenerComplete({
+          date: new Date().toISOString().slice(0, 10),
+          addedCount,
+          scannedCount: tickersToProcess.length,
+          candidates: addedCandidates,
+          appUrl: Deno.env.get('APP_BASE_URL') ?? '',
+        })
+
+        const emailResult = await sendEmail(
+          {
+            to: recipientEmail,
+            subject,
+            html,
+          },
+          {
+            apiKey: Deno.env.get('RESEND_API_KEY') ?? '',
+            fromEmail: Deno.env.get('RESEND_FROM_EMAIL') ?? '',
+          }
+        )
+
+        if (!emailResult.sent) {
+          console.error(
+            `[watchlist-screener] Notification email failed: ${emailResult.reason}`
+          )
+        }
+      } catch (emailErr) {
+        console.error(
+          `[watchlist-screener] Notification email error:`,
+          emailErr
+        )
+      }
+    }
 
     return new Response(
       JSON.stringify({
