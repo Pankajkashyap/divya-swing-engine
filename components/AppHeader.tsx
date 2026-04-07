@@ -17,6 +17,7 @@ export function AppHeader({ title }: Props) {
   const [pendingCount, setPendingCount] = useState<number>(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const headerRef = useRef<HTMLElement>(null)
+  const toggleBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -41,6 +42,7 @@ export function AppHeader({ title }: Props) {
   // Close menu when clicking outside the header
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      if (toggleBtnRef.current?.contains(e.target as Node)) return
       if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
       }
@@ -88,6 +90,7 @@ export function AppHeader({ title }: Props) {
         <div className="flex shrink-0 items-center gap-2">
           <ThemeToggle />
           <button
+            ref={toggleBtnRef}
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
             className="ui-btn-secondary relative"
