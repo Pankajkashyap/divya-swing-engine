@@ -1,30 +1,51 @@
 // Server only — do not import in client components
 
-export type ScreenerCompleteData = {
-  date: string
-  addedCount: number
-  scannedCount: number
-  candidates: Array<{
-    ticker: string
-    companyName: string | null
-    epsGrowthPct: number | null
-    revenueGrowthPct: number | null
-    screenedPrice: number | null
-  }>
+export type TradeInstructionCardData = {
+  ticker: string
+  companyName?: string
+  setupGrade: string | null
+  entryZoneLow: number | null
+  entryZoneHigh: number | null
+  stopPrice: number | null
+  target1Price: number | null
+  target2Price?: number | null
+  shares: number
+  positionValue: number
+  expectedRR: number
+  riskPct: number
+  dollarRisk: number
+  marketPhase: string
+  evaluatedAt: string
   appUrl?: string
 }
 
-function fmtPrice(value: number) {
+function fmtPrice(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return '—'
   return `$${value.toFixed(2)}`
 }
 
-function fmtGrowth(value: number | null) {
-  if (value === null) return '—'
-  return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
+function fmtMoney(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return '—'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value)
 }
 
-function candidatesUrl(appUrl?: string) {
-  return `${appUrl ?? Deno.env.get('APP_BASE_URL') ?? ''}/candidates`
+function fmtRiskPct(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return '—'
+  return `${value}%`
+}
+
+function fmtEntryZone(low: number | null | undefined, high: number | null | undefined) {
+  if (low == null || high == null || !Number.isFinite(low) || !Number.isFinite(high)) {
+    return '—'
+  }
+  return `${fmtPrice(low)} – ${fmtPrice(high)}`
+}
+
+function inboxUrl(appUrl?: string) {
+  return `${appUrl ?? ''}/inbox`
 }
 
 function layout(title: string, body: string) {
@@ -40,70 +61,85 @@ function layout(title: string, body: string) {
   `
 }
 
-export function screenerComplete(data: ScreenerCompleteData): {
-  subject: string
-  html: string
-} {
-  const subject = data.addedCount > 0
-    ? `🔍 ${data.addedCount} new candidate${data.addedCount === 1 ? '' : 's'} ready for research`
-    : `🔍 Screener ran — no new candidates tonight`
-
-  const url = candidatesUrl(data.appUrl)
-
-  const candidateRows = data.candidates
-    .map(
-      (c) => `
-      <tr>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;font-weight:600;">${c.ticker}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;">${c.companyName ?? '—'}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;color:${c.epsGrowthPct !== null && c.epsGrowthPct > 0 ? '#15803d' : '#171717'};">${fmtGrowth(c.epsGrowthPct)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;color:${c.revenueGrowthPct !== null && c.revenueGrowthPct > 0 ? '#15803d' : '#171717'};">${fmtGrowth(c.revenueGrowthPct)}</td>
-        <td style="padding:10px 0;border-bottom:1px solid #e5e5e5;text-align:right;font-family:monospace;font-weight:600;">${c.screenedPrice !== null ? fmtPrice(c.screenedPrice) : '—'}</td>
-      </tr>
-    `
-    )
-    .join('')
+export function tradeInstructionCard(
+  data: TradeInstructionCardData
+): { subject: string; html: string } {
+  const subject = `🟢 Buy Signal: ${data.ticker} — Place limit order before open`
+  const url = inboxUrl(data.appUrl)
 
   const html = layout(
-    `<div style="font-size:28px;font-weight:700;">Screener Complete</div>`,
     `
+    <div style="font-size:28px;font-weight:700;color:#15803d;">Buy Signal</div>
+    <div style="margin-top:10px;font-size:24px;font-weight:700;line-height:1.2;">${data.ticker}</div>
+    <div style="margin-top:6px;color:#737373;font-size:14px;">
+      ${data.companyName?.trim() ? data.companyName : 'Company name not available'}
+    </div>
+    `,
+    `
+    <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
+      <div style="font-size:16px;font-weight:700;color:#15803d;">Next steps</div>
+      <div style="margin-top:10px;line-height:1.8;">
+        <div><strong>1.</strong> Open Wealthsimple before market open</div>
+        <div><strong>2.</strong> Place a buy-stop limit order for ${data.shares} shares of ${data.ticker} with entry zone low as the trigger and entry zone high as the limit</div>
+        <div><strong>3.</strong> Confirm the action in the Inbox</div>
+      </div>
+    </div>
+
     <table style="width:100%;border-collapse:collapse;margin-top:24px;">
-      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Tickers scanned</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.scannedCount}</td></tr>
-      <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">New candidates added</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.addedCount}</td></tr>
-      <tr><td style="padding:10px 0;color:#737373;">Date</td><td style="padding:10px 0;text-align:right;font-weight:600;">${data.date}</td></tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Setup Grade</td>
+        <td style="padding:10px 0;text-align:right;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.setupGrade ?? '—'}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Entry Zone</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtEntryZone(data.entryZoneLow, data.entryZoneHigh)}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Stop Price</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtPrice(data.stopPrice)}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Target 1</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtPrice(data.target1Price)}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Target 2</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtPrice(data.target2Price ?? null)}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Shares</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.shares}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Position Value</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtMoney(data.positionValue)}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Expected R/R</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.expectedRR.toFixed(2)}:1</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Risk Amount</td>
+        <td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${fmtMoney(data.dollarRisk)} (${fmtRiskPct(data.riskPct)} of portfolio)</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;color:#737373;">Market Phase</td>
+        <td style="padding:10px 0;text-align:right;font-weight:600;">${data.marketPhase}</td>
+      </tr>
     </table>
 
-    ${data.addedCount > 0 ? `
-      <div style="margin-top:24px;padding:16px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;">
-        <div style="font-size:15px;font-weight:700;color:#15803d;">Your next step</div>
-        <div style="margin-top:6px;color:#166534;font-size:14px;line-height:1.6;">Run the ChatGPT research workflow on the Candidates page before 3:30 PM MT tomorrow. Researched candidates will be evaluated in the evening scan.</div>
-      </div>
-
-      <div style="margin-top:28px;font-size:18px;font-weight:700;">New Candidates</div>
-      <table style="width:100%;border-collapse:collapse;margin-top:12px;">
-        <tr>
-          <th style="text-align:left;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Ticker</th>
-          <th style="text-align:left;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Company</th>
-          <th style="text-align:right;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">EPS Growth</th>
-          <th style="text-align:right;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Rev Growth</th>
-          <th style="text-align:right;padding-bottom:10px;font-size:12px;color:#737373;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;">Price</th>
-        </tr>
-        ${candidateRows}
-      </table>
-    ` : `
-      <p style="margin-top:28px;color:#737373;line-height:1.6;">
-        The screener ran through ${data.scannedCount} tickers tonight and none passed all four filters (price, volume, EPS growth, revenue growth). This is normal — quality is more important than quantity. The screener will run again tomorrow night.
-      </p>
-    `}
+    <div style="margin-top:18px;color:#737373;font-size:13px;line-height:1.6;">
+      This is a pre-market limit order. Place it before 9:30 AM ET. If the stock does not reach the entry zone, the order will not fill — that is correct behaviour.
+    </div>
 
     <div style="margin-top:28px;">
-      <a href="${url}" style="display:inline-block;background:#171717;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;">
-        Review Candidates
+      <a href="${url}" style="display:inline-block;background:#15803d;color:#ffffff;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:600;">
+        Confirm in Inbox →
       </a>
     </div>
 
-    <div style="margin-top:16px;color:#737373;font-size:13px;line-height:1.6;">
-      Use extended thinking mode in ChatGPT for best research results. Apply the results before 3:30 PM MT to ensure they are included in tonight's evaluation.
+    <div style="margin-top:24px;color:#737373;font-size:13px;line-height:1.6;">
+      Divya Swing Engine · Automated buy signal · All execution is manual in Wealthsimple
     </div>
     `
   )
