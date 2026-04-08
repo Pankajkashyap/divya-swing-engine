@@ -38,6 +38,8 @@ type AggregateBar = {
 }
 
 type FinancialResult = {
+  fiscal_period?: string
+  fiscal_year?: string
   financials?: {
     income_statement?: {
       basic_earnings_per_share?: { value?: number }
@@ -214,15 +216,17 @@ Deno.serve(async (request: Request) => {
       .sort()
 
     const windowKey = getCadenceWindowKey('watchlist-screener')
+    console.log('[watchlist-screener] Window key:', windowKey)
 
-    const alreadyProcessed = await hasAlreadyProcessed({
-      jobType: 'watchlist-screener',
-      windowKey,
-    })
+      const alreadyProcessed = await hasAlreadyProcessed({
+        jobType: 'watchlist-screener',
+        windowKey,
+      })
+      console.log('[watchlist-screener] Already processed:', alreadyProcessed)
 
-    if (alreadyProcessed) {
-      return jsonResponse({ skipped: true, reason: 'Already processed this window' }, 200)
-    }
+      if (alreadyProcessed) {
+        return jsonResponse({ skipped: true, reason: `Already processed this window: ${windowKey}` }, 200)
+      }
 
     logId = await startScanLog({
       userId,
@@ -414,7 +418,7 @@ Deno.serve(async (request: Request) => {
       try {
         const financialsUrl =
           `${massiveBaseUrl}/vX/reference/financials?ticker=${encodeURIComponent(ticker)}` +
-          `&timeframe=annual&order=desc&limit=2&apiKey=${massiveApiKey}`
+          `&timeframe=quarterly&order=desc&limit=5&apiKey=${massiveApiKey}`
 
         const finResponse = await fetchWithTimeout(financialsUrl, {}, 8000)
 
@@ -427,23 +431,39 @@ Deno.serve(async (request: Request) => {
         const finJson = (await finResponse.json()) as { results?: FinancialResult[] }
         const financialResults = finJson.results ?? []
 
-        if (financialResults.length === 0) {
+        if (financialResults.length < 2) {
+          rejectionCounts.fetch_error += 1
+          await delay(300)
+          continue
+        }
+
+        // Most recent quarter
+        const currentQuarter = financialResults[0]
+        const currentFiscalPeriod = currentQuarter?.fiscal_period
+
+        // Find the same quarter from prior year by matching fiscal_period
+        const priorYearQuarter = financialResults.find(
+          (r, idx) => idx > 0 && r.fiscal_period === currentFiscalPeriod
+        )
+
+        if (!priorYearQuarter) {
+          // Same quarter not found in the 5 results — not enough history
           rejectionCounts.fetch_error += 1
           await delay(300)
           continue
         }
 
         const currentEps = toNumberOrNull(
-          financialResults[0]?.financials?.income_statement?.basic_earnings_per_share?.value
+          currentQuarter?.financials?.income_statement?.basic_earnings_per_share?.value
         )
         const priorEps = toNumberOrNull(
-          financialResults[1]?.financials?.income_statement?.basic_earnings_per_share?.value
+          priorYearQuarter?.financials?.income_statement?.basic_earnings_per_share?.value
         )
         const currentRevenue = toNumberOrNull(
-          financialResults[0]?.financials?.income_statement?.revenues?.value
+          currentQuarter?.financials?.income_statement?.revenues?.value
         )
         const priorRevenue = toNumberOrNull(
-          financialResults[1]?.financials?.income_statement?.revenues?.value
+          priorYearQuarter?.financials?.income_statement?.revenues?.value
         )
 
         const epsGrowth = calculateGrowth(currentEps, priorEps)
