@@ -48,6 +48,21 @@ type FinancialResult = {
   }
 }
 
+// Find the same fiscal period from the prior year
+function findPriorYearQuarter(
+  results: FinancialResult[],
+  targetPeriod: string,
+  targetYear: string
+): FinancialResult | undefined {
+  const targetYearNum = parseInt(targetYear)
+  if (isNaN(targetYearNum)) return undefined
+  return results.find(
+    (r) =>
+      r.fiscal_period === targetPeriod &&
+      parseInt(r.fiscal_year ?? '0') === targetYearNum - 1
+  )
+}
+
 type Candidate = {
   ticker: string
   companyName: string | null
@@ -197,8 +212,9 @@ Deno.serve(async (request: Request) => {
 
     const { data: universeData, error: universeError } = await supabase
       .from('ticker_universe')
-      .select('ticker')
+      .select('ticker, index_membership')
       .eq('is_active', true)
+      .order('index_membership', { ascending: true }) // NASDAQ 100 sorts before S&P 500 alphabetically
 
     const FALLBACK_TICKERS = [
       'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA',
@@ -213,7 +229,18 @@ Deno.serve(async (request: Request) => {
     const rawUniverse: string[] =
       universeError || !universeData || universeData.length === 0
         ? FALLBACK_TICKERS
-        : universeData.map((r) => r.ticker)
+        : [
+            // NASDAQ 100 first (highest growth potential), then S&P 500, then others
+            // Within each group, sort alphabetically for deterministic cursor
+            ...universeData
+              .filter((r) => r.index_membership === 'NASDAQ 100')
+              .map((r) => r.ticker)
+              .sort(),
+            ...universeData
+              .filter((r) => r.index_membership !== 'NASDAQ 100')
+              .map((r) => r.ticker)
+              .sort(),
+          ]
 
     // Pre-filter and sort alphabetically for deterministic cursor-based rotation
     const preFiltered = rawUniverse
@@ -499,7 +526,7 @@ Deno.serve(async (request: Request) => {
       try {
         const financialsUrl =
           `${massiveBaseUrl}/vX/reference/financials?ticker=${encodeURIComponent(ticker)}` +
-          `&timeframe=quarterly&order=desc&limit=5&apiKey=${massiveApiKey}`
+          `&timeframe=quarterly&order=desc&limit=8&apiKey=${massiveApiKey}`
 
         const finResponse = await fetchWithTimeout(financialsUrl, {}, 8000)
 
@@ -522,36 +549,71 @@ Deno.serve(async (request: Request) => {
         }
 
         // Most recent quarter
-        const currentQuarter = financialResults[0]
-        const currentFiscalPeriod = currentQuarter?.fiscal_period
+        const q0 = financialResults[0]
+        const q1 = financialResults[1]
+        const q2 = financialResults[2]
 
-        // Find the same quarter from prior year by matching fiscal_period
-        const priorYearQuarter = financialResults.find(
-          (r, idx) => idx > 0 && r.fiscal_period === currentFiscalPeriod
-        )
+        // Find same quarter from prior year for each
+        const q0_py = q0?.fiscal_period && q0?.fiscal_year
+          ? findPriorYearQuarter(financialResults, q0.fiscal_period, q0.fiscal_year)
+          : undefined
+        const q1_py = q1?.fiscal_period && q1?.fiscal_year
+          ? findPriorYearQuarter(financialResults, q1.fiscal_period, q1.fiscal_year)
+          : undefined
+        const q2_py = q2?.fiscal_period && q2?.fiscal_year
+          ? findPriorYearQuarter(financialResults, q2.fiscal_period, q2.fiscal_year)
+          : undefined
 
-        if (!priorYearQuarter) {
-          // Same quarter not found in the 5 results — not enough history
+        if (!q0_py) {
+          // Can't calculate YoY growth without prior year data
           rejectionCounts.fetch_error += 1
           await delay(12500)
           continue
         }
 
+        // EPS — most recent quarter YoY
         const currentEps = toNumberOrNull(
-          currentQuarter?.financials?.income_statement?.basic_earnings_per_share?.value
+          q0?.financials?.income_statement?.basic_earnings_per_share?.value
         )
         const priorEps = toNumberOrNull(
-          priorYearQuarter?.financials?.income_statement?.basic_earnings_per_share?.value
-        )
-        const currentRevenue = toNumberOrNull(
-          currentQuarter?.financials?.income_statement?.revenues?.value
-        )
-        const priorRevenue = toNumberOrNull(
-          priorYearQuarter?.financials?.income_statement?.revenues?.value
+          q0_py?.financials?.income_statement?.basic_earnings_per_share?.value
         )
 
-        const epsGrowth = calculateGrowth(currentEps, priorEps)
+        // EPS — prior quarter YoY (for acceleration)
+        const currentEps1 = toNumberOrNull(
+          q1?.financials?.income_statement?.basic_earnings_per_share?.value
+        )
+        const priorEps1 = toNumberOrNull(
+          q1_py?.financials?.income_statement?.basic_earnings_per_share?.value
+        )
+
+        // EPS — two quarters ago YoY (for acceleration)
+        const currentEps2 = toNumberOrNull(
+          q2?.financials?.income_statement?.basic_earnings_per_share?.value
+        )
+        const priorEps2 = toNumberOrNull(
+          q2_py?.financials?.income_statement?.basic_earnings_per_share?.value
+        )
+
+        // Revenue — most recent quarter YoY
+        const currentRevenue = toNumberOrNull(
+          q0?.financials?.income_statement?.revenues?.value
+        )
+        const priorRevenue = toNumberOrNull(
+          q0_py?.financials?.income_statement?.revenues?.value
+        )
+
+        const epsGrowth  = calculateGrowth(currentEps, priorEps)
+        const epsGrowth1 = calculateGrowth(currentEps1, priorEps1)
+        const epsGrowth2 = calculateGrowth(currentEps2, priorEps2)
         const revenueGrowth = calculateGrowth(currentRevenue, priorRevenue)
+
+        // EPS acceleration: most recent quarter growth must be >= prior quarter growth
+        // Requires at least 2 YoY data points. If only 1 available, skip acceleration check.
+        const epsAccelerating =
+          epsGrowth !== null && epsGrowth1 !== null
+            ? epsGrowth >= epsGrowth1
+            : true // only 1 data point — can't check, don't penalise
 
         const candidate: Candidate = {
           ticker,
@@ -571,6 +633,13 @@ Deno.serve(async (request: Request) => {
         } else if (candidate.epsGrowthPct < minEpsGuard) {
           rejectionReason = 'eps_too_low'
           rejectionCounts.eps_too_low += 1
+        } else if (!epsAccelerating) {
+          rejectionReason = 'eps_decelerating'
+          rejectionCounts.eps_too_low += 1 // count under eps_too_low for simplicity
+          console.log(
+            `[watchlist-screener] ${ticker} rejected: EPS decelerating ` +
+            `(Q0: ${epsGrowth?.toFixed(1)}% vs Q1: ${epsGrowth1?.toFixed(1)}% vs Q2: ${epsGrowth2?.toFixed(1)}%)`
+          )
         } else if (candidate.revenueGrowthPct < minRevenueGuard) {
           rejectionReason = 'revenue_too_low'
           rejectionCounts.revenue_too_low += 1
