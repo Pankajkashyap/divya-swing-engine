@@ -74,11 +74,21 @@ function getRecentTradingDateRange(): { from: string; to: string } {
   const now = new Date()
   const to = now.toISOString().slice(0, 10)
   const from = new Date(now)
-  from.setDate(from.getDate() - 5)
+  // 300 calendar days covers ~200 trading days needed for 200-day MA
+  from.setDate(from.getDate() - 300)
   return {
     from: from.toISOString().slice(0, 10),
     to,
   }
+}
+
+// Calculate simple moving average from the most recent N bars
+// bars must be sorted descending (newest first)
+function calculateSMA(bars: AggregateBar[], period: number): number | null {
+  if (bars.length < period) return null
+  const slice = bars.slice(0, period)
+  const sum = slice.reduce((acc, bar) => acc + (bar.c ?? 0), 0)
+  return sum / period
 }
 
 function toNumberOrNull(value: unknown): number | null {
@@ -276,6 +286,7 @@ Deno.serve(async (request: Request) => {
       fetch_error: 0,
       price_too_low: 0,
       volume_too_low: 0,
+      trend_template_fail: 0,
       eps_too_low: 0,
       revenue_too_low: 0,
       already_in_watchlist: 0,
@@ -297,7 +308,7 @@ Deno.serve(async (request: Request) => {
       try {
         const aggregateUrl =
           `${massiveBaseUrl}/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/1/day/${from}/${to}` +
-          `?adjusted=true&sort=desc&limit=5&apiKey=${massiveApiKey}`
+          `?adjusted=true&sort=desc&limit=200&apiKey=${massiveApiKey}`
 
         const aggResponse = await fetchWithTimeout(aggregateUrl, {}, 10000)
 
@@ -377,6 +388,67 @@ Deno.serve(async (request: Request) => {
               .select('id').single()
             if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
           } catch (logErr) { console.error('[screener-log] Pass 1 volume_too_low log failed:', logErr) }
+          await delay(12500)
+          continue
+        }
+
+        // ── Trend Template Check ────────────────────────────────────────
+        // bars is already sorted desc (newest first) — correct for SMA calc
+        const sma50  = calculateSMA(sortedBars, 50)
+        const sma150 = calculateSMA(sortedBars, 150)
+        const sma200 = calculateSMA(sortedBars, 200)
+        // 200-day MA 30 trading days ago (to check if it's trending up)
+        const sma200_30daysAgo = bars.length >= 230
+          ? calculateSMA(sortedBars.slice(30), 200)
+          : null
+
+        // 52-week high and low (most recent 252 trading days)
+        const yearBars = sortedBars.slice(0, 252)
+        const high52w = yearBars.length > 0
+          ? Math.max(...yearBars.map(b => b.c ?? 0))
+          : null
+        const low52w = yearBars.length > 0
+          ? Math.min(...yearBars.map(b => b.c ?? 0))
+          : null
+
+        // Evaluate all 8 criteria
+        const ttCriteria = {
+          aboveSma50:    sma50  !== null && price > sma50,
+          aboveSma150:   sma150 !== null && price > sma150,
+          aboveSma200:   sma200 !== null && price > sma200,
+          sma50AboveSma150:  sma50 !== null && sma150 !== null && sma50 > sma150,
+          sma150AboveSma200: sma150 !== null && sma200 !== null && sma150 > sma200,
+          sma200Trending:    sma200 !== null && sma200_30daysAgo !== null && sma200 > sma200_30daysAgo,
+          within25PctOf52wHigh: high52w !== null && price >= high52w * 0.75,
+          above30PctOf52wLow:   low52w  !== null && price >= low52w  * 1.30,
+        }
+
+        const trendTemplatePass = Object.values(ttCriteria).every(Boolean)
+
+        if (!trendTemplatePass) {
+          rejectionCounts.trend_template_fail += 1
+          const failedCriteria = Object.entries(ttCriteria)
+            .filter(([, v]) => !v)
+            .map(([k]) => k)
+            .join(', ')
+          console.log(`[watchlist-screener] ${ticker} failed Trend Template: ${failedCriteria}`)
+          try {
+            const { data: logRow } = await supabase
+              .from('screener_candidate_log')
+              .insert({
+                user_id: userId,
+                screener_run_id: logId ?? windowKey,
+                ticker,
+                pass1_price: price,
+                pass1_volume: volume,
+                pass1_passed: false,
+                pass2_passed: false,
+                final_passed: false,
+                rejection_reason: 'trend_template_fail',
+              })
+              .select('id').single()
+            if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
+          } catch (logErr) { console.error('[screener-log] Trend template fail log failed:', logErr) }
           await delay(12500)
           continue
         }
