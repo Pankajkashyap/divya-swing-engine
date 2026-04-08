@@ -9,21 +9,21 @@ type Props = {
     marketPhase: string
     maxLongExposurePct: string
   }) => void | Promise<void>
+  initialDate?: string | null
+  initialPhase?: string | null
+  initialExposure?: number | null
 }
 
-export function MarketSnapshotForm({ onSave }: Props) {
-const today = new Date().toLocaleDateString('en-CA')
-
-  const [snapshotDate, setSnapshotDate] = useState(today)
-  const [marketPhase, setMarketPhase] = useState('confirmed_uptrend')
-  const [maxLongExposurePct, setMaxLongExposurePct] = useState('100')
+export function MarketSnapshotForm({ onSave, initialDate, initialPhase, initialExposure }: Props) {
+  const today = new Date().toLocaleDateString('en-CA')
+  const [snapshotDate, setSnapshotDate] = useState(initialDate ?? today)
+  const [marketPhase, setMarketPhase] = useState(initialPhase ?? 'confirmed_uptrend')
+  const [maxLongExposurePct, setMaxLongExposurePct] = useState(
+    initialExposure != null ? String(initialExposure) : '100'
+  )
 
   const handleSubmit = async () => {
-    await onSave({
-      snapshotDate,
-      marketPhase,
-      maxLongExposurePct,
-    })
+    await onSave({ snapshotDate, marketPhase, maxLongExposurePct })
   }
 
   return (
@@ -31,7 +31,6 @@ const today = new Date().toLocaleDateString('en-CA')
       <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
         Market Snapshot
       </h2>
-
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <div>
           <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
@@ -44,7 +43,6 @@ const today = new Date().toLocaleDateString('en-CA')
             className="ui-input"
           />
         </div>
-
         <div>
           <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Market Phase
@@ -62,7 +60,6 @@ const today = new Date().toLocaleDateString('en-CA')
             <option value="bear">bear</option>
           </select>
         </div>
-
         <div>
           <label className="mb-1 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Max Long Exposure %
@@ -76,7 +73,6 @@ const today = new Date().toLocaleDateString('en-CA')
           />
         </div>
       </div>
-
       <div className="mt-4">
         <button onClick={handleSubmit} className="ui-btn-primary">
           Save Market Snapshot

@@ -2,6 +2,7 @@ export type MarketSnapshot = {
   id: string
   market_phase: string
   max_long_exposure_pct: number | null
+  snapshot_date: string | null  
 }
 
 export type WatchlistRow = {

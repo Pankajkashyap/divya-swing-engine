@@ -194,7 +194,12 @@ export default function HomePage() {
             <DashboardMetrics watchlistCount={metrics.watchlistCount} openTradesCount={metrics.openTradesCount} closedTradesCount={metrics.closedTradesCount} totalRealizedPnl={metrics.totalRealizedPnl} />
             <PortfolioHeatCard portfolioValue={metrics.portfolioValue} openPositionValue={metrics.openPositionValue} exposurePct={metrics.exposurePct} marketMaxExposurePct={metrics.marketMaxExposurePct} />
             <MarketSummaryCards market={market} stock={stock} portfolioValue={portfolioValue} setPortfolioValue={setPortfolioValue} />
-            <MarketSnapshotForm onSave={handleSaveMarketSnapshot} />
+            <MarketSnapshotForm
+              onSave={handleSaveMarketSnapshot}
+              initialDate={market?.snapshot_date ?? null}
+              initialPhase={market?.market_phase ?? null}
+              initialExposure={market?.max_long_exposure_pct ?? null}
+            />
             <MarketSnapshotChatGPTWorkflow />
           </>
         )}
