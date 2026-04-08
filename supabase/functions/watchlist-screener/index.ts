@@ -17,7 +17,7 @@ const massiveApiKey = Deno.env.get('MASSIVE_API_KEY') ?? ''
 const massiveBaseUrl = 'https://api.polygon.io'
 
 // Tickers scanned per night. At 12.5s delay each, 10 tickers = 125s — safely within the 150s timeout.
-const BATCH_SIZE = 10
+const BATCH_SIZE = 5
 
 type UserSettingsRow = {
   user_id: string
@@ -216,17 +216,15 @@ Deno.serve(async (request: Request) => {
       .sort()
 
     const windowKey = getCadenceWindowKey('watchlist-screener')
-    console.log('[watchlist-screener] Window key:', windowKey)
 
-      const alreadyProcessed = await hasAlreadyProcessed({
-        jobType: 'watchlist-screener',
-        windowKey,
-      })
-      console.log('[watchlist-screener] Already processed:', alreadyProcessed)
+    const alreadyProcessed = await hasAlreadyProcessed({
+      jobType: 'watchlist-screener',
+      windowKey,
+    })
 
-      if (alreadyProcessed) {
-        return jsonResponse({ skipped: true, reason: `Already processed this window: ${windowKey}` }, 200)
-      }
+    if (alreadyProcessed) {
+      return jsonResponse({ skipped: true, reason: 'Already processed this window' }, 200)
+    }
 
     logId = await startScanLog({
       userId,
@@ -291,16 +289,27 @@ Deno.serve(async (request: Request) => {
 
     console.log(`[watchlist-screener] Pass 1 starting for ${tickersToProcess.length} tickers.`)
 
+    // Brief warm-up delay to allow the Edge Function runtime to fully initialise
+    // before making the first external API call — reduces cold start timeouts
+    await delay(2000)
+
     for (const ticker of tickersToProcess) {
       try {
         const aggregateUrl =
           `${massiveBaseUrl}/v2/aggs/ticker/${encodeURIComponent(ticker)}/range/1/day/${from}/${to}` +
           `?adjusted=true&sort=desc&limit=5&apiKey=${massiveApiKey}`
 
-        const aggResponse = await fetchWithTimeout(aggregateUrl, {}, 5000)
+        const aggResponse = await fetchWithTimeout(aggregateUrl, {}, 10000)
 
         if (!aggResponse.ok) {
           rejectionCounts.fetch_error += 1
+          console.error(
+            `[watchlist-screener] Pass 1 HTTP error for ${ticker}: status=${aggResponse.status} statusText=${aggResponse.statusText}`
+          )
+          try {
+            const errBody = await aggResponse.text()
+            console.error(`[watchlist-screener] Pass 1 error body for ${ticker}:`, errBody.slice(0, 200))
+          } catch { /* ignore */ }
           try {
             const { data: logRow } = await supabase
               .from('screener_candidate_log')
@@ -424,7 +433,10 @@ Deno.serve(async (request: Request) => {
 
         if (!finResponse.ok) {
           rejectionCounts.fetch_error += 1
-          await delay(300)
+          console.error(
+            `[watchlist-screener] Pass 2 financials HTTP error for ${ticker}: status=${finResponse.status}`
+          )
+          await delay(12500)
           continue
         }
 
@@ -433,7 +445,7 @@ Deno.serve(async (request: Request) => {
 
         if (financialResults.length < 2) {
           rejectionCounts.fetch_error += 1
-          await delay(300)
+          await delay(12500)
           continue
         }
 
@@ -449,7 +461,7 @@ Deno.serve(async (request: Request) => {
         if (!priorYearQuarter) {
           // Same quarter not found in the 5 results — not enough history
           rejectionCounts.fetch_error += 1
-          await delay(300)
+          await delay(12500)
           continue
         }
 
@@ -515,7 +527,7 @@ Deno.serve(async (request: Request) => {
                 .eq('id', logRowId)
             }
           } catch (logErr) { console.error('[screener-log] Pass 2 reject log failed:', logErr) }
-          await delay(300)
+          await delay(12500)
           continue
         }
 
@@ -546,7 +558,7 @@ Deno.serve(async (request: Request) => {
         if (existingError) {
           console.error(`[watchlist-screener] Failed to check existing watchlist for ${ticker}:`, existingError)
           rejectionCounts.fetch_error += 1
-          await delay(300)
+          await delay(12500)
           continue
         }
 
@@ -568,7 +580,7 @@ Deno.serve(async (request: Request) => {
                 .eq('id', logRowId)
             }
           } catch (logErr) { console.error('[screener-log] Pass 2 already_in_watchlist log failed:', logErr) }
-          await delay(300)
+          await delay(12500)
           continue
         }
 
@@ -620,7 +632,7 @@ Deno.serve(async (request: Request) => {
         if (insertError) {
           console.error(`[watchlist-screener] Failed to insert ${candidate.ticker}:`, insertError.message)
           rejectionCounts.fetch_error += 1
-          await delay(300)
+          await delay(12500)
           continue
         }
 
@@ -656,7 +668,7 @@ Deno.serve(async (request: Request) => {
         console.error(`[watchlist-screener] Pass 2 financials fetch failed for ${ticker}:`, error)
       }
 
-      await delay(300)
+      await delay(12500)
     }
 
     console.log(`[watchlist-screener] Pass 2 complete. Added: ${addedCount}`)
