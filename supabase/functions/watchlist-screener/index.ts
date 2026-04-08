@@ -743,7 +743,7 @@ Deno.serve(async (request: Request) => {
             stop_price: null,
             target_1_price: null,
             target_2_price: null,
-            trend_template_pass: null,
+            trend_template_pass: true,
             volume_dry_up_pass: null,
             rs_line_confirmed: null,
             base_pattern_valid: null,
