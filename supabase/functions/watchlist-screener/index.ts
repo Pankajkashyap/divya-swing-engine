@@ -106,6 +106,13 @@ function calculateSMA(bars: AggregateBar[], period: number): number | null {
   return sum / period
 }
 
+function calculateAvgVolume(bars: AggregateBar[], period: number): number | null {
+  if (bars.length < period) return null
+  const slice = bars.slice(0, period)
+  const sum = slice.reduce((acc, bar) => acc + (bar.v ?? 0), 0)
+  return sum / period
+}
+
 function toNumberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
@@ -379,8 +386,9 @@ Deno.serve(async (request: Request) => {
         const latestBar = sortedBars[0]
         const price = toNumberOrNull(latestBar?.c)
         const volume = toNumberOrNull(latestBar?.v)
+        const avgVolume50d = calculateAvgVolume(sortedBars, 50)
 
-        if (price === null || volume === null) {
+        if (price === null || volume === null || avgVolume50d === null) {
           rejectionCounts.fetch_error += 1
           try {
             const { data: logRow } = await supabase
@@ -406,12 +414,12 @@ Deno.serve(async (request: Request) => {
           continue
         }
 
-        if (volume < minAvgVolume) {
+        if (avgVolume50d < minAvgVolume) {
           rejectionCounts.volume_too_low += 1
           try {
             const { data: logRow } = await supabase
               .from('screener_candidate_log')
-              .insert({ user_id: userId, screener_run_id: logId ?? windowKey, ticker, pass1_price: price, pass1_volume: volume, pass1_passed: false, pass2_passed: false, final_passed: false, rejection_reason: 'volume_too_low' })
+              .insert({ user_id: userId, screener_run_id: logId ?? windowKey, ticker, pass1_price: price, pass1_volume: avgVolume50d, pass1_passed: false, pass2_passed: false, final_passed: false, rejection_reason: 'volume_too_low' })
               .select('id').single()
             if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
           } catch (logErr) { console.error('[screener-log] Pass 1 volume_too_low log failed:', logErr) }
@@ -467,7 +475,7 @@ Deno.serve(async (request: Request) => {
                 screener_run_id: logId ?? windowKey,
                 ticker,
                 pass1_price: price,
-                pass1_volume: volume,
+                pass1_volume: avgVolume50d,
                 pass1_passed: false,
                 pass2_passed: false,
                 final_passed: false,
@@ -480,12 +488,12 @@ Deno.serve(async (request: Request) => {
           continue
         }
 
-        pricePassList.push({ ticker, price, volume })
+        pricePassList.push({ ticker, price, volume: avgVolume50d })
 
         try {
           const { data: logRow } = await supabase
             .from('screener_candidate_log')
-            .insert({ user_id: userId, screener_run_id: logId ?? windowKey, ticker, pass1_price: price, pass1_volume: volume, pass1_passed: true, pass2_passed: false, final_passed: false, rejection_reason: null })
+            .insert({ user_id: userId, screener_run_id: logId ?? windowKey, ticker, pass1_price: price, pass1_volume: avgVolume50d, pass1_passed: true, pass2_passed: false, final_passed: false, rejection_reason: null })
             .select('id').single()
           if (logRow?.id) candidateLogIds.set(ticker, logRow.id)
         } catch (logErr) { console.error('[screener-log] Pass 1 pass log failed:', logErr) }
