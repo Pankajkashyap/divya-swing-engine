@@ -133,7 +133,7 @@ function isValidMarketSnapshotJson(
   if (typeof row !== 'object' || row === null) return false
 
   const r = row as Record<string, unknown>
-
+console.log('Validating:', JSON.stringify(r))
   const validPhases = [
     'confirmed_uptrend',
     'under_pressure',
