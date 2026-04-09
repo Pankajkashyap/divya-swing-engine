@@ -138,75 +138,39 @@ RETURN THIS EXACT STRUCTURE (no other text):
 
 function buildAuditPrompt(tickers: UniverseImportRow[]): string {
   const today = new Date().toISOString().slice(0, 10)
+  const year = new Date().getFullYear()
   const tickerList = tickers
     .map((t) => `${t.ticker} — ${t.company_name ?? 'Unknown'}`)
     .join('\n')
 
-  return `You are a financial data analyst auditing an S&P 500
-constituent list for accuracy.
+  return `You are a financial data analyst auditing an S&P 500 constituent list for accuracy.
 
-I fetched this list from a maintained GitHub dataset that
-sources from Wikipedia. Your job is NOT to regenerate this
-list — it is to audit it for errors and very recent changes
-that may not yet be reflected in the source data.
+I fetched this list from a maintained GitHub dataset sourced from Wikipedia. Your job is NOT to regenerate this list — it is to audit it for errors and very recent changes using your web browsing capability.
 
-MANDATORY SPECIFIC CHECKS — you MUST look up each of these
-individually using your web browsing capability and return a
-finding for each one:
+CRITICAL RULES — READ BEFORE DOING ANYTHING:
+- You MUST use web browsing for EVERY check below. Do not rely on training data alone.
+- For each mandatory check, you MUST cite a real URL in the notes field. If you cannot find a source URL confirming a finding, do not include that finding.
+- Be deeply skeptical. If a ticker or company name looks unusual or unfamiliar, that is a signal to investigate it — not accept it.
+- A ticker_change entry where old and new are the SAME ticker is NEVER valid. Never return it.
+- confirmed_clean must be false unless you have completed all 7 mandatory checks below and found zero issues with source URLs confirming each check.
 
-1. TICKER "Q" (listed as "Qnity Electronics") — Search for
-   "Q stock ticker S&P 500" and confirm whether this is a
-   real S&P 500 constituent with a real company behind it.
-   If you cannot confirm a real company, flag for removal.
+MANDATORY CHECKS — complete all 7 and report findings in the notes field:
 
-2. TICKER "MRSH" (listed as "Marsh McLennan") — Search for
-   "Marsh McLennan stock ticker" and confirm whether the
-   correct current ticker is MRSH or MMC. Flag as a
-   ticker_change if the ticker is wrong.
+1. TICKER "Q": The list shows this as "Qnity Electronics" — this company name is suspicious and may be fabricated. Search the web for "Q stock ticker NYSE" and "Q stock S&P 500 constituent". Is there a real, currently trading S&P 500 company with ticker Q? Do NOT accept the company name in this list as fact — verify independently. If no real S&P 500 company with ticker Q can be confirmed from a live source, add Q to the remove array.
 
-3. TICKER "FISV" (listed as "Fiserv") — Search for "Fiserv
-   stock ticker" and confirm whether the current ticker is
-   FISV or FI. If FISV is the old ticker, flag as a
-   ticker_change from FISV to FI.
+2. TICKER "MRSH": The list shows this as "Marsh McLennan". Search for "Marsh McLennan stock ticker symbol". The correct current ticker for Marsh McLennan is MMC — not MRSH. If MRSH is confirmed incorrect, add a ticker_change entry with old: "MRSH", new: "MMC". Do not return a ticker_change where old and new are the same.
 
-4. TICKER "PSKY" (listed as "Paramount Skydance") — Search
-   for "Paramount Skydance merger ticker" and confirm the
-   current active S&P 500 ticker post-merger. If PSKY is
-   not the correct current ticker, flag accordingly.
+3. TICKER "FISV": Search for "Fiserv current ticker symbol 2024 2025". Fiserv changed its ticker from FISV to FI. Confirm which ticker is current. If FISV is stale and FI is the correct ticker: (a) if FI is already in the list, add FISV to remove; (b) if FI is not in the list, add a ticker_change with old: "FISV", new: "FI". Do not return old: "FISV", new: "FISV" — that is not a valid change.
 
-5. TICKER "SATS" (listed as "EchoStar") — Confirm whether
-   EchoStar (SATS) is currently an active S&P 500
-   constituent or was removed. EchoStar has had financial
-   difficulties. Look this up and flag for removal if it
-   is no longer a constituent.
+4. TICKER "PSKY": Search for "Paramount Skydance merger completed ticker symbol". Confirm the current active S&P 500 ticker post-merger. If PSKY is not a valid current ticker, flag accordingly with the correct replacement or removal.
 
-6. RECENT ADDITIONS — Search for "S&P 500 additions 2026"
-   and check if any companies were added to the S&P 500
-   in the last 90 days that are NOT in the list below.
-   Only include confirmed official additions.
+5. TICKER "SATS": Search for "EchoStar SATS S&P 500 constituent 2024 2025". EchoStar has had significant financial difficulties. Confirm whether SATS is still an active S&P 500 constituent or was removed. Flag for removal if delisted or no longer a constituent.
 
-7. RECENT REMOVALS — Search for "S&P 500 removals 2026"
-   and check if any companies on this list were removed
-   from the S&P 500 in the last 90 days. Only include
-   confirmed official removals.
+6. RECENT ADDITIONS: Search "S&P 500 new additions ${year}" and "S&P 500 additions last 90 days". Check if any companies were officially added to the S&P 500 in the last 90 days that are NOT in the list below. Only include confirmed official S&P Dow Jones Indices announcements with a source URL.
 
-GENERAL AUDIT TASKS:
-After completing the mandatory checks above, scan the full
-list for any other obvious issues:
-- Companies acquired and no longer trading independently
-- Companies delisted or bankrupt
-- Any other ticker symbol changes you can confirm
+7. RECENT REMOVALS: Search "S&P 500 removals ${year}" and "S&P 500 deleted last 90 days". Check if any tickers in the list below were officially removed from the S&P 500 in the last 90 days. Only include confirmed removals with a source URL.
 
-STRICT RULES:
-- Only flag changes you can confirm from a live web source
-- If uncertain about any change, omit it entirely
-- Do not remove tickers due to bad earnings or price decline
-- Return findings for ALL 7 mandatory checks even if the
-  finding is "confirmed correct — no change needed"
-- Include a "notes" field in your response summarising your
-  findings for each mandatory check
-
-RETURN THIS EXACT JSON STRUCTURE (no other text):
+RETURN THIS EXACT JSON STRUCTURE (no other text, no markdown, no backticks):
 {
   "remove": ["TICKER1", "TICKER2"],
   "add": [
@@ -225,13 +189,13 @@ RETURN THIS EXACT JSON STRUCTURE (no other text):
   ],
   "confirmed_clean": false,
   "notes": {
-    "Q": "finding here",
-    "MRSH": "finding here",
-    "FISV": "finding here",
-    "PSKY": "finding here",
-    "SATS": "finding here",
-    "recent_additions": "finding here",
-    "recent_removals": "finding here"
+    "Q": "finding + source URL",
+    "MRSH": "finding + source URL",
+    "FISV": "finding + source URL",
+    "PSKY": "finding + source URL",
+    "SATS": "finding + source URL",
+    "recent_additions": "finding + source URL or 'none found'",
+    "recent_removals": "finding + source URL or 'none found'"
   }
 }
 
@@ -430,8 +394,16 @@ export default function UniversePage() {
         return
       }
 
+      // Strip any ticker_changes where old === new — these are never valid
+      const cleaned = p as AuditDiff
+      if (Array.isArray(cleaned.ticker_changes)) {
+        cleaned.ticker_changes = cleaned.ticker_changes.filter(
+          (tc) => tc.old !== tc.new
+        )
+      }
+
       setAuditValidation('valid')
-      setParsedAudit(p as AuditDiff)
+      setParsedAudit(cleaned)
     } catch {
       setAuditValidation('invalid')
       setParsedAudit(null)
@@ -625,9 +597,7 @@ export default function UniversePage() {
   return (
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
-        <AppHeader
-          title="Universe"
-        />
+        <AppHeader title="Universe" />
 
         {loading ? (
           <div className="mt-8 text-sm text-neutral-600 dark:text-[#a8b2bf]">
