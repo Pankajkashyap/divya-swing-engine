@@ -102,97 +102,91 @@ function buildClipboardContent(candidates: CandidateRow[]): string {
     2
   )
 
-  const prompt = `You are a professional swing trading research analyst specialising in Mark Minervini's SEPA methodology. I will give you a JSON array of stock candidates that my automated screener has identified based on fundamental criteria. Your job is to research each stock and fill in the missing technical and situational fields so my trading system can run a full rule evaluation.
+const prompt = `You are a professional swing trading research analyst specialising in Mark Minervini's SEPA® methodology. I will give you a JSON array of stock candidates that my automated screener has identified. The screener has already verified price above $10, 50-day average volume above 500,000, EPS growth above 25%, revenue growth above 25%, and all 8 Trend Template criteria. Your job is to research each stock using current market data and fill in the remaining null fields required for a full SEPA® rule evaluation.
 
 STRICT OUTPUT RULES:
-- Return ONLY a valid JSON object with the exact same structure as the input. No markdown, no explanation, no backticks, no preamble.
+- Return ONLY a valid JSON array. Not an object — a JSON array starting with [ and ending with ]. No markdown, no explanation, no backticks, no preamble, no trailing text.
 - Do not change any field that already contains a non-null value.
 - Do not add, rename, or remove any fields.
 - Preserve every "id" field exactly as provided — these are database primary keys.
 - If you cannot determine a value with reasonable confidence, return null. Do not guess.
 
 CANDIDATE QUALITY RULES:
-- Before researching any candidate, assess whether it is a real 
-  operating business with a tradeable chart.
-- If a candidate is a SPAC, shell company, blank check company, 
-  acquisition vehicle, ADR with no US listing, ETF, warrant, or 
-  any non-operating entity — set setup_grade to "F" and leave all 
-  price fields (entry_zone_low, entry_zone_high, stop_price, 
-  target_1_price, target_2_price) as null. Set all boolean fields 
-  to false. Do not attempt chart research for these.
-- If a candidate has eps_growth_pct of 0 or null AND 
-  revenue_growth_pct of 0 or null — set setup_grade to "F". 
-  These are unresearchable from a fundamental standpoint.
-- Only populate entry_zone_low, entry_zone_high, stop_price, and 
-  target_1_price if BOTH trend_template_pass is true AND 
-  base_pattern_valid is true. If either is false or null, leave 
-  all price fields as null.
-- A setup_grade of "F" means the candidate will be automatically 
-  rejected and not imported into the system.
+- Before researching any candidate, assess whether it is a real operating business with a tradeable chart.
+- If a candidate is a SPAC, shell company, blank check company, acquisition vehicle, ADR with no US listing, ETF, warrant, or any non-operating entity — set setup_grade to "F" and leave all price fields (pivot_price, entry_zone_low, entry_zone_high, stop_price, target_1_price, target_2_price) as null. Set all boolean fields to false.
+- If a candidate has eps_growth_pct of 0 or null AND revenue_growth_pct of 0 or null — set setup_grade to "F".
+- Only populate pivot_price, entry_zone_low, entry_zone_high, stop_price, and target_1_price if BOTH trend_template_pass is true AND base_pattern_valid is true. If either is false or null, leave all price fields as null.
+- A setup_grade of "F" means the candidate will be automatically rejected and not imported into the system.
 
 FIELD DEFINITIONS — fill these in for each candidate:
 
 setup_grade (string: "A+", "A", "B", "C", or "F")
-  Overall quality grade of the current setup.
-  A+ = near-perfect conditions, tight base, strong RS, ideal pivot.
-  A  = strong setup with minor imperfections.
-  B  = decent setup, tradeable but not ideal.
-  C  = marginal setup with notable weaknesses.
-  F  = unresearchable or disqualified candidate. See quality rules above.
+  Assign using these exact criteria:
+  A+ = ALL of the following: all 8 Trend Template criteria passing, 3-4 contraction VCP with clear volume dry-up at pivot, RS line making new all-time highs before or at the breakout, EPS Rating 90+, A/D Rating A or B, industry group rank 1-20 (top 10%), clear fundamental catalyst, R/R 3:1 or better to target_1_price.
+  A  = ALL of: all 8 Trend Template passing, 2-3 contraction VCP, RS line trending up (not necessarily new highs), EPS Rating 80-89, A/D Rating A or B, industry group rank 1-40 (top 20%), catalyst present, R/R 2:1 or better.
+  B  = ONE OR MORE of: 7 of 8 Trend Template passing, VCP has only 2 contractions or borderline volume, RS line flat, A/D Rating C, group rank 41-60, R/R only 2:1.
+  C  = multiple conditions failing — marginal setup, trial size only.
+  F  = unresearchable or disqualified. See quality rules above.
+
+liquidity_pass (boolean)
+  True if average daily volume is above 500,000 shares AND price is above $10 AND market cap is above $500M. False otherwise.
 
 trend_template_pass (boolean)
-  True only if ALL 8 of Minervini's trend template criteria are met:
-  1. Price above 150-day and 200-day MA
-  2. 150-day MA above 200-day MA
-  3. 200-day MA trending up for at least 1 month
-  4. 50-day MA above both 150-day and 200-day MA
-  5. Price above 50-day MA
-  6. Price at least 25% above its 52-week low
-  7. Price within 25% of its 52-week high
-  8. RS Rating of 70 or higher
-  Return false if any single criterion is not met.
+  True only if ALL 8 criteria are met simultaneously:
+  1. Price above 50-day MA
+  2. Price above 150-day MA
+  3. Price above 200-day MA
+  4. 50-day MA above 150-day MA
+  5. 150-day MA above 200-day MA
+  6. 200-day MA trending up for at least 1 month
+  7. Price within 25% of 52-week high
+  8. Price at least 25% above 52-week low
+  False if any single criterion fails.
 
 rs_line_confirmed (boolean)
-  True if the RS line is at or near a 52-week high, ideally making new highs before or with price.
+  True if the RS line (stock performance vs S&P 500) is at or making new 52-week highs, ideally leading price. False if the RS line is flat, declining, or lagging price.
 
 base_pattern_valid (boolean)
-  True if forming or recently completed a SEPA base: cup with handle, flat base, VCP, or double bottom. Base must be at least 3 weeks long.
+  True if forming or recently completed a valid SEPA® base: VCP (2-4 contractions each smaller), flat base (under 15% depth, 5+ weeks), cup-with-handle, or ascending base. Base must be at least 3 weeks long. False if the stock is extended more than 5% above the pivot, in a Stage 3 top, or has no identifiable base.
 
 entry_near_pivot (boolean)
-  True if current price is within 5% above the pivot point. False if extended more than 5% or not yet at pivot.
+  True if current price is within 5% above the pivot point. False if extended more than 5% above pivot or not yet at pivot.
 
 volume_dry_up_pass (boolean)
-  True if volume has contracted to below-average levels during the right side of the base or handle, at least 2-3 consecutive weeks of declining volume near pivot.
+  True if volume has contracted to multi-week or multi-month lows in the tightest part of the base near the pivot — confirming supply exhaustion. False if volume is elevated or erratic throughout the base.
 
 volume_breakout_confirmed (boolean)
-  True if a breakout has already occurred on volume at least 40-50% above the 50-day average. False if no breakout yet or weak volume breakout.
+  True only if the stock has already broken above the pivot on volume at least 40-50% above its 50-day average. False if no breakout has occurred yet or the breakout volume was below-average.
 
 earnings_within_2_weeks (boolean)
-  True if next earnings announcement is within 14 calendar days from today.
+  True if the next earnings report is within 14 calendar days from today's date. False otherwise. Check the earnings calendar carefully.
 
 binary_event_risk (boolean)
-  True if a known near-term binary event exists: FDA decision, major legal ruling, clinical trial results, or similar.
+  True if a pending FDA decision, major regulatory ruling, merger vote, or similar binary event could cause a gap of 15%+ within 30 days. False otherwise.
 
 acc_dist_rating (string: "A", "B", "C", "D", or "E")
-  Institutional accumulation/distribution proxy based on observable up-volume vs down-volume over the past 13 weeks.
+  IBD Accumulation/Distribution Rating. A and B = institutional accumulation. D and E = distribution. Use the IBD rating if available. If not, approximate from price/volume behaviour over the past 13 weeks — more up days on heavy volume than down days = A or B; more down days on heavy volume = D or E.
 
 industry_group_rank (integer: 1 to 197)
-  IBD industry group rank approximation. Top-performing groups rank 1-40. Weak groups rank 150-197.
+  IBD Industry Group rank out of ~197 groups. Rank 1 is strongest. Top 40 = top 20% = acceptable for SEPA®. Return the integer only.
+
+pivot_price (number)
+  The exact resistance price level the stock must break above to confirm the setup — the high of the most recent base or handle. Single price, not a zone. Round to 2 decimal places.
 
 entry_zone_low (number)
-  Lower bound of ideal buy zone in dollars, at or just above pivot. Round to 2 decimal places.
+  Lower bound of the valid entry zone — the pivot price itself or up to 1% above it. This is the buy-stop trigger price. Round to 2 decimal places.
 
 entry_zone_high (number)
-  Upper bound of ideal buy zone. Maximum 5% above entry_zone_low. Round to 2 decimal places.
+  Upper bound of the valid entry zone — maximum 5% above entry_zone_low. Any fill above this is extended and should not be chased. Round to 2 decimal places.
 
 stop_price (number)
-  Initial stop loss based on chart structure. Must be below entry_zone_low. Risk no more than 7-8% from entry. Round to 2 decimal places.
+  Place just below the lowest point of the final VCP contraction (the tightest part of the base). For a power play setup, 3-4% below entry. Must be specific to chart structure — not a fixed percentage. Must be below entry_zone_low. Round to 2 decimal places.
 
 target_1_price (number)
-  First profit target. Must produce reward-to-risk of at least 2:1 relative to entry_zone_low and stop_price. Round to 2 decimal places.
+  First profit target at 10-15% above entry_zone_low. Must produce a reward-to-risk ratio of at least 2:1 relative to entry_zone_low and stop_price. Round to 2 decimal places.
 
 target_2_price (number or null)
-  Second extended profit target if a clear level exists. Null if no meaningful second target. Round to 2 decimal places.
+  Second profit target at 20-25% above entry_zone_low. Null if no meaningful second target exists. Round to 2 decimal places.
 
 TODAY'S DATE: ${today}
 
