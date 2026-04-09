@@ -21,6 +21,7 @@ import {
 import { checkDedupe, recordNotification } from '../_shared/dedupe.ts'
 import { sendEmail } from '../_shared/email/resend.ts'
 import { tradeInstructionCard } from '../_shared/email/templates/tradeInstructionCard.ts'
+import { signalReport, type SignalReportData } from '../_shared/email/templates/signalReport.ts'
 import { edgeConfig } from '../_shared/config.ts'
 
 const supabase = createClient(
@@ -101,6 +102,14 @@ type StockSummary = {
   signalCreated: boolean
   emailSent: boolean | null
   emailFailReason: string | null
+}
+
+type SignalReportSummary = {
+  ticker: string
+  verdict: 'pass' | 'watch' | 'fail'
+  failReason: string | null
+  signalCreated: boolean
+  setupGrade: string | null
 }
 
 type UserSettingsRow = {
@@ -631,6 +640,27 @@ Deno.serve(async (request: Request) => {
         },
       })
 
+      if (recipientEmail) {
+        const reportData: SignalReportData = {
+          date: getTodayDateString(),
+          marketPhase: market.market_phase ?? 'unknown',
+          evaluated: 0,
+          passCount: 0,
+          watchCount: 0,
+          failCount: 0,
+          signalsCreated: 0,
+          emptyWatchlist: true,
+          marketBlocked: false,
+          stockSummaries: [],
+          appUrl: edgeConfig.appBaseUrl ?? '',
+        }
+        const { subject, html } = signalReport(reportData)
+        await sendEmail(
+          { to: recipientEmail, subject, html },
+          { apiKey: edgeConfig.resendApiKey, fromEmail: edgeConfig.resendFromEmail }
+        )
+      }
+
       return jsonResponse(
         {
           success: true,
@@ -653,6 +683,7 @@ Deno.serve(async (request: Request) => {
 
     const processedTickers: string[] = []
     const stockSummaries: StockSummary[] = []
+    const signalReportSummaries: SignalReportSummary[] = []
 
     for (const stock of watchlistBatch as WatchlistRow[]) {
       try {
@@ -736,6 +767,13 @@ Deno.serve(async (request: Request) => {
             emailSent,
             emailFailReason,
           })
+          signalReportSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            failReason: evaluation.fail_reason,
+            signalCreated: false,
+            setupGrade: stock.setup_grade,
+          })
           continue
         }
 
@@ -787,6 +825,13 @@ Deno.serve(async (request: Request) => {
               emailSent,
               emailFailReason,
             })
+            signalReportSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              failReason: evaluation.fail_reason,
+              signalCreated: false,
+              setupGrade: stock.setup_grade,
+            })
             continue
           }
 
@@ -813,6 +858,13 @@ Deno.serve(async (request: Request) => {
             emailSent,
             emailFailReason,
           })
+          signalReportSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            failReason: evaluation.fail_reason,
+            signalCreated: false,
+            setupGrade: stock.setup_grade,
+          })
           continue
         }
 
@@ -823,6 +875,13 @@ Deno.serve(async (request: Request) => {
             signalCreated: false,
             emailSent,
             emailFailReason,
+          })
+          signalReportSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            failReason: evaluation.fail_reason,
+            signalCreated: false,
+            setupGrade: stock.setup_grade,
           })
           continue
         }
@@ -842,6 +901,13 @@ Deno.serve(async (request: Request) => {
               emailSent,
               emailFailReason,
             })
+            signalReportSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              failReason: evaluation.fail_reason,
+              signalCreated: false,
+              setupGrade: stock.setup_grade,
+            })
             continue
           }
 
@@ -859,6 +925,13 @@ Deno.serve(async (request: Request) => {
               signalCreated: false,
               emailSent,
               emailFailReason,
+            })
+            signalReportSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              failReason: evaluation.fail_reason,
+              signalCreated: false,
+              setupGrade: stock.setup_grade,
             })
             continue
           }
@@ -899,6 +972,13 @@ Deno.serve(async (request: Request) => {
               signalCreated: false,
               emailSent,
               emailFailReason,
+            })
+            signalReportSummaries.push({
+              ticker: stock.ticker,
+              verdict: evaluation.verdict,
+              failReason: evaluation.fail_reason,
+              signalCreated: false,
+              setupGrade: stock.setup_grade,
             })
             continue
           }
@@ -978,6 +1058,13 @@ Deno.serve(async (request: Request) => {
             emailSent,
             emailFailReason,
           })
+          signalReportSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            failReason: evaluation.fail_reason,
+            signalCreated: true,
+            setupGrade: stock.setup_grade,
+          })
         } catch (error) {
           console.error(
             `[watchlist-evaluate] Stage 2 unexpected error for ${stock.ticker}: ${error instanceof Error ? error.message : String(error)}`
@@ -988,6 +1075,13 @@ Deno.serve(async (request: Request) => {
             signalCreated: false,
             emailSent,
             emailFailReason,
+          })
+          signalReportSummaries.push({
+            ticker: stock.ticker,
+            verdict: evaluation.verdict,
+            failReason: evaluation.fail_reason,
+            signalCreated: false,
+            setupGrade: stock.setup_grade,
           })
         }
       } catch (error) {
@@ -1013,6 +1107,31 @@ Deno.serve(async (request: Request) => {
         marketHours: isMarketHours(),
       },
     })
+
+    if (recipientEmail) {
+      const marketBlocked =
+        market.market_phase === 'correction' ||
+        market.market_phase === 'bear'
+
+      const reportData: SignalReportData = {
+        date: getTodayDateString(),
+        marketPhase: market.market_phase ?? 'unknown',
+        evaluated: processed,
+        passCount,
+        watchCount,
+        failCount,
+        signalsCreated,
+        emptyWatchlist: false,
+        marketBlocked,
+        stockSummaries: signalReportSummaries,
+        appUrl: edgeConfig.appBaseUrl ?? '',
+      }
+      const { subject, html } = signalReport(reportData)
+      await sendEmail(
+        { to: recipientEmail, subject, html },
+        { apiKey: edgeConfig.resendApiKey, fromEmail: edgeConfig.resendFromEmail }
+      )
+    }
 
     return jsonResponse(
       {
