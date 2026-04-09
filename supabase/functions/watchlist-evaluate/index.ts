@@ -288,6 +288,8 @@ function generateTradePlan(
 
   if (market.market_phase === 'under_pressure') {
     riskPct *= 0.5
+  } else if (market.market_phase === 'rally_attempt') {
+    riskPct *= 0.25
   }
 
   if (market.market_phase === 'correction' || market.market_phase === 'bear') {
