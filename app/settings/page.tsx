@@ -223,6 +223,7 @@ export default function SettingsPage() {
   const [screenerMinRevenueGrowthPct, setScreenerMinRevenueGrowthPct] = useState('20')
   const [screenerExchanges, setScreenerExchanges] = useState('XNAS,XNYS')
   const [screenerMaxCandidates, setScreenerMaxCandidates] = useState<10 | 20 | 30>(20)
+  const [consecutiveStopOuts, setConsecutiveStopOuts] = useState<number>(0)
 
   useEffect(() => {
     let cancelled = false
@@ -248,7 +249,7 @@ export default function SettingsPage() {
 
       const { data, error: settingsError } = await supabase
         .from('user_settings')
-        .select('*')
+        .select('*, consecutive_stop_outs')
         .eq('user_id', user.id)
         .maybeSingle()
 
@@ -281,6 +282,7 @@ export default function SettingsPage() {
       setScreenerMinRevenueGrowthPct(String(nextSettings?.screener_min_revenue_growth_pct ?? 20))
       setScreenerExchanges(nextSettings?.screener_exchanges ?? 'XNAS,XNYS')
       setScreenerMaxCandidates((nextSettings?.screener_max_candidates ?? 20) as 10 | 20 | 30)
+      setConsecutiveStopOuts(Number(data?.consecutive_stop_outs ?? 0))
       setLoading(false)
     }
 
@@ -392,6 +394,21 @@ export default function SettingsPage() {
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
+  }
+
+  const handleResetStreak = async () => {
+    const { error } = await supabase
+      .from('user_settings')
+      .update({ consecutive_stop_outs: 0 })
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+
+    if (error) {
+      console.error('Reset streak error:', error)
+      alert('Failed to reset streak counter')
+      return
+    }
+
+    setConsecutiveStopOuts(0)
   }
 
   return (
@@ -742,6 +759,45 @@ export default function SettingsPage() {
                     )
                   })}
                 </div>
+              </div>
+            </SectionShell>
+
+            <SectionShell title="Losing Streak Counter">
+              <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                Losing Streak Counter
+                <Tooltip text="Tracks consecutive stop-outs. Resets automatically when a target is hit. At 3 stop-outs a Soft Pause alert fires. At 4 a Hard Pause fires. At 5 a Full Stop fires." />
+              </div>
+
+              <div className="ui-card p-6">
+                <div
+                  className={[
+                    'text-4xl font-semibold',
+                    consecutiveStopOuts <= 2
+                      ? 'text-green-600 dark:text-[#8fd0ab]'
+                      : consecutiveStopOuts === 3
+                        ? 'text-amber-600 dark:text-[#f3c27a]'
+                        : 'text-red-600 dark:text-[#f0a3a3]',
+                  ].join(' ')}
+                >
+                  {consecutiveStopOuts}
+                </div>
+                <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  consecutive stop-outs
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={handleResetStreak}
+                    className="ui-btn-primary"
+                  >
+                    Reset Counter
+                  </button>
+                </div>
+
+                <p className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  The counter resets automatically when a target alert is hit. Use this button only if you are manually resuming after a pause.
+                </p>
               </div>
             </SectionShell>
 
