@@ -300,8 +300,7 @@ Deno.serve(async (request: Request) => {
     const minAvgVolume = Number(settings.screener_min_avg_volume ?? 500000)
     const maxCandidates = Number(settings.screener_max_candidates ?? 10)
     const minEpsGuard = settings.screener_min_eps_growth_pct ?? 25
-    const minRevenueGuard = settings.screener_min_revenue_growth_pct ?? 20
-
+    const minRevenueGuard = settings.screener_min_revenue_growth_pct ?? 25
     const { from, to } = getRecentTradingDateRange()
 
     let passedCount = 0
