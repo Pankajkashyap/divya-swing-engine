@@ -17,6 +17,7 @@ import { checkDedupe, recordNotification } from '../_shared/dedupe.ts'
 import { sendEmail } from '../_shared/email/resend.ts'
 import { stopAlert } from '../_shared/email/templates/stopAlert.ts'
 import { targetAlert } from '../_shared/email/templates/targetAlert.ts'
+import { tradeMonitorReport, type TradeMonitorReportData } from '../_shared/email/templates/tradeMonitorReport.ts'
 import { edgeConfig } from '../_shared/config.ts'
 
 const supabase = createClient(
@@ -56,6 +57,8 @@ type TradeSummary = {
   target1AlertFired: boolean
   target2AlertFired: boolean
   emailSent: boolean | null
+  entryPrice: number | null
+  sharesHeld: number
 }
 
 function jsonResponse(payload: unknown, status: number): Response {
@@ -100,11 +103,11 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-  const { data: userSettings, error: userSettingsError } = await supabase
-    .from('user_settings')
-    .select('user_id, notification_email, urgent_alerts_enabled, morning_trade_monitor_enabled')
-    .limit(1)
-    .maybeSingle()
+    const { data: userSettings, error: userSettingsError } = await supabase
+      .from('user_settings')
+      .select('user_id, notification_email, urgent_alerts_enabled, morning_trade_monitor_enabled')
+      .limit(1)
+      .maybeSingle()
 
     if (userSettingsError) {
       return jsonResponse(
@@ -129,12 +132,12 @@ Deno.serve(async (request: Request) => {
     const morningMonitorEnabled = settings.morning_trade_monitor_enabled ?? true
     const marketWindow = getMarketWindow()
 
-      if (!morningMonitorEnabled && marketWindow === 'pre_market') {
+    if (!morningMonitorEnabled && marketWindow === 'pre_market') {
       return jsonResponse(
-      { skipped: true, reason: 'Morning trade monitor disabled in settings' },
-      200
+        { skipped: true, reason: 'Morning trade monitor disabled in settings' },
+        200
       )
-      }
+    }
 
     const recipientEmail =
       settings.notification_email ?? edgeConfig.authorizedUserEmail ?? null
@@ -217,6 +220,25 @@ Deno.serve(async (request: Request) => {
         },
       })
 
+      if (recipientEmail) {
+        const reportData: TradeMonitorReportData = {
+          date: new Date().toISOString().slice(0, 10),
+          marketWindow: getMarketWindow(),
+          monitoredCount: 0,
+          stopAlertsFired: 0,
+          target1AlertsFired: 0,
+          target2AlertsFired: 0,
+          noOpenTrades: true,
+          tradeSummaries: [],
+          appUrl: edgeConfig.appBaseUrl ?? '',
+        }
+        const { subject, html } = tradeMonitorReport(reportData)
+        await sendEmail(
+          { to: recipientEmail, subject, html },
+          { apiKey: edgeConfig.resendApiKey, fromEmail: edgeConfig.resendFromEmail }
+        )
+      }
+
       return jsonResponse(
         {
           success: true,
@@ -265,6 +287,8 @@ Deno.serve(async (request: Request) => {
             target1AlertFired,
             target2AlertFired,
             emailSent,
+            entryPrice: trade.entry_price_actual ?? null,
+            sharesHeld: sharesHeldForTrade(trade),
           })
           continue
         }
@@ -597,6 +621,8 @@ Deno.serve(async (request: Request) => {
           target1AlertFired,
           target2AlertFired,
           emailSent,
+          entryPrice: trade.entry_price_actual ?? null,
+          sharesHeld: sharesHeldForTrade(trade),
         })
       } catch (error) {
         console.error(
@@ -612,6 +638,8 @@ Deno.serve(async (request: Request) => {
           target1AlertFired,
           target2AlertFired,
           emailSent,
+          entryPrice: trade.entry_price_actual ?? null,
+          sharesHeld: sharesHeldForTrade(trade),
         })
       }
     }
@@ -629,6 +657,42 @@ Deno.serve(async (request: Request) => {
         tradeSummaries,
       },
     })
+
+    if (recipientEmail) {
+      const reportData: TradeMonitorReportData = {
+        date: new Date().toISOString().slice(0, 10),
+        marketWindow: getMarketWindow(),
+        monitoredCount: monitored,
+        stopAlertsFired,
+        target1AlertsFired,
+        target2AlertsFired,
+        noOpenTrades: false,
+        tradeSummaries: tradeSummaries.map((t) => ({
+          ticker: t.ticker,
+          currentPrice: t.currentPrice,
+          entryPrice: t.entryPrice,
+          stopPrice: openTrades.find(
+            (o) => o.ticker === t.ticker
+          )?.stop_price_current ?? null,
+          target1Price: openTrades.find(
+            (o) => o.ticker === t.ticker
+          )?.target_1_price ?? null,
+          target2Price: openTrades.find(
+            (o) => o.ticker === t.ticker
+          )?.target_2_price ?? null,
+          stopAlertFired: t.stopAlertFired,
+          target1AlertFired: t.target1AlertFired,
+          target2AlertFired: t.target2AlertFired,
+          sharesHeld: t.sharesHeld,
+        })),
+        appUrl: edgeConfig.appBaseUrl ?? '',
+      }
+      const { subject, html } = tradeMonitorReport(reportData)
+      await sendEmail(
+        { to: recipientEmail, subject, html },
+        { apiKey: edgeConfig.resendApiKey, fromEmail: edgeConfig.resendFromEmail }
+      )
+    }
 
     return jsonResponse(
       {
