@@ -454,8 +454,7 @@ Deno.serve(async (request: Request) => {
           sma150AboveSma200: sma150 !== null && sma200 !== null && sma150 > sma200,
           sma200Trending:    sma200 !== null && sma200_30daysAgo !== null && sma200 > sma200_30daysAgo,
           within25PctOf52wHigh: high52w !== null && price >= high52w * 0.75,
-          above30PctOf52wLow:   low52w  !== null && price >= low52w  * 1.30,
-        }
+          above25PctOf52wLow:   low52w  !== null && price >= low52w  * 1.25,        }
 
         const trendTemplatePass = Object.values(ttCriteria).every(Boolean)
 
