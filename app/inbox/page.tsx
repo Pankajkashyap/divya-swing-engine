@@ -19,6 +19,7 @@ export type PendingAction = {
     | 'watchlist_review'
     | 'watchlist_removal'
     | 'manual_reconciliation'
+    | 'streak_alert'
   state:
     | 'awaiting_confirmation'
     | 'snoozed'
@@ -298,6 +299,25 @@ export default function InboxPage() {
     setExecutingId(null)
   }
 
+  const handleResetStreak = async (actionId: string) => {
+    setExecutingId(actionId)
+
+    const { error } = await supabase
+      .from('user_settings')
+      .update({ consecutive_stop_outs: 0 })
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+
+    if (error) {
+      console.error('Reset streak error:', error)
+      alert('Failed to reset streak counter')
+      setExecutingId(null)
+      return
+    }
+
+    await handleDismiss(actionId)
+    setExecutingId(null)
+  }
+
   const handleExecuteBuy = async (
     action: PendingAction,
     params: BuyExecutionParams
@@ -557,12 +577,18 @@ export default function InboxPage() {
     setExecutingId(null)
   }
 
+  const streakAlertActions = pendingActions.filter(
+    (action) => action.action_type === 'streak_alert'
+  )
+
   const watchlistRemovalActions = pendingActions.filter(
     (action) => action.action_type === 'watchlist_removal'
   )
 
   const tableActions = pendingActions.filter(
-    (action) => action.action_type !== 'watchlist_removal'
+    (action) =>
+      action.action_type !== 'watchlist_removal' &&
+      action.action_type !== 'streak_alert'
   )
 
   if (loading) {
@@ -583,6 +609,62 @@ export default function InboxPage() {
               <Tooltip text="Items that require your decision: proposed buy signals, watchlist additions or removals, and system alerts waiting for your confirmation." />
             </h2>
           </div>
+
+          {streakAlertActions.length > 0 ? (
+            <div className="mb-6 space-y-3">
+              {streakAlertActions.map((action) => {
+                const threshold = typeof action.payload_json?.threshold === 'string'
+                  ? action.payload_json.threshold
+                  : ''
+
+                const thresholdLabel =
+                  threshold === 'soft_pause'
+                    ? 'Soft Pause'
+                    : threshold === 'hard_pause'
+                      ? 'Hard Pause'
+                      : threshold === 'full_stop'
+                        ? 'Full Stop'
+                        : 'Streak Alert'
+
+                return (
+                  <div key={action.id} className="ui-card p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                          {action.title}
+                        </div>
+                        {action.message ? (
+                          <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                            {action.message}
+                          </p>
+                        ) : null}
+                      </div>
+                      <span className="ui-pill-warning shrink-0">{thresholdLabel}</span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="ui-btn-primary"
+                        onClick={() => handleResetStreak(action.id)}
+                        disabled={executingId === action.id}
+                      >
+                        {executingId === action.id ? 'Working...' : 'Reset Streak Counter'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-btn-secondary"
+                        onClick={() => handleDismiss(action.id)}
+                        disabled={executingId === action.id}
+                      >
+                        {executingId === action.id ? 'Working...' : 'Dismiss'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
 
           {watchlistRemovalActions.length > 0 ? (
             <div className="mb-6 space-y-3">

@@ -397,6 +397,91 @@ Deno.serve(async (request: Request) => {
 
                 stopAlertFired = true
                 stopAlertsFired += 1
+
+                try {
+                  const { data: streakSettings, error: streakFetchError } = await supabase
+                    .from('user_settings')
+                    .select('consecutive_stop_outs')
+                    .eq('user_id', userId)
+                    .limit(1)
+                    .maybeSingle()
+
+                  if (streakFetchError) {
+                    console.error(
+                      `[trade-monitor] Failed to fetch consecutive_stop_outs for ${trade.ticker}: ${streakFetchError.message}`
+                    )
+                  } else {
+                    const currentStreakCount = Number(
+                      (streakSettings as { consecutive_stop_outs?: number | null } | null)
+                        ?.consecutive_stop_outs ?? 0
+                    )
+                    const newStreakCount = currentStreakCount + 1
+
+                    const { error: streakUpdateError } = await supabase
+                      .from('user_settings')
+                      .update({ consecutive_stop_outs: newStreakCount })
+                      .eq('user_id', userId)
+
+                    if (streakUpdateError) {
+                      console.error(
+                        `[trade-monitor] Failed to update consecutive_stop_outs for ${trade.ticker}: ${streakUpdateError.message}`
+                      )
+                    } else {
+                      if (newStreakCount === 3) {
+                        await createPendingAction({
+                          userId,
+                          ticker: '',
+                          actionType: 'streak_alert',
+                          urgency: 'urgent',
+                          title: 'Soft Pause — 3 consecutive stop-outs',
+                          message: 'Review market phase and execution quality before your next entry. Consider reducing position size.',
+                          tradeId: undefined,
+                          expiresAt: undefined,
+                          payloadJson: {
+                            streakCount: newStreakCount,
+                            threshold: 'soft_pause',
+                          },
+                        })
+                      } else if (newStreakCount === 4) {
+                        await createPendingAction({
+                          userId,
+                          ticker: '',
+                          actionType: 'streak_alert',
+                          urgency: 'urgent',
+                          title: 'Hard Pause — 4 consecutive stop-outs',
+                          message: 'No new entries for 5 trading days per the Breakout Failure protocol. Close any marginal open positions.',
+                          tradeId: undefined,
+                          expiresAt: undefined,
+                          payloadJson: {
+                            streakCount: newStreakCount,
+                            threshold: 'hard_pause',
+                          },
+                        })
+                      } else if (newStreakCount === 5) {
+                        await createPendingAction({
+                          userId,
+                          ticker: '',
+                          actionType: 'streak_alert',
+                          urgency: 'urgent',
+                          title: 'Full Stop — 5 consecutive stop-outs',
+                          message: 'Stop all new entries. Close unprofitable positions. Wait for a confirmed Follow-Through Day before resuming.',
+                          tradeId: undefined,
+                          expiresAt: undefined,
+                          payloadJson: {
+                            streakCount: newStreakCount,
+                            threshold: 'full_stop',
+                          },
+                        })
+                      }
+                    }
+                  }
+                } catch (streakError) {
+                  console.error(
+                    `[trade-monitor] Failed streak handling for ${trade.ticker}: ${
+                      streakError instanceof Error ? streakError.message : String(streakError)
+                    }`
+                  )
+                }
               } else {
                 console.error(
                   `[trade-monitor] Failed to create stop pending action for ${trade.ticker}: ${pendingActionResult.reason}`
@@ -501,6 +586,25 @@ Deno.serve(async (request: Request) => {
 
                 target1AlertFired = true
                 target1AlertsFired += 1
+
+                try {
+                  const { error: streakResetError } = await supabase
+                    .from('user_settings')
+                    .update({ consecutive_stop_outs: 0 })
+                    .eq('user_id', userId)
+
+                  if (streakResetError) {
+                    console.error(
+                      `[trade-monitor] Failed to reset consecutive_stop_outs after target 1 for ${trade.ticker}: ${streakResetError.message}`
+                    )
+                  }
+                } catch (streakResetError) {
+                  console.error(
+                    `[trade-monitor] Error resetting consecutive_stop_outs after target 1 for ${trade.ticker}: ${
+                      streakResetError instanceof Error ? streakResetError.message : String(streakResetError)
+                    }`
+                  )
+                }
               } else {
                 console.error(
                   `[trade-monitor] Failed to create target 1 pending action for ${trade.ticker}: ${pendingActionResult.reason}`
@@ -605,6 +709,25 @@ Deno.serve(async (request: Request) => {
 
                 target2AlertFired = true
                 target2AlertsFired += 1
+
+                try {
+                  const { error: streakResetError } = await supabase
+                    .from('user_settings')
+                    .update({ consecutive_stop_outs: 0 })
+                    .eq('user_id', userId)
+
+                  if (streakResetError) {
+                    console.error(
+                      `[trade-monitor] Failed to reset consecutive_stop_outs after target 2 for ${trade.ticker}: ${streakResetError.message}`
+                    )
+                  }
+                } catch (streakResetError) {
+                  console.error(
+                    `[trade-monitor] Error resetting consecutive_stop_outs after target 2 for ${trade.ticker}: ${
+                      streakResetError instanceof Error ? streakResetError.message : String(streakResetError)
+                    }`
+                  )
+                }
               } else {
                 console.error(
                   `[trade-monitor] Failed to create target 2 pending action for ${trade.ticker}: ${pendingActionResult.reason}`
