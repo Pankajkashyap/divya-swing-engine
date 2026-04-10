@@ -90,6 +90,24 @@ export default function HomePage() {
       (trade) => trade.status === 'open' || trade.status === 'partial'
     )
     const closedTrades = savedTrades.filter((trade) => trade.status === 'closed')
+    let totalHeatDollar = 0
+    let freeRideCount = 0
+
+    for (const trade of openTrades) {
+      const sharesHeld = Math.max(
+        Number(trade.shares_entered ?? 0) - Number(trade.shares_exited ?? 0),
+        0
+      )
+      const entryPrice = Number(trade.entry_price_actual ?? 0)
+      const stopPrice = Number(trade.stop_price_current ?? 0)
+
+      if (stopPrice > entryPrice) {
+        freeRideCount += 1
+      } else {
+        totalHeatDollar += (entryPrice - stopPrice) * sharesHeld
+      }
+    }
+
     const totalRealizedPnl = closedTrades.reduce(
       (sum, trade) => sum + (trade.pnl_dollar ?? 0),
       0
@@ -97,6 +115,13 @@ export default function HomePage() {
     const parsedPortfolioValue = Number(portfolioValue) || 0
     const { openPositionValue, exposurePct } = calculateExposure(openTrades, parsedPortfolioValue)
     const marketMaxExposurePct = market?.max_long_exposure_pct ?? 0
+    const heatPct =
+      parsedPortfolioValue > 0
+        ? Number(((totalHeatDollar / parsedPortfolioValue) * 100).toFixed(1))
+        : 0
+
+    const heatCeilingPct = Number(market?.max_long_exposure_pct ?? 0)
+    const heatRemainingPct = Number(Math.max(0, heatCeilingPct - heatPct).toFixed(1))
 
     return {
       watchlistCount: watchlist.length,
@@ -107,6 +132,10 @@ export default function HomePage() {
       openPositionValue: Number(openPositionValue.toFixed(2)),
       exposurePct,
       marketMaxExposurePct,
+      heatPct,
+      heatCeilingPct,
+      heatRemainingPct,
+      freeRideCount,
     }
   }, [watchlist, savedTrades, portfolioValue, market])
 
@@ -175,7 +204,7 @@ export default function HomePage() {
   return (
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
-<AppHeader title="Setup Evaluator" />
+        <AppHeader title="Setup Evaluator" />
         <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
           {(['overview', 'watchlist', 'trades', 'review'] as const).map((tab) => (
             <button
@@ -192,7 +221,15 @@ export default function HomePage() {
         {activeTab === 'overview' && (
           <>
             <DashboardMetrics watchlistCount={metrics.watchlistCount} openTradesCount={metrics.openTradesCount} closedTradesCount={metrics.closedTradesCount} totalRealizedPnl={metrics.totalRealizedPnl} />
-            <PortfolioHeatCard portfolioValue={metrics.portfolioValue} openPositionValue={metrics.openPositionValue} exposurePct={metrics.exposurePct} marketMaxExposurePct={metrics.marketMaxExposurePct} />
+            <PortfolioHeatCard
+              portfolioValue={metrics.portfolioValue}
+              openPositionValue={metrics.openPositionValue}
+              exposurePct={metrics.exposurePct}
+              marketMaxExposurePct={metrics.marketMaxExposurePct}
+              heatPct={metrics.heatPct}
+              heatRemainingPct={metrics.heatRemainingPct}
+              freeRideCount={metrics.freeRideCount}
+            />
             <MarketSummaryCards market={market} stock={stock} portfolioValue={portfolioValue} setPortfolioValue={setPortfolioValue} />
             <MarketSnapshotForm
               onSave={handleSaveMarketSnapshot}

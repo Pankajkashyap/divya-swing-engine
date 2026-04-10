@@ -24,6 +24,33 @@ type CandidateRow = {
   stop_price: number | null
   target_1_price: number | null
   target_2_price: number | null
+  watchlist_group: 'active_setup' | 'near_pivot' | 'developing' | null
+  ibd_group: string | null
+  ibd_group_zone: 1 | 2 | 3 | 4 | null
+  rs_line_state: 'leading' | 'confirmed' | 'warning' | null
+  catalyst_type:
+    | 'earnings_acceleration'
+    | 'revenue_acceleration'
+    | 'new_product_service'
+    | 'management_change'
+    | 'regulatory_approval'
+    | 'spinoff_restructuring'
+    | 'sector_rotation'
+    | 'macro_theme'
+    | 'none_identified'
+    | null
+  institutional_trend: 'accumulating' | 'neutral' | 'distributing' | null
+  insider_buying: boolean | null
+  short_interest_trend: 'increasing' | 'stable' | 'decreasing' | null
+  base_count: number | null
+  likely_failure_type:
+    | 'institutional_reversal'
+    | 'fade'
+    | 'gap_down'
+    | 'limbo'
+    | 'sector_rotation'
+    | null
+  failure_response: string | null
 }
 
 type CurrentWatchlistRow = {
@@ -44,6 +71,33 @@ type CurrentWatchlistRow = {
   stop_price: number | null
   target_1_price: number | null
   target_2_price: number | null
+  watchlist_group: 'active_setup' | 'near_pivot' | 'developing' | null
+  ibd_group: string | null
+  ibd_group_zone: 1 | 2 | 3 | 4 | null
+  rs_line_state: 'leading' | 'confirmed' | 'warning' | null
+  catalyst_type:
+    | 'earnings_acceleration'
+    | 'revenue_acceleration'
+    | 'new_product_service'
+    | 'management_change'
+    | 'regulatory_approval'
+    | 'spinoff_restructuring'
+    | 'sector_rotation'
+    | 'macro_theme'
+    | 'none_identified'
+    | null
+  institutional_trend: 'accumulating' | 'neutral' | 'distributing' | null
+  insider_buying: boolean | null
+  short_interest_trend: 'increasing' | 'stable' | 'decreasing' | null
+  base_count: number | null
+  likely_failure_type:
+    | 'institutional_reversal'
+    | 'fade'
+    | 'gap_down'
+    | 'limbo'
+    | 'sector_rotation'
+    | null
+  failure_response: string | null
 }
 
 const numericFields = [
@@ -85,6 +139,17 @@ const updatableFields = [
   'stop_price',
   'target_1_price',
   'target_2_price',
+  'watchlist_group',
+  'ibd_group',
+  'ibd_group_zone',
+  'rs_line_state',
+  'catalyst_type',
+  'institutional_trend',
+  'insider_buying',
+  'short_interest_trend',
+  'base_count',
+  'likely_failure_type',
+  'failure_response',
 ] as const
 
 function isNumberOrNull(value: unknown): boolean {
@@ -103,6 +168,40 @@ function isValidAccDist(value: unknown): boolean {
   return value === null || ['A', 'B', 'C', 'D', 'E'].includes(String(value))
 }
 
+function isValidWatchlistGroup(value: unknown): boolean {
+  return value === null || ['active_setup', 'near_pivot', 'developing'].includes(String(value))
+}
+
+function isValidIbdGroupZone(value: unknown): boolean {
+  return value === null || [1, 2, 3, 4].includes(value as number)
+}
+
+function isValidRsLineState(value: unknown): boolean {
+  return value === null || ['leading', 'confirmed', 'warning'].includes(String(value))
+}
+
+function isValidCatalystType(value: unknown): boolean {
+  return value === null || [
+    'earnings_acceleration', 'revenue_acceleration', 'new_product_service',
+    'management_change', 'regulatory_approval', 'spinoff_restructuring',
+    'sector_rotation', 'macro_theme', 'none_identified'
+  ].includes(String(value))
+}
+
+function isValidInstitutionalTrend(value: unknown): boolean {
+  return value === null || ['accumulating', 'neutral', 'distributing'].includes(String(value))
+}
+
+function isValidShortInterestTrend(value: unknown): boolean {
+  return value === null || ['increasing', 'stable', 'decreasing'].includes(String(value))
+}
+
+function isValidLikelyFailureType(value: unknown): boolean {
+  return value === null || [
+    'institutional_reversal', 'fade', 'gap_down', 'limbo', 'sector_rotation'
+  ].includes(String(value))
+}
+
 function validateRow(row: unknown): row is CandidateRow {
   if (typeof row !== 'object' || row === null) return false
 
@@ -112,6 +211,17 @@ function validateRow(row: unknown): row is CandidateRow {
   if (typeof candidate.ticker !== 'string' || !candidate.ticker.trim()) return false
   if (!isValidSetupGrade(candidate.setup_grade)) return false
   if (!isValidAccDist(candidate.acc_dist_rating)) return false
+  if (!isValidWatchlistGroup(candidate.watchlist_group)) return false
+  if (!isValidIbdGroupZone(candidate.ibd_group_zone)) return false
+  if (!isValidRsLineState(candidate.rs_line_state)) return false
+  if (!isValidCatalystType(candidate.catalyst_type)) return false
+  if (!isValidInstitutionalTrend(candidate.institutional_trend)) return false
+  if (candidate.insider_buying !== null && typeof candidate.insider_buying !== 'boolean') return false
+  if (!isValidShortInterestTrend(candidate.short_interest_trend)) return false
+  if (candidate.base_count !== null && (typeof candidate.base_count !== 'number' || candidate.base_count < 1 || candidate.base_count > 4)) return false
+  if (!isValidLikelyFailureType(candidate.likely_failure_type)) return false
+  if (candidate.failure_response !== null && typeof candidate.failure_response !== 'string') return false
+  if (candidate.ibd_group !== null && typeof candidate.ibd_group !== 'string') return false
 
   for (const field of numericFields) {
     if (!isNumberOrNull(candidate[field])) return false
@@ -212,7 +322,18 @@ export async function POST(request: NextRequest) {
       entry_zone_high,
       stop_price,
       target_1_price,
-      target_2_price
+      target_2_price,
+      watchlist_group,
+      ibd_group,
+      ibd_group_zone,
+      rs_line_state,
+      catalyst_type,
+      institutional_trend,
+      insider_buying,
+      short_interest_trend,
+      base_count,
+      likely_failure_type,
+      failure_response
     `)
     .in('id', validIds)
 
@@ -234,7 +355,7 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-        const updatePayload: Record<string, unknown> = {}
+    const updatePayload: Record<string, unknown> = {}
     for (const field of updatableFields) {
       const incomingValue = row[field]
       const currentValue = existing[field]

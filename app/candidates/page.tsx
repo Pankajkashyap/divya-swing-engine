@@ -16,6 +16,7 @@ type CandidateRow = {
   setup_grade: string | null
   trend_template_pass: boolean | null
   rs_line_confirmed: boolean | null
+  rs_line_state: 'leading' | 'confirmed' | 'warning' | null
   base_pattern_valid: boolean | null
   entry_near_pivot: boolean | null
   volume_dry_up_pass: boolean | null
@@ -29,6 +30,32 @@ type CandidateRow = {
   stop_price: number | null
   target_1_price: number | null
   target_2_price: number | null
+  watchlist_group: 'active_setup' | 'near_pivot' | 'developing' | null
+  ibd_group: string | null
+  ibd_group_zone: 1 | 2 | 3 | 4 | null
+  catalyst_type:
+    | 'earnings_acceleration'
+    | 'revenue_acceleration'
+    | 'new_product_service'
+    | 'management_change'
+    | 'regulatory_approval'
+    | 'spinoff_restructuring'
+    | 'sector_rotation'
+    | 'macro_theme'
+    | 'none_identified'
+    | null
+  institutional_trend: 'accumulating' | 'neutral' | 'distributing' | null
+  insider_buying: boolean | null
+  short_interest_trend: 'increasing' | 'stable' | 'decreasing' | null
+  base_count: number | null
+  likely_failure_type:
+    | 'institutional_reversal'
+    | 'fade'
+    | 'gap_down'
+    | 'limbo'
+    | 'sector_rotation'
+    | null
+  failure_response: string | null
 }
 
 type ScanLogRow = {
@@ -84,6 +111,7 @@ function buildClipboardContent(candidates: CandidateRow[]): string {
       setup_grade: c.setup_grade,
       trend_template_pass: c.trend_template_pass,
       rs_line_confirmed: c.rs_line_confirmed,
+      rs_line_state: c.rs_line_state,
       base_pattern_valid: c.base_pattern_valid,
       entry_near_pivot: c.entry_near_pivot,
       volume_dry_up_pass: c.volume_dry_up_pass,
@@ -97,6 +125,16 @@ function buildClipboardContent(candidates: CandidateRow[]): string {
       stop_price: c.stop_price,
       target_1_price: c.target_1_price,
       target_2_price: c.target_2_price,
+      watchlist_group: c.watchlist_group,
+      ibd_group: c.ibd_group,
+      ibd_group_zone: c.ibd_group_zone,
+      catalyst_type: c.catalyst_type,
+      institutional_trend: c.institutional_trend,
+      insider_buying: c.insider_buying,
+      short_interest_trend: c.short_interest_trend,
+      base_count: c.base_count,
+      likely_failure_type: c.likely_failure_type,
+      failure_response: c.failure_response,
     })),
     null,
     2
@@ -110,6 +148,7 @@ STRICT OUTPUT RULES:
 - Do not add, rename, or remove any fields.
 - Preserve every "id" field exactly as provided — these are database primary keys.
 - If you cannot determine a value with reasonable confidence, return null. Do not guess.
+- For each candidate, when assigning setup_grade, briefly state in failure_response which SEPA® source principle supports the grade (e.g. "Minervini Trend Template — Trade Like a Stock Market Wizard Ch.7" or "VCP pattern — O'Neil CAN SLIM base-building principle"). Keep it to one phrase.
 
 CANDIDATE QUALITY RULES:
 - Before researching any candidate, assess whether it is a real operating business with a tradeable chart.
@@ -144,7 +183,15 @@ trend_template_pass (boolean)
   False if any single criterion fails.
 
 rs_line_confirmed (boolean)
-  True if the RS line (stock performance vs S&P 500) is at or making new 52-week highs, ideally leading price. False if the RS line is flat, declining, or lagging price.
+  Derived from rs_line_state. Set to true if rs_line_state is "leading" or "confirmed". Set to false if rs_line_state is "warning". Set to null if rs_line_state is null. Always populate rs_line_state first, then set this field accordingly.
+
+rs_line_state (string: "leading", "confirmed", or "warning", or null)
+  The 3-state RS line signal — the single most important non-earnings signal in SEPA®:
+  "leading"   = The RS line made a new 52-week high BEFORE the price breakout. This is the A+ signal — institutional money rotating in ahead of the move.
+  "confirmed" = The RS line is trending upward and rising during the base formation, but has not yet made new highs. A solid A signal.
+  "warning"   = The RS line is flat, declining, or lagging price. This is a warning — even if the price pattern looks valid, weak RS line = weak institutional sponsorship.
+  null = Cannot be determined with confidence.
+  Populate this field before rs_line_confirmed. The boolean is derived from this field.
 
 base_pattern_valid (boolean)
   True if forming or recently completed a valid SEPA® base: VCP (2-4 contractions each smaller), flat base (under 15% depth, 5+ weeks), cup-with-handle, or ascending base. Base must be at least 3 weeks long. False if the stock is extended more than 5% above the pivot, in a Stage 3 top, or has no identifiable base.
@@ -187,6 +234,80 @@ target_1_price (number)
 
 target_2_price (number or null)
   Second profit target at 20-25% above entry_zone_low. Null if no meaningful second target exists. Round to 2 decimal places.
+
+watchlist_group (string: "active_setup", "near_pivot", or "developing", or null)
+  Classify this candidate into one of three groups based on setup readiness:
+  "active_setup" = setup is fully formed, at or very close to pivot, ready for a buy signal. Price within 2% of pivot. All Trend Template criteria passing. Base pattern valid. RS line confirmed.
+  "near_pivot" = setup is building toward a pivot. Price 2–10% below pivot. Trend Template passing. Base pattern forming but not yet tight enough for entry.
+  "developing" = early-stage candidate. Trend Template passing. No clear base yet or price more than 10% below any pivot. Worth monitoring but not actionable.
+  null = cannot be classified — missing data or setup is invalid.
+
+ibd_group (string or null)
+  The IBD Industry Group name this stock belongs to. Use the exact IBD group name where possible (e.g. "Medical-Biomed/Biotech", "Computer Software-Enterprise", "Semiconductor-Equipment"). If the IBD group name is not available, use the closest GICS industry group name. Return null if you cannot determine the group with confidence.
+
+ibd_group_zone (integer: 1, 2, 3, or 4, or null)
+  The zone classification based on IBD's current industry group ranking out of ~197 groups:
+  1 = ranks 1–40 (top 20%) — SEPA® eligible, strongest sector momentum
+  2 = ranks 41–80 — acceptable but not ideal
+  3 = ranks 81–120 — avoid for new entries
+  4 = ranks 121–197 — hard avoid, institutional headwind
+  Use the industry_group_rank field already assigned to determine the zone:
+  - If industry_group_rank is 1–40: return 1
+  - If industry_group_rank is 41–80: return 2
+  - If industry_group_rank is 81–120: return 3
+  - If industry_group_rank is 121–197: return 4
+  - If industry_group_rank is null: return null
+
+catalyst_type (string or null)
+  The primary fundamental catalyst driving this stock's earnings and revenue growth. Select the single best match from these 9 types:
+  "earnings_acceleration" = EPS growth accelerating over 3+ consecutive quarters — the strongest SEPA® catalyst. Size at full grade risk %.
+  "revenue_acceleration" = Revenue growth accelerating quarter-over-quarter, even if EPS is not yet fully reflecting it. Full size.
+  "new_product_service" = A new product, platform, or service that is materially changing the revenue trajectory. Full size if in early adoption phase.
+  "regulatory_approval" = FDA approval, government contract award, or similar approval event that has already occurred (not pending — binary events are captured in binary_event_risk). Full size post-approval.
+  "spinoff_restructuring" = Recent spin-off, merger completion, or major restructuring that has reset the growth profile. Size at 50-75% until first earnings post-event.
+  "management_change" = New CEO/CFO with a credible turnaround or growth mandate. Size at 50% until first earnings under new management confirms the thesis.
+  "sector_rotation" = No specific company catalyst — stock is rising on broad sector or macro tailwinds. Size at 50% — sector rotation setups have shorter duration.
+  "macro_theme" = Direct beneficiary of a multi-year macro trend (AI infrastructure, GLP-1, defence spending, reshoring). Full size if earnings are already accelerating.
+  "none_identified" = No clear fundamental catalyst identified. This should lower the setup grade — a technically valid setup without a catalyst is a B or C at best.
+  Return null only if you cannot research the company.
+
+institutional_trend (string: "accumulating", "neutral", or "distributing", or null)
+  The net direction of institutional ownership over the past 2 quarters based on 13F filings and fund flow data:
+  "accumulating" = Net new institutional buyers in the last 1-2 quarters. Number of funds holding is increasing. This is a positive confirmation signal.
+  "neutral" = Institutional ownership stable — neither meaningfully increasing nor decreasing.
+  "distributing" = Net institutional selling. Number of funds holding is decreasing. This is a warning signal even if price is holding.
+  Use SEC EDGAR 13F data, WhaleWisdom, or similar. Return null if data is unavailable.
+
+insider_buying (boolean or null)
+  True if company insiders (CEO, CFO, board members) have made open-market purchases of shares in the past 90 days — not option exercises, not automatic 10b5-1 plan purchases. Open-market buys signal conviction. False if no insider buying or if insiders are net sellers. Use SEC Form 4 data. Return null if data is unavailable.
+
+short_interest_trend (string: "increasing", "stable", or "decreasing", or null)
+  The direction of short interest as a % of float over the past 30-60 days:
+  "increasing" = Short interest rising — bears are pressing. This adds fuel to a potential short squeeze if the breakout occurs on volume.
+  "stable" = Short interest flat.
+  "decreasing" = Short interest declining — bears are covering. This can indicate that the stock's thesis is strengthening.
+  Note: High short interest + strong institutional accumulation + valid base pattern = ideal setup for a violent short squeeze breakout.
+
+base_count (integer: 1, 2, 3, or 4, or null)
+  Which base in the current price advance is this setup forming?
+  1 = First base after a significant move off lows or breakout from a long consolidation. Highest potential — institutions are still early in their accumulation.
+  2 = Second base. Still acceptable. Trend is established, risk is that it is becoming more crowded.
+  3 = Third base. Proceed with caution — late-stage advances are more prone to failure. Reduce to 50% of standard size.
+  4 = Fourth base or later. Hard avoid — this is a Stage 3 top candidate. Set setup_grade to "C" at best regardless of technical quality.
+  Count only valid SEPA® bases (VCP, flat base, cup-with-handle, ascending base) — do not count minor consolidations. Return null if you cannot determine with confidence.
+  IMPORTANT: If base_count is 3 or 4, explicitly note this in your grade rationale and apply the late-stage caution rules above.
+
+likely_failure_type (string or null)
+  Based on the current market environment and this specific setup, which of these 5 failure types is most likely if this trade fails? Select one:
+  "institutional_reversal" = Day 1 reversal on high volume — large institutions reject the breakout immediately. Most likely when: volume at breakout is high but price closes in the lower half of the range, or when the broader market is under distribution. Response: exit same day if price closes below pivot on volume.
+  "fade" = Day 3–7 slow fade — price drifts back toward the pivot over several days without a sharp reversal. Most likely when: the base is 2nd or 3rd (later stage), sector momentum is weakening, or breakout volume was only marginally above average. Response: use Day 7 rule — if no progress after 7 days, exit at breakeven.
+  "gap_down" = Overnight gap-down on news — sudden adverse catalyst. Most likely when: earnings are within 30 days, binary_event_risk is true, or the stock has a history of volatile news reactions. Response: exit at market open regardless of gap size.
+  "limbo" = Extended limbo — price hovers just above pivot without advancing for 10+ days. Most likely when: market phase is under_pressure, volume has dried up post-breakout, or sector has stalled. Response: exit after Day 11 if price has not advanced at least 5% from pivot.
+  "sector_rotation" = Sector rotation stop-out — the stock's sector loses leadership while individual stock fundamentals remain intact. Most likely when: ibd_group_zone is 2 or 3, the stock is in a cyclical sector, or macro environment is shifting. Response: keep stock on watchlist after exit — may re-enter if sector leadership returns.
+  Return null if you cannot assess the likely failure type with confidence.
+
+failure_response (string or null)
+  One sentence describing the exact response if the likely_failure_type occurs — what to do, when to do it, and what to watch for. This should be specific enough to act on without consulting any other document. Example: "Exit same day if price closes below $142.50 on volume above 800K — do not wait for the next morning." Return null if likely_failure_type is null.
 
 TODAY'S DATE: ${today}
 
@@ -250,6 +371,7 @@ export default function CandidatesPage() {
             setup_grade,
             trend_template_pass,
             rs_line_confirmed,
+            rs_line_state,
             base_pattern_valid,
             entry_near_pivot,
             volume_dry_up_pass,
@@ -262,7 +384,17 @@ export default function CandidatesPage() {
             entry_zone_high,
             stop_price,
             target_1_price,
-            target_2_price
+            target_2_price,
+            watchlist_group,
+            ibd_group,
+            ibd_group_zone,
+            catalyst_type,
+            institutional_trend,
+            insider_buying,
+            short_interest_trend,
+            base_count,
+            likely_failure_type,
+            failure_response
           `)
             .eq('source', 'automation')
             .eq('signal_state', 'candidate')
@@ -401,6 +533,7 @@ export default function CandidatesPage() {
           setup_grade,
           trend_template_pass,
           rs_line_confirmed,
+          rs_line_state,
           base_pattern_valid,
           entry_near_pivot,
           volume_dry_up_pass,
@@ -413,7 +546,17 @@ export default function CandidatesPage() {
           entry_zone_high,
           stop_price,
           target_1_price,
-          target_2_price
+          target_2_price,
+          watchlist_group,
+          ibd_group,
+          ibd_group_zone,
+          catalyst_type,
+          institutional_trend,
+          insider_buying,
+          short_interest_trend,
+          base_count,
+          likely_failure_type,
+          failure_response
         `)
         .eq('source', 'automation')
         .eq('signal_state', 'candidate')
@@ -431,7 +574,7 @@ export default function CandidatesPage() {
     return (
       <main className="ui-page">
         <section className="mx-auto max-w-7xl">
-        <AppHeader title="Candidates" />
+          <AppHeader title="Candidates" />
           <div className="mt-8 text-sm text-neutral-600 dark:text-[#a8b2bf]">
             Loading candidates...
           </div>
@@ -443,7 +586,7 @@ export default function CandidatesPage() {
   return (
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
-      <AppHeader title="Candidates" />
+        <AppHeader title="Candidates" />
 
         {!screenerEnabled && candidates.length === 0 ? (
           <div className="ui-section mt-8 text-neutral-700 dark:text-[#a8b2bf]">
@@ -575,6 +718,32 @@ export default function CandidatesPage() {
   )
 }
 
+function isValidRsLineStateApply(value: unknown): boolean {
+  return value === null || ['leading', 'confirmed', 'warning'].includes(String(value))
+}
+
+function isValidCatalystTypeApply(value: unknown): boolean {
+  return value === null || [
+    'earnings_acceleration', 'revenue_acceleration', 'new_product_service',
+    'management_change', 'regulatory_approval', 'spinoff_restructuring',
+    'sector_rotation', 'macro_theme', 'none_identified'
+  ].includes(String(value))
+}
+
+function isValidInstitutionalTrendApply(value: unknown): boolean {
+  return value === null || ['accumulating', 'neutral', 'distributing'].includes(String(value))
+}
+
+function isValidShortInterestTrendApply(value: unknown): boolean {
+  return value === null || ['increasing', 'stable', 'decreasing'].includes(String(value))
+}
+
+function isValidLikelyFailureTypeApply(value: unknown): boolean {
+  return value === null || [
+    'institutional_reversal', 'fade', 'gap_down', 'limbo', 'sector_rotation'
+  ].includes(String(value))
+}
+
 function isCandidateReadyForApply(
   row: unknown
 ): row is Record<string, unknown> {
@@ -619,6 +788,21 @@ function isCandidateReadyForApply(
 
   const validAccDist = ['A', 'B', 'C', 'D', 'E', null]
   if (!validAccDist.includes(r.acc_dist_rating as string | null)) return false
+
+  const validWatchlistGroups = ['active_setup', 'near_pivot', 'developing', null]
+  if (!validWatchlistGroups.includes(r.watchlist_group as string | null)) return false
+
+  if (r.ibd_group !== null && typeof r.ibd_group !== 'string') return false
+  const validZones = [1, 2, 3, 4, null]
+  if (!validZones.includes(r.ibd_group_zone as number | null)) return false
+  if (!isValidRsLineStateApply(r.rs_line_state)) return false
+  if (!isValidCatalystTypeApply(r.catalyst_type)) return false
+  if (!isValidInstitutionalTrendApply(r.institutional_trend)) return false
+  if (r.insider_buying !== null && typeof r.insider_buying !== 'boolean') return false
+  if (!isValidShortInterestTrendApply(r.short_interest_trend)) return false
+  if (r.base_count !== null && (typeof r.base_count !== 'number' || r.base_count < 1 || r.base_count > 4)) return false
+  if (!isValidLikelyFailureTypeApply(r.likely_failure_type)) return false
+  if (r.failure_response !== null && typeof r.failure_response !== 'string') return false
 
   return true
 }

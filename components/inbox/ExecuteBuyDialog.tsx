@@ -9,6 +9,10 @@ type Props = {
     actualFillPrice: number
     actualQuantity: number
     notes: string
+    emotionalState: string
+    convictionLevel: string
+    entryThesis: string
+    topRisk: string
   }) => void | Promise<void>
   onCancel: () => void
 }
@@ -18,6 +22,10 @@ export function ExecuteBuyDialog({ action, onConfirm, onCancel }: Props) {
   const [actualFillPrice, setActualFillPrice] = useState('')
   const [actualQuantity, setActualQuantity] = useState('')
   const [notes, setNotes] = useState('')
+  const [emotionalState, setEmotionalState] = useState('')
+  const [convictionLevel, setConvictionLevel] = useState('')
+  const [entryThesis, setEntryThesis] = useState('')
+  const [topRisk, setTopRisk] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<{ fillPrice?: string; quantity?: string }>({})
 
@@ -45,6 +53,10 @@ export function ExecuteBuyDialog({ action, onConfirm, onCancel }: Props) {
       actualFillPrice: fillPrice,
       actualQuantity: quantity,
       notes,
+      emotionalState,
+      convictionLevel,
+      entryThesis,
+      topRisk,
     })
     setSubmitting(false)
   }
@@ -107,6 +119,67 @@ export function ExecuteBuyDialog({ action, onConfirm, onCancel }: Props) {
               onChange={(e) => setNotes(e.target.value)}
               className="ui-input"
               placeholder="Optional notes"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-900">
+              Emotional state at entry
+            </label>
+            <select
+              value={emotionalState}
+              onChange={(e) => setEmotionalState(e.target.value)}
+              className="ui-select"
+            >
+              <option value="">Select...</option>
+              <option value="calm">Calm</option>
+              <option value="confident">Confident</option>
+              <option value="neutral">Neutral</option>
+              <option value="anxious">Anxious</option>
+              <option value="fomo">FOMO</option>
+              <option value="impatient">Impatient</option>
+              <option value="excited">Excited</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-900">
+              Conviction level
+            </label>
+            <select
+              value={convictionLevel}
+              onChange={(e) => setConvictionLevel(e.target.value)}
+              className="ui-select"
+            >
+              <option value="">Select...</option>
+              <option value="very_high">Very High</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-900">
+              Entry thesis
+            </label>
+            <textarea
+              value={entryThesis}
+              onChange={(e) => setEntryThesis(e.target.value)}
+              className="ui-textarea min-h-20"
+              placeholder="1-2 sentences: why are you taking this trade?"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-900">
+              Top risk
+            </label>
+            <textarea
+              value={topRisk}
+              onChange={(e) => setTopRisk(e.target.value)}
+              className="ui-textarea min-h-16"
+              placeholder="The single biggest risk if this trade fails"
             />
           </div>
         </div>

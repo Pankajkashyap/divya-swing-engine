@@ -20,6 +20,7 @@ export type PendingAction = {
     | 'watchlist_removal'
     | 'manual_reconciliation'
     | 'streak_alert'
+    | 'hold_alert'
   state:
     | 'awaiting_confirmation'
     | 'snoozed'
@@ -581,6 +582,10 @@ export default function InboxPage() {
     (action) => action.action_type === 'streak_alert'
   )
 
+  const holdAlertActions = pendingActions.filter(
+    (action) => action.action_type === 'hold_alert'
+  )
+
   const watchlistRemovalActions = pendingActions.filter(
     (action) => action.action_type === 'watchlist_removal'
   )
@@ -588,7 +593,8 @@ export default function InboxPage() {
   const tableActions = pendingActions.filter(
     (action) =>
       action.action_type !== 'watchlist_removal' &&
-      action.action_type !== 'streak_alert'
+      action.action_type !== 'streak_alert' &&
+      action.action_type !== 'hold_alert'
   )
 
   if (loading) {
@@ -658,6 +664,48 @@ export default function InboxPage() {
                         disabled={executingId === action.id}
                       >
                         {executingId === action.id ? 'Working...' : 'Dismiss'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
+
+          {holdAlertActions.length > 0 ? (
+            <div className="mb-6 space-y-3">
+              {holdAlertActions.map((action) => {
+                const daysHeld = typeof action.payload_json?.daysHeld === 'number'
+                  ? action.payload_json.daysHeld
+                  : null
+                const weeksHeld = daysHeld !== null ? Math.floor(daysHeld / 7) : null
+
+                return (
+                  <div key={action.id} className="ui-card p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                          {action.title}
+                        </div>
+                        {action.message ? (
+                          <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                            {action.message}
+                          </p>
+                        ) : null}
+                      </div>
+                      <span className="ui-pill-neutral shrink-0">
+                        {weeksHeld !== null ? `Week ${weeksHeld}` : '8-Week Rule'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="ui-btn-secondary"
+                        onClick={() => handleDismiss(action.id)}
+                        disabled={executingId === action.id}
+                      >
+                        {executingId === action.id ? 'Working...' : 'Reviewed — Dismiss'}
                       </button>
                     </div>
                   </div>

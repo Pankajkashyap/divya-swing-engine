@@ -38,6 +38,7 @@ type TradeRow = {
   side: string | null
   status: 'open' | 'partial' | 'closed' | null
   trade_state: 'open' | 'partial' | 'closed' | null
+  entry_date: string | null
   entry_price_actual: number | null
   shares_entered: number | null
   shares_exited: number | null
@@ -48,6 +49,7 @@ type TradeRow = {
   last_stop_alert_at: string | null
   last_target_1_alert_at: string | null
   last_target_2_alert_at: string | null
+  last_hold_alert_at: string | null
 }
 
 type TradeSummary = {
@@ -56,6 +58,7 @@ type TradeSummary = {
   stopAlertFired: boolean
   target1AlertFired: boolean
   target2AlertFired: boolean
+  holdAlertFired: boolean
   emailSent: boolean | null
   entryPrice: number | null
   sharesHeld: number
@@ -176,6 +179,7 @@ Deno.serve(async (request: Request) => {
         side,
         status,
         trade_state,
+        entry_date,
         entry_price_actual,
         shares_entered,
         shares_exited,
@@ -185,7 +189,8 @@ Deno.serve(async (request: Request) => {
         last_monitored_at,
         last_stop_alert_at,
         last_target_1_alert_at,
-        last_target_2_alert_at
+        last_target_2_alert_at,
+        last_hold_alert_at
       `)
       .in('status', ['open', 'partial'])
       .in('trade_state', ['open', 'partial'])
@@ -215,6 +220,7 @@ Deno.serve(async (request: Request) => {
           stopAlertsFired: 0,
           target1AlertsFired: 0,
           target2AlertsFired: 0,
+          holdAlertsFired: 0,
           windowKey,
           tradeSummaries: [],
         },
@@ -246,6 +252,7 @@ Deno.serve(async (request: Request) => {
           stopAlertsFired: 0,
           target1AlertsFired: 0,
           target2AlertsFired: 0,
+          holdAlertsFired: 0,
           windowKey,
         },
         200
@@ -256,6 +263,7 @@ Deno.serve(async (request: Request) => {
     let stopAlertsFired = 0
     let target1AlertsFired = 0
     let target2AlertsFired = 0
+    let holdAlertsFired = 0
 
     const tradeSummaries: TradeSummary[] = []
 
@@ -264,6 +272,7 @@ Deno.serve(async (request: Request) => {
       let stopAlertFired = false
       let target1AlertFired = false
       let target2AlertFired = false
+      let holdAlertFired = false
       let emailSent: boolean | null = null
 
       try {
@@ -286,6 +295,7 @@ Deno.serve(async (request: Request) => {
             stopAlertFired,
             target1AlertFired,
             target2AlertFired,
+            holdAlertFired,
             emailSent,
             entryPrice: trade.entry_price_actual ?? null,
             sharesHeld: sharesHeldForTrade(trade),
@@ -737,12 +747,70 @@ Deno.serve(async (request: Request) => {
           }
         }
 
+        // Hold timer — Day 56 alert (8-week hold rule)
+        if (trade.entry_date) {
+          const entryDate = new Date(trade.entry_date)
+          const today = new Date()
+          const daysHeld = Math.floor(
+            (today.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)
+          )
+
+          if (daysHeld >= 56) {
+            const lastHoldAlert = trade.last_hold_alert_at
+              ? new Date(trade.last_hold_alert_at)
+              : null
+            const daysSinceLastAlert = lastHoldAlert
+              ? Math.floor((today.getTime() - lastHoldAlert.getTime()) / (1000 * 60 * 60 * 24))
+              : null
+
+            const shouldFireHoldAlert =
+              !lastHoldAlert || (daysSinceLastAlert !== null && daysSinceLastAlert >= 7)
+
+            if (shouldFireHoldAlert) {
+              const existingHoldAction = await getUnresolvedPendingAction({
+                userId,
+                ticker: trade.ticker,
+                actionType: 'hold_alert',
+              })
+
+              if (!existingHoldAction) {
+                const holdActionResult = await createPendingAction({
+                  userId,
+                  ticker: trade.ticker,
+                  actionType: 'hold_alert',
+                  urgency: 'normal',
+                  title: `8-Week Hold Rule — ${trade.ticker} (Day ${daysHeld})`,
+                  message: `This position has been held for ${daysHeld} days (${Math.floor(daysHeld / 7)} weeks). If it gained 20%+ in the first 3 weeks, the 8-week hold rule applies — do not trim before Day 56 without a climax top signal. Review now and confirm your hold or exit decision.`,
+                  tradeId: trade.id,
+                  expiresAt: undefined,
+                  payloadJson: {
+                    daysHeld,
+                    entryDate: trade.entry_date,
+                    entryPrice: trade.entry_price_actual,
+                  },
+                })
+
+                if (holdActionResult.created) {
+                  await supabase
+                    .from('trades')
+                    .update({ last_hold_alert_at: new Date().toISOString() })
+                    .eq('id', trade.id)
+
+                  holdAlertFired = true
+                  holdAlertsFired += 1
+                }
+              }
+            }
+          }
+        }
+
         tradeSummaries.push({
           ticker: trade.ticker,
           currentPrice,
           stopAlertFired,
           target1AlertFired,
           target2AlertFired,
+          holdAlertFired,
           emailSent,
           entryPrice: trade.entry_price_actual ?? null,
           sharesHeld: sharesHeldForTrade(trade),
@@ -760,6 +828,7 @@ Deno.serve(async (request: Request) => {
           stopAlertFired,
           target1AlertFired,
           target2AlertFired,
+          holdAlertFired,
           emailSent,
           entryPrice: trade.entry_price_actual ?? null,
           sharesHeld: sharesHeldForTrade(trade),
@@ -776,6 +845,7 @@ Deno.serve(async (request: Request) => {
         stopAlertsFired,
         target1AlertsFired,
         target2AlertsFired,
+        holdAlertsFired,
         windowKey,
         tradeSummaries,
       },
@@ -824,6 +894,7 @@ Deno.serve(async (request: Request) => {
         stopAlertsFired,
         target1AlertsFired,
         target2AlertsFired,
+        holdAlertsFired,
         windowKey,
       },
       200
