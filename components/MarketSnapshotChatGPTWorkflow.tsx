@@ -3,29 +3,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type MarketSnapshotPayload = {
-  market_phase:
-    | 'confirmed_uptrend'
-    | 'under_pressure'
-    | 'rally_attempt'
-    | 'correction'
-    | 'bear'
-  max_long_exposure_pct: number
+type RawMarketData = {
   spy_price: number
   spy_change_pct: number
   spy_above_50dma: boolean
   spy_above_150dma: boolean
   spy_above_200dma: boolean
+  spy_200dma_trending_up: boolean
   distribution_days: number
   ftd_active: boolean
+  ftd_invalidated: boolean
+  new_highs_count: number
+  new_lows_count: number
   leading_sectors: string
-  reasoning: string
 }
 
 type ApplyResult =
   | {
       success: true
-      market_phase: MarketSnapshotPayload['market_phase']
+      market_phase:
+        | 'confirmed_uptrend'
+        | 'under_pressure'
+        | 'rally_attempt'
+        | 'correction'
+        | 'bear'
       max_long_exposure_pct: number
       snapshot_date: string
     }
@@ -34,134 +35,82 @@ type ApplyResult =
 function buildClipboardContent(): string {
   const today = new Date().toISOString().slice(0, 10)
 
-  return `You are a professional market analyst specialising in Mark Minervini's SEPA® methodology and IBD market timing. Your job is to assess the current broad market condition and return a structured JSON that will be used to configure a swing trading system.
+  return `You are a financial data researcher. Your only job is to look up current market data and return it as a JSON object. You do NOT determine market phase, exposure, or make any judgement calls. You collect raw facts only.
 
 STRICT OUTPUT RULES:
-- Return ONLY a valid JSON object. No markdown, no explanation, no backticks, no preamble.
+- Return ONLY a valid JSON object. No markdown, no explanation, no backticks, no preamble, no trailing text.
 - All fields must be present. Do not add, rename, or remove any fields.
+- Return null for any field you cannot determine with confidence — do not guess.
 
-RESEARCH INSTRUCTIONS:
-Using your web browsing capability, look up the following for TODAY:
+RESEARCH INSTRUCTIONS — look up the following for TODAY (${today}):
 
-1. SPY and QQQ:
-   - Current price and % change today
-   - 50-day, 150-day, and 200-day moving averages
-   - Whether price is above or below each MA
-   - 52-week high and 52-week low
+1. SPY price and daily change:
+   - Current SPY price (closing price or latest price if market is open)
+   - SPY % change today
 
-2. Distribution Days:
-   - Count the number of distribution days on SPY over the last 25 trading sessions
-   - A distribution day = SPY closes DOWN 0.2% or more on HIGHER volume than the prior session
-   - Count only days in the last 25 sessions. Discard any older than 25 sessions.
+2. SPY moving averages:
+   - Is SPY currently trading ABOVE its 50-day simple moving average? (true/false)
+   - Is SPY currently trading ABOVE its 150-day simple moving average? (true/false)
+   - Is SPY currently trading ABOVE its 200-day simple moving average? (true/false)
+   - Has the 200-day simple moving average been trending UPWARD for at least the past month? (true/false)
 
-3. Follow-Through Day:
-   - Determine if a valid Follow-Through Day (FTD) is currently active
-   - FTD = on day 4 or later of a rally attempt, a major index closes UP 1.7%+ on higher volume than prior session
-   - Has this FTD been invalidated by a subsequent distribution cluster or undercut of rally lows?
+3. Distribution days (count carefully):
+   - Look at each of the last 25 trading sessions on SPY
+   - A distribution day = SPY closed DOWN 0.2% or more AND volume was HIGHER than the prior session
+   - Count only sessions within the last 25. Do not include older sessions.
+   - Return the total count as an integer.
 
-4. Market Breadth:
-   - Are more stocks making new 52-week highs or lows?
-   - Is the advance/decline line trending up or down?
+4. Follow-Through Day:
+   - Is there a currently active Follow-Through Day? (FTD = on day 4 or later of a rally attempt, SPY or QQQ closed UP 1.7% or more on higher volume than the prior session)
+   - Has that FTD been invalidated? (invalidated = subsequent distribution cluster of 3+ days within 5 sessions, OR market undercut the low of the rally attempt that preceded the FTD)
+   - Return ftd_active: true only if an FTD occurred and has NOT been invalidated
+   - Return ftd_invalidated: true if an FTD occurred but was subsequently invalidated
 
-5. Sector Leadership:
+5. Market breadth:
+   - How many stocks made new 52-week highs today on NYSE + NASDAQ combined? (integer)
+   - How many stocks made new 52-week lows today on NYSE + NASDAQ combined? (integer)
+
+6. Sector leadership:
    - Which 2-3 sectors are showing the strongest relative strength right now?
-   - Are leading stocks breaking out or failing?
-
-PHASE DETERMINATION RULES:
-Use the following rules strictly to determine market_phase:
-
-"confirmed_uptrend":
-- FTD is active and not invalidated
-- Distribution days: 0-3
-- SPY above 50-day, 150-day, and 200-day MA
-- More new highs than new lows
-- Leading stocks breaking out successfully
-
-"under_pressure":
-- Distribution days: 4-5
-- OR SPY below 50-day MA but above 150-day MA
-- OR FTD active but showing signs of stalling
-- Leading stocks having mixed results
-
-"rally_attempt":
-- Market sold off and is bouncing
-- No confirmed FTD yet
-- SPY attempting to reclaim key MAs
-- Wait for FTD before committing capital
-
-"correction":
-- Distribution days: 5+
-- OR SPY below 50-day and 150-day MA
-- OR FTD has been invalidated
-- Avoid new long entries
-
-"bear":
-- SPY below all three MAs (50, 150, 200-day)
-- 200-day MA trending down
-- New lows swamping new highs
-- Leading stocks breaking down
-- No new long entries under any circumstances
-
-MAX LONG EXPOSURE RULES:
-- confirmed_uptrend: 100
-- under_pressure: 50
-- rally_attempt: 25
-- correction: 0
-- bear: 0
+   - Return as a comma-separated string
 
 TODAY'S DATE: ${today}
 
-RETURN THIS EXACT JSON STRUCTURE:
+RETURN THIS EXACT JSON STRUCTURE — raw data only, no phase determination:
 {
-  "market_phase": "confirmed_uptrend",
-  "max_long_exposure_pct": 100,
   "spy_price": 0.00,
   "spy_change_pct": 0.00,
   "spy_above_50dma": true,
   "spy_above_150dma": true,
   "spy_above_200dma": true,
+  "spy_200dma_trending_up": true,
   "distribution_days": 0,
   "ftd_active": true,
-  "leading_sectors": "Technology, Healthcare",
-  "reasoning": "2-3 sentence summary of why this phase was chosen"
+  "ftd_invalidated": false,
+  "new_highs_count": 0,
+  "new_lows_count": 0,
+  "leading_sectors": "Technology, Healthcare"
 }`
 }
 
-function isValidMarketSnapshotJson(
-  row: unknown
-): row is MarketSnapshotPayload {
+function isValidRawData(row: unknown): row is RawMarketData {
   if (typeof row !== 'object' || row === null) return false
-
   const r = row as Record<string, unknown>
 
-  const validPhases = [
-    'confirmed_uptrend',
-    'under_pressure',
-    'rally_attempt',
-    'correction',
-    'bear',
-  ]
-  if (!validPhases.includes(r.market_phase as string)) return false
-  if (
-    typeof r.max_long_exposure_pct !== 'number' ||
-    r.max_long_exposure_pct < 0 ||
-    r.max_long_exposure_pct > 100
-  ) return false
-  if (typeof r.spy_price !== 'number' || r.spy_price <= 0) return false
-  if (typeof r.spy_change_pct !== 'number') return false
-  if (typeof r.spy_above_50dma !== 'boolean') return false
-  if (typeof r.spy_above_150dma !== 'boolean') return false
-  if (typeof r.spy_above_200dma !== 'boolean') return false
-  if (
-    typeof r.distribution_days !== 'number' ||
-    r.distribution_days < 0 ||
-    !Number.isInteger(r.distribution_days)
-  ) return false
-  if (typeof r.ftd_active !== 'boolean') return false
-  if (typeof r.leading_sectors !== 'string' || !r.leading_sectors.trim()) return false
-  if (typeof r.reasoning !== 'string' || !r.reasoning.trim()) return false
-
-  return true
+  return (
+    typeof r.spy_price === 'number' && r.spy_price > 0 &&
+    typeof r.spy_change_pct === 'number' &&
+    typeof r.spy_above_50dma === 'boolean' &&
+    typeof r.spy_above_150dma === 'boolean' &&
+    typeof r.spy_above_200dma === 'boolean' &&
+    typeof r.spy_200dma_trending_up === 'boolean' &&
+    typeof r.distribution_days === 'number' && r.distribution_days >= 0 &&
+    typeof r.ftd_active === 'boolean' &&
+    typeof r.ftd_invalidated === 'boolean' &&
+    typeof r.new_highs_count === 'number' && r.new_highs_count >= 0 &&
+    typeof r.new_lows_count === 'number' && r.new_lows_count >= 0 &&
+    typeof r.leading_sectors === 'string' && r.leading_sectors.trim().length > 0
+  )
 }
 
 async function copyTextWithFallback(text: string): Promise<void> {
@@ -185,7 +134,7 @@ export function MarketSnapshotChatGPTWorkflow() {
   const router = useRouter()
   const [copySuccess, setCopySuccess] = useState(false)
   const [importText, setImportText] = useState('')
-  const [parsedImport, setParsedImport] = useState<MarketSnapshotPayload | null>(null)
+  const [parsedImport, setParsedImport] = useState<RawMarketData | null>(null)
   const [importValidation, setImportValidation] = useState<
     'empty' | 'valid' | 'invalid' | 'schema'
   >('empty')
@@ -212,7 +161,7 @@ export function MarketSnapshotChatGPTWorkflow() {
     try {
       const parsed = JSON.parse(importText) as unknown
 
-      if (!isValidMarketSnapshotJson(parsed)) {
+      if (!isValidRawData(parsed)) {
         setImportValidation('schema')
         setParsedImport(null)
         return
@@ -240,12 +189,10 @@ export function MarketSnapshotChatGPTWorkflow() {
     setImportError(null)
 
     try {
-      const localDate = new Date().toLocaleDateString('en-CA')
-
       const response = await fetch('/api/market-snapshot/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...parsedImport, snapshot_date: localDate }),
+        body: JSON.stringify(parsedImport),
       })
 
       const result = (await response.json()) as ApplyResult
@@ -327,6 +274,16 @@ export function MarketSnapshotChatGPTWorkflow() {
             </span>
           )}
         </div>
+
+        {importValidation === 'valid' && parsedImport ? (
+          <div className="mt-3 space-y-1 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600 dark:border-[#2a313b] dark:bg-[#181d23] dark:text-[#a8b2bf]">
+            <div>SPY: ${parsedImport.spy_price} ({parsedImport.spy_change_pct > 0 ? '+' : ''}{parsedImport.spy_change_pct}%)</div>
+            <div>MAs: 50d {parsedImport.spy_above_50dma ? '✓' : '✗'} · 150d {parsedImport.spy_above_150dma ? '✓' : '✗'} · 200d {parsedImport.spy_above_200dma ? '✓' : '✗'} · 200d trend {parsedImport.spy_200dma_trending_up ? '↑' : '↓'}</div>
+            <div>Distribution days: {parsedImport.distribution_days} · FTD: {parsedImport.ftd_active ? 'Active' : 'None'} · Invalidated: {parsedImport.ftd_invalidated ? 'Yes' : 'No'}</div>
+            <div>New highs: {parsedImport.new_highs_count} · New lows: {parsedImport.new_lows_count}</div>
+            <div>Leading sectors: {parsedImport.leading_sectors}</div>
+          </div>
+        ) : null}
 
         {importSuccess ? (
           <div className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
