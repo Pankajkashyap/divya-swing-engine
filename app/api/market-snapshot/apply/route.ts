@@ -193,23 +193,33 @@ export async function POST(request: Request) {
   const today = new Date().toLocaleDateString('en-CA')
   const { market_phase, max_long_exposure_pct, reasoning } = determineMarketPhase(body)
 
-  const fullPayload = {
+const fullPayload = {
     user_id: user.id,
     snapshot_date: today,
     market_phase,
     max_long_exposure_pct,
+    // New columns
     spy_price: body.spy_price,
     spy_change_pct: body.spy_change_pct,
     spy_above_50dma: body.spy_above_50dma,
     spy_above_150dma: body.spy_above_150dma,
     spy_above_200dma: body.spy_above_200dma,
+    spy_200dma_trending_up: body.spy_200dma_trending_up,
     distribution_days: body.distribution_days,
-    ftd_active: body.ftd_active,
     leading_sectors: body.leading_sectors,
     reasoning,
+    // Existing columns — mapped for backwards compatibility
+    spx_distribution_days: body.distribution_days,
+    indexes_above_50dma: body.spy_above_50dma,
+    indexes_above_150dma: body.spy_above_150dma,
+    indexes_above_200dma: body.spy_above_200dma,
+    ftd_active: body.ftd_active,
+    new_highs_count: body.new_highs_count,
+    new_lows_count: body.new_lows_count,
     source: 'automation',
     last_market_scan_at: new Date().toISOString(),
   }
+
 
   const { error } = await supabase
     .from('market_snapshots')
