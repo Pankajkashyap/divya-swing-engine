@@ -199,8 +199,9 @@ export function MarketSnapshotChatGPTWorkflow() {
         setImportSuccess(
           `Market snapshot updated for ${result.snapshot_date}. Phase: ${result.market_phase}. Max exposure: ${result.max_long_exposure_pct}%.`
         )
-        setImportText('')
-        router.refresh()
+      setImportText('')
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      router.refresh()
       }
     } catch {
       setImportError('Failed to apply update.')
