@@ -422,3 +422,6 @@ verify_jwt = false
 
 [functions.watchlist-screener]
 verify_jwt = false
+
+[functions.calculate-market-technicals]
+verify_jwt = false

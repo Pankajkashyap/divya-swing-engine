@@ -6,15 +6,8 @@ import { useRouter } from 'next/navigation'
 type RawMarketData = {
   spy_price: number
   spy_change_pct: number
-  spy_above_50dma: boolean
-  spy_above_150dma: boolean
-  spy_above_200dma: boolean
-  spy_200dma_trending_up: boolean
-  distribution_days: number
-  ftd_active: boolean
-  ftd_invalidated: boolean
-  new_highs_count: number
-  new_lows_count: number
+  new_highs_count: number | null
+  new_lows_count: number | null
   leading_sectors: string
 }
 
@@ -33,63 +26,72 @@ type ApplyResult =
   | { error: string }
 
 function buildClipboardContent(): string {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA')
 
-  return `You are a financial data researcher. Your only job is to look up current market data and return it as a JSON object. You do NOT determine market phase, exposure, or make any judgement calls. You collect raw facts only.
+  return `You are a financial data researcher. Your only job is to 
+look up 3 specific data points and return them as a JSON 
+object.
 
 STRICT OUTPUT RULES:
-- Return ONLY a valid JSON object. No markdown, no explanation, no backticks, no preamble, no trailing text.
-- All fields must be present. Do not add, rename, or remove any fields.
-- Return null for any field you cannot determine with confidence — do not guess.
-
-RESEARCH INSTRUCTIONS — look up the following for TODAY (${today}):
-
-1. SPY price and daily change:
-   - Current SPY price (closing price or latest price if market is open)
-   - SPY % change today
-
-2. SPY moving averages:
-   - Is SPY currently trading ABOVE its 50-day simple moving average? (true/false)
-   - Is SPY currently trading ABOVE its 150-day simple moving average? (true/false)
-   - Is SPY currently trading ABOVE its 200-day simple moving average? (true/false)
-   - Has the 200-day simple moving average been trending UPWARD for at least the past month? (true/false)
-
-3. Distribution days (count carefully):
-   - Look at each of the last 25 trading sessions on SPY
-   - A distribution day = SPY closed DOWN 0.2% or more AND volume was HIGHER than the prior session
-   - Count only sessions within the last 25. Do not include older sessions.
-   - Return the total count as an integer.
-
-4. Follow-Through Day:
-   - Is there a currently active Follow-Through Day? (FTD = on day 4 or later of a rally attempt, SPY or QQQ closed UP 1.7% or more on higher volume than the prior session)
-   - Has that FTD been invalidated? (invalidated = subsequent distribution cluster of 3+ days within 5 sessions, OR market undercut the low of the rally attempt that preceded the FTD)
-   - Return ftd_active: true only if an FTD occurred and has NOT been invalidated
-   - Return ftd_invalidated: true if an FTD occurred but was subsequently invalidated
-
-5. Market breadth:
-   - How many stocks made new 52-week highs today on NYSE + NASDAQ combined? (integer)
-   - How many stocks made new 52-week lows today on NYSE + NASDAQ combined? (integer)
-
-6. Sector leadership:
-   - Which 2-3 sectors are showing the strongest relative strength right now?
-   - Return as a comma-separated string
+- Return ONLY a valid JSON object.
+- No markdown, no backticks, no explanation, no preamble, 
+  no trailing text.
+- All 5 fields must be present.
+- Return null for any field you cannot verify with a source.
+  Do not guess. Do not infer.
 
 TODAY'S DATE: ${today}
 
-RETURN THIS EXACT JSON STRUCTURE — raw data only, no phase determination:
+FIELD 1 & 2 — SPY price and change:
+Look up the most recent SPY closing price and % change.
+If today is a weekend or market holiday, use the most 
+recent trading day's close.
+
+FIELD 3 & 4 — New 52-week highs and lows:
+Look up how many stocks made new 52-week highs and new 
+52-week lows today on NYSE + NASDAQ combined.
+Use the most recent trading day if today is not a 
+trading day.
+Preferred sources: WSJ Markets (wsj.com/market-data),
+Barchart.com, or StockCharts.com.
+You MUST find an actual number from an actual source.
+Do not estimate.
+
+FIELD 5 — Sector leadership:
+Look up the 1-month price performance of these 11 ETFs:
+XLE, XLK, XLF, XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC
+Rank them by 1-month % return.
+Return the names of the TOP 2-3 sectors as a 
+comma-separated string.
+Use full sector names, not ETF tickers.
+Example: "Energy, Materials, Industrials"
+
+SELF-VALIDATION — run these checks before returning JSON:
+
+CHECK 1 — Breadth sanity:
+If new_highs_count and new_lows_count are both populated,
+check the ratio. If SPY closed above $560 and new_lows 
+exceed new_highs, re-verify your breadth source. If still
+inconsistent after re-checking, return null for both.
+
+CHECK 2 — Sector verification:
+Do not return Technology or Healthcare as leading sectors
+unless your ETF lookup explicitly confirms XLK or XLV 
+are in the top 2-3 by 1-month return. Default answers 
+are not acceptable.
+
+CHECK 3 — Source confirmation:
+For new_highs_count and new_lows_count, you must have 
+found a specific number from a specific page. If you only
+found general commentary, return null.
+
+RETURN THIS EXACT JSON STRUCTURE:
 {
   "spy_price": 0.00,
   "spy_change_pct": 0.00,
-  "spy_above_50dma": true,
-  "spy_above_150dma": true,
-  "spy_above_200dma": true,
-  "spy_200dma_trending_up": true,
-  "distribution_days": 0,
-  "ftd_active": true,
-  "ftd_invalidated": false,
   "new_highs_count": 0,
   "new_lows_count": 0,
-  "leading_sectors": "Technology, Healthcare"
+  "leading_sectors": "Energy, Materials"
 }`
 }
 
@@ -97,19 +99,28 @@ function isValidRawData(row: unknown): row is RawMarketData {
   if (typeof row !== 'object' || row === null) return false
   const r = row as Record<string, unknown>
 
+  const validNewHighs =
+    r.new_highs_count === null ||
+    (typeof r.new_highs_count === 'number' &&
+      Number.isFinite(r.new_highs_count) &&
+      r.new_highs_count >= 0)
+
+  const validNewLows =
+    r.new_lows_count === null ||
+    (typeof r.new_lows_count === 'number' &&
+      Number.isFinite(r.new_lows_count) &&
+      r.new_lows_count >= 0)
+
   return (
-    typeof r.spy_price === 'number' && r.spy_price > 0 &&
+    typeof r.spy_price === 'number' &&
+    Number.isFinite(r.spy_price) &&
+    r.spy_price > 0 &&
     typeof r.spy_change_pct === 'number' &&
-    typeof r.spy_above_50dma === 'boolean' &&
-    typeof r.spy_above_150dma === 'boolean' &&
-    typeof r.spy_above_200dma === 'boolean' &&
-    typeof r.spy_200dma_trending_up === 'boolean' &&
-    typeof r.distribution_days === 'number' && r.distribution_days >= 0 &&
-    typeof r.ftd_active === 'boolean' &&
-    typeof r.ftd_invalidated === 'boolean' &&
-    typeof r.new_highs_count === 'number' && r.new_highs_count >= 0 &&
-    typeof r.new_lows_count === 'number' && r.new_lows_count >= 0 &&
-    typeof r.leading_sectors === 'string' && r.leading_sectors.trim().length > 0
+    Number.isFinite(r.spy_change_pct) &&
+    validNewHighs &&
+    validNewLows &&
+    typeof r.leading_sectors === 'string' &&
+    r.leading_sectors.trim().length > 0
   )
 }
 
@@ -277,10 +288,14 @@ export function MarketSnapshotChatGPTWorkflow() {
 
         {importValidation === 'valid' && parsedImport ? (
           <div className="mt-3 space-y-1 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600 dark:border-[#2a313b] dark:bg-[#181d23] dark:text-[#a8b2bf]">
-            <div>SPY: ${parsedImport.spy_price} ({parsedImport.spy_change_pct > 0 ? '+' : ''}{parsedImport.spy_change_pct}%)</div>
-            <div>MAs: 50d {parsedImport.spy_above_50dma ? '✓' : '✗'} · 150d {parsedImport.spy_above_150dma ? '✓' : '✗'} · 200d {parsedImport.spy_above_200dma ? '✓' : '✗'} · 200d trend {parsedImport.spy_200dma_trending_up ? '↑' : '↓'}</div>
-            <div>Distribution days: {parsedImport.distribution_days} · FTD: {parsedImport.ftd_active ? 'Active' : 'None'} · Invalidated: {parsedImport.ftd_invalidated ? 'Yes' : 'No'}</div>
-            <div>New highs: {parsedImport.new_highs_count} · New lows: {parsedImport.new_lows_count}</div>
+            <div>
+              SPY: ${parsedImport.spy_price} ({parsedImport.spy_change_pct > 0 ? '+' : ''}
+              {parsedImport.spy_change_pct}%)
+            </div>
+            <div>
+              New highs: {parsedImport.new_highs_count === null ? 'null' : parsedImport.new_highs_count} · New lows:{' '}
+              {parsedImport.new_lows_count === null ? 'null' : parsedImport.new_lows_count}
+            </div>
             <div>Leading sectors: {parsedImport.leading_sectors}</div>
           </div>
         ) : null}
