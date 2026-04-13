@@ -85,6 +85,14 @@ export default function HomePage() {
     'overview' | 'watchlist' | 'trades' | 'review'
   >('overview')
 
+  // Override state — set immediately after Apply, takes priority over server data
+  const [marketPhaseOverride, setMarketPhaseOverride] = useState<string | null>(null)
+  const [marketExposureOverride, setMarketExposureOverride] = useState<number | null>(null)
+
+  // Derived values: override wins if set, otherwise fall back to server data
+  const marketPhaseState = marketPhaseOverride ?? market?.market_phase ?? null
+  const marketExposureState = marketExposureOverride ?? market?.max_long_exposure_pct ?? null
+
   const metrics = useMemo(() => {
     const openTrades = savedTrades.filter(
       (trade) => trade.status === 'open' || trade.status === 'partial'
@@ -232,13 +240,18 @@ export default function HomePage() {
             />
             <MarketSummaryCards market={market} stock={stock} portfolioValue={portfolioValue} setPortfolioValue={setPortfolioValue} />
             <MarketSnapshotForm
-              key={`${market?.snapshot_date}-${market?.market_phase}-${market?.max_long_exposure_pct}`}
+              key={`${market?.snapshot_date}-${marketPhaseState}-${marketExposureState}`}
               onSave={handleSaveMarketSnapshot}
               initialDate={market?.snapshot_date ?? null}
-              initialPhase={market?.market_phase ?? null}
-              initialExposure={market?.max_long_exposure_pct ?? null}
+              initialPhase={marketPhaseState}
+              initialExposure={marketExposureState}
             />
-            <MarketSnapshotChatGPTWorkflow />
+            <MarketSnapshotChatGPTWorkflow
+              onApplySuccess={(result) => {
+                setMarketPhaseOverride(result.market_phase)
+                setMarketExposureOverride(result.max_long_exposure_pct)
+              }}
+            />
           </>
         )}
 

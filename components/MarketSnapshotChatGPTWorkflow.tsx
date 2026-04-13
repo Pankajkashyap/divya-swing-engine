@@ -10,19 +10,27 @@ type RawMarketData = {
   new_lows_count: number | null
 }
 
-type ApplyResult =
-  | {
-      success: true
-      market_phase:
-        | 'confirmed_uptrend'
-        | 'under_pressure'
-        | 'rally_attempt'
-        | 'correction'
-        | 'bear'
-      max_long_exposure_pct: number
-      snapshot_date: string
-    }
-  | { error: string }
+type ApplySuccessResult = {
+  success: true
+  market_phase:
+    | 'confirmed_uptrend'
+    | 'under_pressure'
+    | 'rally_attempt'
+    | 'correction'
+    | 'bear'
+  max_long_exposure_pct: number
+  snapshot_date: string
+}
+
+type ApplyResult = ApplySuccessResult | { error: string }
+
+type MarketSnapshotChatGPTWorkflowProps = {
+  onApplySuccess?: (result: {
+    market_phase: string
+    max_long_exposure_pct: number
+    snapshot_date: string
+  }) => void
+}
 
 function buildClipboardContent(): string {
   const today = new Date().toLocaleDateString('en-CA')
@@ -122,7 +130,9 @@ async function copyTextWithFallback(text: string): Promise<void> {
   document.body.removeChild(textArea)
 }
 
-export function MarketSnapshotChatGPTWorkflow() {
+export function MarketSnapshotChatGPTWorkflow({
+  onApplySuccess,
+}: MarketSnapshotChatGPTWorkflowProps) {
   const router = useRouter()
   const [copySuccess, setCopySuccess] = useState(false)
   const [importText, setImportText] = useState('')
@@ -196,12 +206,17 @@ export function MarketSnapshotChatGPTWorkflow() {
       }
 
       if ('success' in result && result.success) {
+        onApplySuccess?.({
+          market_phase: result.market_phase,
+          max_long_exposure_pct: result.max_long_exposure_pct,
+          snapshot_date: result.snapshot_date,
+        })
+
         setImportSuccess(
           `Market snapshot updated for ${result.snapshot_date}. Phase: ${result.market_phase}. Max exposure: ${result.max_long_exposure_pct}%.`
         )
-      setImportText('')
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      router.refresh()
+        setImportText('')
+        router.refresh()
       }
     } catch {
       setImportError('Failed to apply update.')
