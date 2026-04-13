@@ -238,7 +238,7 @@ export default function HomePage() {
               heatRemainingPct={metrics.heatRemainingPct}
               freeRideCount={metrics.freeRideCount}
             />
-            <MarketSummaryCards market={market} stock={stock} portfolioValue={portfolioValue} setPortfolioValue={setPortfolioValue} />
+            <MarketSummaryCards market={market} marketPhaseOverride={marketPhaseState} stock={stock} portfolioValue={portfolioValue} setPortfolioValue={setPortfolioValue} />
             <MarketSnapshotForm
               key={`${market?.snapshot_date}-${marketPhaseState}-${marketExposureState}`}
               onSave={handleSaveMarketSnapshot}

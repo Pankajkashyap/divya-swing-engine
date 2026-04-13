@@ -1,17 +1,14 @@
 import type { MarketSnapshot, WatchlistRow } from '@/app/page'
 
-type Props = {
+  type Props = {
   market: MarketSnapshot | null
+  marketPhaseOverride?: string | null
   stock: WatchlistRow | null
   portfolioValue: string
   setPortfolioValue: (value: string) => void
 }
 
-export function MarketSummaryCards({
-  market,
-  stock,
-  portfolioValue,
-  setPortfolioValue,
+export function MarketSummaryCards({ market, marketPhaseOverride, stock, portfolioValue, setPortfolioValue
 }: Props) {
   return (
     <div className="mt-8 grid gap-6 md:grid-cols-3">
@@ -23,8 +20,7 @@ export function MarketSummaryCards({
           Current phase
         </p>
         <p className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-          {market?.market_phase ?? '—'}
-        </p>
+        {marketPhaseOverride ?? market?.market_phase ?? '—'}        </p>
       </div>
 
       <div className="ui-card">
