@@ -184,6 +184,70 @@ function runFtdDetectionOnBars(bars: PolygonAggBar[]): {
   return { found: false, ftdDate: null, ftdDay1Low: null }
 }
 
+function calculateFtdConfidence(params: {
+  ftdActive: boolean
+  ftdDate: string | null
+  spyBars: PolygonAggBar[]
+  qqqBars: PolygonAggBar[]
+}): 'high' | 'medium' | 'low' | null {
+  const { ftdActive, ftdDate, spyBars, qqqBars } = params
+
+  if (!ftdActive || !ftdDate) return null
+
+  const spyFtdIndex = spyBars.findIndex(
+    (bar) => formatBarDate(bar.t) === ftdDate
+  )
+  if (spyFtdIndex === -1) return 'low'
+
+  const ftdBar = spyBars[spyFtdIndex]
+  const priorBar = spyBars[spyFtdIndex - 1]
+
+  if (!ftdBar || !priorBar) return 'low'
+
+  const ftdGainPct = ((ftdBar.c - priorBar.c) / priorBar.c) * 100
+  const volumeMargin = ftdBar.v / priorBar.v
+
+  const qqqFtdIndex = qqqBars.findIndex(
+    (bar) => formatBarDate(bar.t) === ftdDate
+  )
+  let qqqConfirmed = false
+  if (qqqFtdIndex > 0) {
+    const qqqFtdBar = qqqBars[qqqFtdIndex]
+    const qqqPriorBar = qqqBars[qqqFtdIndex - 1]
+    const qqqGainPct = ((qqqFtdBar.c - qqqPriorBar.c) / qqqPriorBar.c) * 100
+    qqqConfirmed = qqqGainPct >= 1.7 && qqqFtdBar.v > qqqPriorBar.v
+  }
+
+  let rallyDayCount = 1
+  for (let i = spyFtdIndex - 1; i >= Math.max(0, spyFtdIndex - 20); i -= 1) {
+    if (spyBars[i].c > spyBars[i - 1]?.c) {
+      rallyDayCount += 1
+    } else {
+      break
+    }
+  }
+
+  if (
+    ftdGainPct >= 3.0 &&
+    volumeMargin >= 1.5 &&
+    qqqConfirmed &&
+    rallyDayCount >= 4 &&
+    rallyDayCount <= 7
+  ) {
+    return 'high'
+  }
+
+  if (
+    ftdGainPct >= 2.0 &&
+    volumeMargin >= 1.2 &&
+    (qqqConfirmed || rallyDayCount <= 10)
+  ) {
+    return 'medium'
+  }
+
+  return 'low'
+}
+
 function isFtdInvalidated(
   bars: PolygonAggBar[],
   ftdDate: string | null,
@@ -579,6 +643,14 @@ Deno.serve(async (request: Request) => {
           : null,
     })
 
+    const ftd_confidence = calculateFtdConfidence({
+      ftdActive: ftdState.ftdActive,
+      ftdDate: ftdState.ftdDate,
+      spyBars,
+      qqqBars,
+    })
+    console.log('[calculate-market-technicals] FTD confidence:', ftd_confidence)
+
     console.log('[calculate-market-technicals] Calculating sector leadership')
     const leading_sectors = await calculateLeadingSectors(
       polygonApiKey,
@@ -601,6 +673,7 @@ Deno.serve(async (request: Request) => {
       ftd_active: ftdState.ftdActive,
       ftd_invalidated: ftdState.ftdInvalidated,
       ftd_date: ftdState.ftdDate,
+      ftd_confidence: ftd_confidence ?? null,
       rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
       leading_sectors: leading_sectors ?? null,
       technicals_calculated_at: technicalsCalculatedAt,
@@ -641,6 +714,7 @@ Deno.serve(async (request: Request) => {
         ftd_active: ftdState.ftdActive,
         ftd_invalidated: ftdState.ftdInvalidated,
         ftd_date: ftdState.ftdDate,
+        ftd_confidence: ftd_confidence ?? null,
         rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
         leading_sectors: leading_sectors ?? null,
         technicals_calculated_at: technicalsCalculatedAt,
@@ -662,6 +736,7 @@ Deno.serve(async (request: Request) => {
         ftd_active: ftdState.ftdActive,
         ftd_invalidated: ftdState.ftdInvalidated,
         ftd_date: ftdState.ftdDate,
+        ftd_confidence: ftd_confidence ?? null,
         rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
         leading_sectors: leading_sectors ?? null,
         technicals_calculated_at: technicalsCalculatedAt,
