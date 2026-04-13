@@ -23,6 +23,8 @@ type TechnicalRow = {
   spy_above_200dma: boolean | null
   spy_200dma_trending_up: boolean | null
   distribution_days: number | null
+  spy_distribution_days: number | null
+  qqq_distribution_days: number | null 
   ftd_active: boolean | null
   ftd_invalidated: boolean | null
   leading_sectors: string | null
@@ -166,7 +168,7 @@ export async function POST(request: Request) {
   const { data: technicals, error: technicalsError } = await supabase
     .from('market_snapshots')
     .select(
-      'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, ftd_active, ftd_invalidated, leading_sectors'
+      'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, spy_distribution_days, qqq_distribution_days, ftd_active, ftd_invalidated, leading_sectors'
     )
     .eq('snapshot_date', today)
     .maybeSingle()
@@ -255,6 +257,8 @@ export async function POST(request: Request) {
     spy_above_200dma,
     spy_200dma_trending_up,
     distribution_days,
+    spy_distribution_days: typedTechnicals.spy_distribution_days,
+  qqq_distribution_days: typedTechnicals.qqq_distribution_days,
     ftd_active,
     ftd_invalidated,
     leading_sectors: technicals.leading_sectors ?? null,

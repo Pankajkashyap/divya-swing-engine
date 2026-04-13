@@ -545,7 +545,15 @@ Deno.serve(async (request: Request) => {
     const spy_200dma_trending_up = sma200_today > sma200_30ago
 
     console.log('[calculate-market-technicals] Calculating distribution days')
-    const distribution_days = countDistributionDays(closes, volumes)
+    const spy_distribution_days = countDistributionDays(closes, volumes)
+    const qqq_distribution_days = countDistributionDays(
+      qqqBars.map(bar => bar.c),
+      qqqBars.map(bar => bar.v)
+    )
+    const distribution_days = Math.max(
+      spy_distribution_days,
+      qqq_distribution_days
+    )
 
     console.log('[calculate-market-technicals] Loading existing FTD state')
     const { data: latestSnapshot, error: latestSnapshotError } = await supabase
@@ -588,6 +596,8 @@ Deno.serve(async (request: Request) => {
       spy_above_200dma,
       spy_200dma_trending_up,
       distribution_days,
+      spy_distribution_days,
+      qqq_distribution_days,
       ftd_active: ftdState.ftdActive,
       ftd_invalidated: ftdState.ftdInvalidated,
       ftd_date: ftdState.ftdDate,
@@ -626,6 +636,8 @@ Deno.serve(async (request: Request) => {
         spy_above_200dma,
         spy_200dma_trending_up,
         distribution_days,
+        spy_distribution_days,
+        qqq_distribution_days,
         ftd_active: ftdState.ftdActive,
         ftd_invalidated: ftdState.ftdInvalidated,
         ftd_date: ftdState.ftdDate,
@@ -645,6 +657,8 @@ Deno.serve(async (request: Request) => {
         spy_above_200dma,
         spy_200dma_trending_up,
         distribution_days,
+        spy_distribution_days,
+        qqq_distribution_days,
         ftd_active: ftdState.ftdActive,
         ftd_invalidated: ftdState.ftdInvalidated,
         ftd_date: ftdState.ftdDate,
