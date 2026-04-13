@@ -8,7 +8,6 @@ type RawMarketData = {
   spy_change_pct: number
   new_highs_count: number | null
   new_lows_count: number | null
-  leading_sectors: string
 }
 
 type ApplyResult =
@@ -36,7 +35,7 @@ STRICT OUTPUT RULES:
 - Return ONLY a valid JSON object.
 - No markdown, no backticks, no explanation, no preamble, 
   no trailing text.
-- All 5 fields must be present.
+- All 4 fields must be present.
 - Return null for any field you cannot verify with a source.
   Do not guess. Do not infer.
 
@@ -57,15 +56,6 @@ Barchart.com, or StockCharts.com.
 You MUST find an actual number from an actual source.
 Do not estimate.
 
-FIELD 5 — Sector leadership:
-Look up the 1-month price performance of these 11 ETFs:
-XLE, XLK, XLF, XLV, XLI, XLY, XLP, XLU, XLB, XLRE, XLC
-Rank them by 1-month % return.
-Return the names of the TOP 2-3 sectors as a 
-comma-separated string.
-Use full sector names, not ETF tickers.
-Example: "Energy, Materials, Industrials"
-
 SELF-VALIDATION — run these checks before returning JSON:
 
 CHECK 1 — Breadth sanity:
@@ -74,13 +64,7 @@ check the ratio. If SPY closed above $560 and new_lows
 exceed new_highs, re-verify your breadth source. If still
 inconsistent after re-checking, return null for both.
 
-CHECK 2 — Sector verification:
-Do not return Technology or Healthcare as leading sectors
-unless your ETF lookup explicitly confirms XLK or XLV 
-are in the top 2-3 by 1-month return. Default answers 
-are not acceptable.
-
-CHECK 3 — Source confirmation:
+CHECK 2 — Source confirmation:
 For new_highs_count and new_lows_count, you must have 
 found a specific number from a specific page. If you only
 found general commentary, return null.
@@ -90,8 +74,7 @@ RETURN THIS EXACT JSON STRUCTURE:
   "spy_price": 0.00,
   "spy_change_pct": 0.00,
   "new_highs_count": 0,
-  "new_lows_count": 0,
-  "leading_sectors": "Energy, Materials"
+  "new_lows_count": 0
 }`
 }
 
@@ -118,9 +101,7 @@ function isValidRawData(row: unknown): row is RawMarketData {
     typeof r.spy_change_pct === 'number' &&
     Number.isFinite(r.spy_change_pct) &&
     validNewHighs &&
-    validNewLows &&
-    typeof r.leading_sectors === 'string' &&
-    r.leading_sectors.trim().length > 0
+    validNewLows
   )
 }
 
@@ -296,7 +277,6 @@ export function MarketSnapshotChatGPTWorkflow() {
               New highs: {parsedImport.new_highs_count === null ? 'null' : parsedImport.new_highs_count} · New lows:{' '}
               {parsedImport.new_lows_count === null ? 'null' : parsedImport.new_lows_count}
             </div>
-            <div>Leading sectors: {parsedImport.leading_sectors}</div>
           </div>
         ) : null}
 

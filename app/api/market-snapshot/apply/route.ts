@@ -15,7 +15,6 @@ type RawMarketData = {
   spy_change_pct: number
   new_highs_count: number | null
   new_lows_count: number | null
-  leading_sectors: string
 }
 
 type TechnicalRow = {
@@ -26,6 +25,7 @@ type TechnicalRow = {
   distribution_days: number | null
   ftd_active: boolean | null
   ftd_invalidated: boolean | null
+  leading_sectors: string | null
 }
 
 type MarketPhaseResult = {
@@ -133,9 +133,7 @@ function isValidRawData(body: unknown): body is RawMarketData {
     typeof b.spy_change_pct === 'number' &&
     Number.isFinite(b.spy_change_pct) &&
     validNewHighs &&
-    validNewLows &&
-    typeof b.leading_sectors === 'string' &&
-    b.leading_sectors.trim().length > 0
+    validNewLows
   )
 }
 
@@ -168,7 +166,7 @@ export async function POST(request: Request) {
   const { data: technicals, error: technicalsError } = await supabase
     .from('market_snapshots')
     .select(
-      'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, ftd_active, ftd_invalidated'
+      'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, ftd_active, ftd_invalidated, leading_sectors'
     )
     .eq('snapshot_date', today)
     .maybeSingle()
@@ -233,7 +231,6 @@ export async function POST(request: Request) {
     spy_change_pct: body.spy_change_pct,
     new_highs_count: body.new_highs_count,
     new_lows_count: body.new_lows_count,
-    leading_sectors: body.leading_sectors,
     market_phase,
     max_long_exposure_pct,
     source: 'automation',
@@ -260,5 +257,6 @@ export async function POST(request: Request) {
     distribution_days,
     ftd_active,
     ftd_invalidated,
+    leading_sectors: technicals.leading_sectors ?? null,
   })
 }

@@ -20,6 +20,20 @@ const supabase =
     ? createClient(supabaseUrl, serviceRoleKey)
     : null
 
+const SECTOR_ETFS: Record<string, string> = {
+  XLE: 'Energy',
+  XLK: 'Technology',
+  XLF: 'Financials',
+  XLV: 'Healthcare',
+  XLI: 'Industrials',
+  XLY: 'Consumer Discretionary',
+  XLP: 'Consumer Staples',
+  XLU: 'Utilities',
+  XLB: 'Materials',
+  XLRE: 'Real Estate',
+  XLC: 'Communication Services',
+}
+
 type PolygonAggBar = {
   c: number
   v: number
@@ -315,6 +329,75 @@ async function fetchPolygonBars(
   return { bars, status: response.status }
 }
 
+async function fetchSectorReturn(
+  polygonApiKey: string,
+  ticker: string,
+  sectorName: string,
+  from: string,
+  to: string
+): Promise<{ sector: string; pctReturn: number } | null> {
+  try {
+    const url =
+      `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}` +
+      `?adjusted=true&sort=asc&limit=50&apiKey=${polygonApiKey}`
+
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      console.warn(`[calculate-market-technicals] Failed to fetch ${ticker}:`, response.status)
+      return null
+    }
+
+    const json = await response.json()
+    const bars = Array.isArray(json?.results) ? json.results : []
+
+    if (bars.length < 2) {
+      console.warn(`[calculate-market-technicals] Insufficient bars for ${ticker}`)
+      return null
+    }
+
+    const firstClose = bars[0].c
+    const lastClose = bars[bars.length - 1].c
+
+    if (typeof firstClose !== 'number' || typeof lastClose !== 'number' || firstClose === 0) {
+      console.warn(`[calculate-market-technicals] Invalid close values for ${ticker}`)
+      return null
+    }
+
+    const pctReturn = ((lastClose - firstClose) / firstClose) * 100
+
+    console.log(`[calculate-market-technicals] ${ticker} (${sectorName}): ${pctReturn.toFixed(2)}%`)
+
+    return { sector: sectorName, pctReturn }
+  } catch (err) {
+    console.warn(`[calculate-market-technicals] Error fetching ${ticker}:`, err)
+    return null
+  }
+}
+
+async function calculateLeadingSectors(
+  polygonApiKey: string,
+  from: string,
+  to: string
+): Promise<string | null> {
+  const settled = await Promise.all(
+    Object.entries(SECTOR_ETFS).map(([ticker, sectorName]) =>
+      fetchSectorReturn(polygonApiKey, ticker, sectorName, from, to)
+    )
+  )
+
+  const results = settled.filter(
+    (item): item is { sector: string; pctReturn: number } => item !== null
+  )
+
+  if (results.length === 0) return null
+
+  results.sort((a, b) => b.pctReturn - a.pctReturn)
+  const top3 = results.slice(0, 3).map((r) => r.sector)
+
+  return top3.join(', ')
+}
+
 Deno.serve(async (request: Request) => {
   let logId: string | null = null
 
@@ -439,6 +522,9 @@ Deno.serve(async (request: Request) => {
       )
     }
 
+    console.log('[calculate-market-technicals] Waiting 15s before sector ETF calls for Polygon free-tier rate limits')
+    await new Promise((resolve) => setTimeout(resolve, 15000))
+
     console.log('[calculate-market-technicals] Calculating moving averages')
 
     const closes = spyBars.map((bar) => bar.c)
@@ -485,6 +571,14 @@ Deno.serve(async (request: Request) => {
           : null,
     })
 
+    console.log('[calculate-market-technicals] Calculating sector leadership')
+    const leading_sectors = await calculateLeadingSectors(
+      polygonApiKey,
+      getDateDaysAgo(35),
+      today
+    )
+    console.log('[calculate-market-technicals] Leading sectors:', leading_sectors)
+
     const technicalsCalculatedAt = new Date().toISOString()
     const payload = {
       user_id: userId,
@@ -498,6 +592,7 @@ Deno.serve(async (request: Request) => {
       ftd_invalidated: ftdState.ftdInvalidated,
       ftd_date: ftdState.ftdDate,
       rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
+      leading_sectors: leading_sectors ?? null,
       technicals_calculated_at: technicalsCalculatedAt,
       source: 'automation',
     }
@@ -535,6 +630,7 @@ Deno.serve(async (request: Request) => {
         ftd_invalidated: ftdState.ftdInvalidated,
         ftd_date: ftdState.ftdDate,
         rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
+        leading_sectors: leading_sectors ?? null,
         technicals_calculated_at: technicalsCalculatedAt,
         windowKey,
       },
@@ -553,6 +649,7 @@ Deno.serve(async (request: Request) => {
         ftd_invalidated: ftdState.ftdInvalidated,
         ftd_date: ftdState.ftdDate,
         rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
+        leading_sectors: leading_sectors ?? null,
         technicals_calculated_at: technicalsCalculatedAt,
         windowKey,
       },
