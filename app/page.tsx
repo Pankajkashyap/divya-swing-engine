@@ -232,7 +232,7 @@ export default function HomePage() {
             />
             <MarketSummaryCards market={market} stock={stock} portfolioValue={portfolioValue} setPortfolioValue={setPortfolioValue} />
             <MarketSnapshotForm
-              key={market?.snapshot_date ?? 'default'} 
+              key={`${market?.snapshot_date}-${market?.market_phase}-${market?.max_long_exposure_pct}`}
               onSave={handleSaveMarketSnapshot}
               initialDate={market?.snapshot_date ?? null}
               initialPhase={market?.market_phase ?? null}
