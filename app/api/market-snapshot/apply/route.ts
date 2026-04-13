@@ -104,7 +104,7 @@ function deriveMarketPhase(params: {
   if (
     new_highs_count !== null &&
     new_lows_count !== null &&
-    new_lows_count > new_highs_count
+    new_highs_count < new_lows_count * 2
   ) {
     return { market_phase: 'under_pressure', max_long_exposure_pct: 50 }
   }
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
   const { data: technicals, error: technicalsError } = await supabase
     .from('market_snapshots')
     .select(
-      'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, spy_distribution_days, qqq_distribution_days, ftd_active, ftd_invalidated, leading_sectors'
+    'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, spy_distribution_days, qqq_distribution_days, ftd_active, ftd_invalidated, leading_sectors'
     )
     .eq('snapshot_date', today)
     .maybeSingle()
