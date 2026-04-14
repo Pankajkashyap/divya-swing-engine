@@ -57,6 +57,7 @@ type CandidateRow = {
 type CurrentWatchlistRow = {
   id: string
   pivot_price: number | null
+  screened_price: number | null
   setup_grade: 'A+' | 'A' | 'B' | 'C' | 'F' | null
   trend_template_pass: boolean | null
   rs_line_confirmed: boolean | null
@@ -312,6 +313,7 @@ export async function POST(request: NextRequest) {
     .select(`
       id,
       pivot_price,
+      screened_price,
       setup_grade,
       trend_template_pass,
       rs_line_confirmed,
@@ -389,6 +391,16 @@ export async function POST(request: NextRequest) {
       if (existing.entry_zone_high === null) updatePayload['entry_zone_high'] = entryZoneHigh
       if (existing.target_1_price === null) updatePayload['target_1_price'] = target1Price
       if (existing.target_2_price === null) updatePayload['target_2_price'] = target2Price
+    }
+
+    // Auto-calculate entry_near_pivot from screened_price and pivot_price
+    const screenedPrice = existing.screened_price
+    if (
+      pivotPrice !== null &&
+      screenedPrice !== null &&
+      existing.entry_near_pivot === null
+    ) {
+      updatePayload['entry_near_pivot'] = screenedPrice <= pivotPrice * 1.05
     }
 
     if (Object.keys(updatePayload).length === 0) {
