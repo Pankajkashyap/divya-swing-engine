@@ -6,6 +6,7 @@ import { appConfig } from '@/lib/config'
 type CandidateRow = {
   id: string
   ticker: string
+  pivot_price: number | null
   eps_growth_pct: number | null
   revenue_growth_pct: number | null
   setup_grade: 'A+' | 'A' | 'B' | 'C' | 'F' | null
@@ -55,6 +56,7 @@ type CandidateRow = {
 
 type CurrentWatchlistRow = {
   id: string
+  pivot_price: number | null
   setup_grade: 'A+' | 'A' | 'B' | 'C' | 'F' | null
   trend_template_pass: boolean | null
   rs_line_confirmed: boolean | null
@@ -101,6 +103,7 @@ type CurrentWatchlistRow = {
 }
 
 const numericFields = [
+  'pivot_price',
   'entry_zone_low',
   'entry_zone_high',
   'stop_price',
@@ -123,6 +126,7 @@ const booleanFields = [
 ] as const
 
 const updatableFields = [
+  'pivot_price',
   'setup_grade',
   'trend_template_pass',
   'rs_line_confirmed',
@@ -307,6 +311,7 @@ export async function POST(request: NextRequest) {
     .from('watchlist')
     .select(`
       id,
+      pivot_price,
       setup_grade,
       trend_template_pass,
       rs_line_confirmed,
@@ -363,9 +368,28 @@ export async function POST(request: NextRequest) {
         updatePayload[field] = incomingValue
       }
     }
+
     // Always force these to true — screener already verified both
     updatePayload['liquidity_pass'] = true
     updatePayload['trend_template_pass'] = true
+
+    // Auto-calculate price fields from pivot_price if available
+    const pivotPrice = (row.pivot_price ?? null) as number | null
+    if (
+      pivotPrice !== null &&
+      row.base_pattern_valid === true &&
+      existing.entry_zone_low === null
+    ) {
+      const entryZoneLow = Number((pivotPrice * 1.00).toFixed(2))
+      const entryZoneHigh = Number((pivotPrice * 1.05).toFixed(2))
+      const target1Price = Number((entryZoneLow * 1.12).toFixed(2))
+      const target2Price = Number((entryZoneLow * 1.225).toFixed(2))
+
+      if (existing.entry_zone_low === null) updatePayload['entry_zone_low'] = entryZoneLow
+      if (existing.entry_zone_high === null) updatePayload['entry_zone_high'] = entryZoneHigh
+      if (existing.target_1_price === null) updatePayload['target_1_price'] = target1Price
+      if (existing.target_2_price === null) updatePayload['target_2_price'] = target2Price
+    }
 
     if (Object.keys(updatePayload).length === 0) {
       skipCount += 1
