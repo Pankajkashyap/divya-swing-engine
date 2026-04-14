@@ -239,6 +239,68 @@ function validateRow(row: unknown): row is CandidateRow {
   return true
 }
 
+// Derive ibd_group_zone from industry_group_rank
+function deriveIbdGroupZone(rank: number | null): 1 | 2 | 3 | 4 | null {
+  if (rank === null) return null
+  if (rank <= 40) return 1
+  if (rank <= 80) return 2
+  if (rank <= 120) return 3
+  return 4
+}
+
+// Derive watchlist_group from screened_price vs pivot_price
+function deriveWatchlistGroup(
+  screenedPrice: number | null,
+  pivotPrice: number | null
+): 'active_setup' | 'near_pivot' | 'developing' | null {
+  if (pivotPrice === null) return 'developing'
+  if (screenedPrice === null) return null
+  const ratio = screenedPrice / pivotPrice
+  if (ratio >= 0.98 && ratio <= 1.02) return 'active_setup'
+  if (ratio >= 0.90 && ratio < 0.98) return 'near_pivot'
+  return 'developing'
+}
+
+// Derive likely_failure_type from existing fields
+function deriveLikelyFailureType(params: {
+  earnings_within_2_weeks: boolean | null
+  binary_event_risk: boolean | null
+  ibd_group_zone: 1 | 2 | 3 | 4 | null
+  base_count: number | null
+  distribution_days: number | null
+}): 'institutional_reversal' | 'fade' | 'gap_down' | 'limbo' | 'sector_rotation' | null {
+  const {
+    earnings_within_2_weeks,
+    binary_event_risk,
+    ibd_group_zone,
+    base_count,
+    distribution_days,
+  } = params
+
+  // gap_down: earnings or binary event within 30 days
+  if (earnings_within_2_weeks === true || binary_event_risk === true) {
+    return 'gap_down'
+  }
+
+  // institutional_reversal: market under significant distribution
+  if (distribution_days !== null && distribution_days >= 4) {
+    return 'institutional_reversal'
+  }
+
+  // sector_rotation: weak sector group
+  if (ibd_group_zone !== null && ibd_group_zone >= 3) {
+    return 'sector_rotation'
+  }
+
+  // fade: late stage base (2nd or 3rd base)
+  if (base_count !== null && base_count >= 2) {
+    return 'fade'
+  }
+
+  // default: limbo — most common failure in uncertain markets
+  return 'limbo'
+}
+
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
 
@@ -344,6 +406,16 @@ export async function POST(request: NextRequest) {
     `)
     .in('id', validIds)
 
+  // Fetch today's distribution_days for likely_failure_type derivation
+  const { data: marketSnapshot } = await supabase
+    .from('market_snapshots')
+    .select('distribution_days')
+    .order('snapshot_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const distributionDays = marketSnapshot?.distribution_days ?? null
+
   const currentMap = new Map(
     ((current ?? []) as CurrentWatchlistRow[]).map((row) => [row.id, row])
   )
@@ -401,6 +473,32 @@ export async function POST(request: NextRequest) {
       existing.entry_near_pivot === null
     ) {
       updatePayload['entry_near_pivot'] = screenedPrice <= pivotPrice * 1.05
+    }
+
+    // Auto-calculate ibd_group_zone from industry_group_rank
+    const industryRank = row.industry_group_rank ?? existing.industry_group_rank
+    if (existing.ibd_group_zone === null && industryRank !== null) {
+      updatePayload['ibd_group_zone'] = deriveIbdGroupZone(industryRank)
+    }
+
+    // Auto-calculate watchlist_group from screened_price vs pivot_price
+    if (existing.watchlist_group === null) {
+      const derivedGroup = deriveWatchlistGroup(screenedPrice, pivotPrice)
+      if (derivedGroup !== null) {
+        updatePayload['watchlist_group'] = derivedGroup
+      }
+    }
+
+    // Auto-calculate likely_failure_type from existing fields
+    if (existing.likely_failure_type === null) {
+      const ibdZone = (updatePayload['ibd_group_zone'] ?? existing.ibd_group_zone) as 1 | 2 | 3 | 4 | null
+      updatePayload['likely_failure_type'] = deriveLikelyFailureType({
+        earnings_within_2_weeks: row.earnings_within_2_weeks ?? existing.earnings_within_2_weeks,
+        binary_event_risk: row.binary_event_risk ?? existing.binary_event_risk,
+        ibd_group_zone: ibdZone,
+        base_count: row.base_count ?? existing.base_count,
+        distribution_days: distributionDays,
+      })
     }
 
     if (Object.keys(updatePayload).length === 0) {
