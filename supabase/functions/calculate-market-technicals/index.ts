@@ -608,6 +608,12 @@ Deno.serve(async (request: Request) => {
     const sma200_30ago = calculateSma(closes, 200, n - 30)
     const spy_200dma_trending_up = sma200_today > sma200_30ago
 
+    // Calculate SPY price and daily change from bars (no ChatGPT needed)
+    const spy_price = Number(todayClose.toFixed(2))
+    const spy_change_pct = n >= 2
+      ? Number((((todayClose - closes[n - 2]) / closes[n - 2]) * 100).toFixed(2))
+      : 0
+
     console.log('[calculate-market-technicals] Calculating distribution days')
     const spy_distribution_days = countDistributionDays(closes, volumes)
     const qqq_distribution_days = countDistributionDays(
@@ -663,6 +669,8 @@ Deno.serve(async (request: Request) => {
     const payload = {
       user_id: userId,
       snapshot_date: new Date().toLocaleDateString('en-CA'),
+      spy_price,
+      spy_change_pct,
       spy_above_50dma,
       spy_above_150dma,
       spy_above_200dma,
@@ -704,6 +712,8 @@ Deno.serve(async (request: Request) => {
       status: 'completed',
       message: 'Market technicals calculated successfully',
       changesJson: {
+        spy_price,
+        spy_change_pct,
         spy_above_50dma,
         spy_above_150dma,
         spy_above_200dma,
@@ -726,6 +736,8 @@ Deno.serve(async (request: Request) => {
       {
         success: true,
         snapshot_date: payload.snapshot_date,
+        spy_price,
+        spy_change_pct,
         spy_above_50dma,
         spy_above_150dma,
         spy_above_200dma,

@@ -76,6 +76,9 @@ type PricePassCandidate = {
   ticker: string
   price: number
   volume: number
+  rsLineState: 'leading' | 'confirmed' | 'warning' | null
+  rsLineConfirmed: boolean | null
+  volumeDryUpPass: boolean
 }
 
 function jsonResponse(payload: unknown, status: number): Response {
@@ -178,6 +181,74 @@ async function getLastCursor(): Promise<number> {
   }
 }
 
+// Calculate RS line state by comparing stock's returns to SPY's returns.
+// stockBars and spyBars must both be sorted descending (newest first).
+function calculateRsLineState(
+  stockBars: AggregateBar[],
+  spyBars: AggregateBar[]
+): 'leading' | 'confirmed' | 'warning' | null {
+  if (stockBars.length < 60 || spyBars.length < 60) return null
+
+  const stockNow = stockBars[0].c ?? null
+  const spyNow = spyBars[0].c ?? null
+  if (!stockNow || !spyNow) return null
+
+  // 12-month return comparison
+  const period12m = Math.min(stockBars.length - 1, 251)
+  const spyPeriod12m = Math.min(spyBars.length - 1, 251)
+  const stockPy = stockBars[period12m].c ?? null
+  const spyPy = spyBars[spyPeriod12m].c ?? null
+  if (!stockPy || !spyPy) return null
+
+  const stockReturn12m = (stockNow - stockPy) / stockPy
+  const spyReturn12m = (spyNow - spyPy) / spyPy
+
+  // Underperforming SPY over 12 months → warning
+  if (stockReturn12m <= spyReturn12m) {
+    return 'warning'
+  }
+
+  // Check for acceleration (leading signal):
+  // Compare recent 3-month RS margin vs prior 3-month RS margin
+  const period3m = Math.min(stockBars.length - 1, 62)
+  const period6m = Math.min(stockBars.length - 1, 125)
+  const spyPeriod3m = Math.min(spyBars.length - 1, 62)
+  const spyPeriod6m = Math.min(spyBars.length - 1, 125)
+
+  const stock3m = stockBars[period3m].c ?? null
+  const stock6m = stockBars[period6m].c ?? null
+  const spy3m = spyBars[spyPeriod3m].c ?? null
+  const spy6m = spyBars[spyPeriod6m].c ?? null
+
+  if (stock3m && stock6m && spy3m && spy6m) {
+    const stockReturn_now_3m = (stockNow - stock3m) / stock3m
+    const spyReturn_now_3m = (spyNow - spy3m) / spy3m
+    const stockReturn_3m_6m = (stock3m - stock6m) / stock6m
+    const spyReturn_3m_6m = (spy3m - spy6m) / spy6m
+
+    const recentExcess = stockReturn_now_3m - spyReturn_now_3m
+    const priorExcess = stockReturn_3m_6m - spyReturn_3m_6m
+
+    // Leading: RS margin improving AND meaningful recent outperformance
+    if (recentExcess > 0.05 && recentExcess > priorExcess) {
+      return 'leading'
+    }
+  }
+
+  return 'confirmed'
+}
+
+// Calculate volume dry-up: recent 15-day avg volume < 70% of 50-day avg volume.
+// sortedBars must be sorted descending (newest first).
+function calculateVolumeDryUp(
+  sortedBars: AggregateBar[],
+  avgVolume50d: number
+): boolean {
+  const avgVolume15d = calculateAvgVolume(sortedBars, 15)
+  if (avgVolume15d === null || avgVolume50d === 0) return false
+  return avgVolume15d < avgVolume50d * 0.70
+}
+
 Deno.serve(async (request: Request) => {
   let logId: string | null = null
 
@@ -221,7 +292,7 @@ Deno.serve(async (request: Request) => {
       .from('ticker_universe')
       .select('ticker, index_membership')
       .eq('is_active', true)
-      .order('index_membership', { ascending: true }) // NASDAQ 100 sorts before S&P 500 alphabetically
+      .order('index_membership', { ascending: true })
 
     const FALLBACK_TICKERS = [
       'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA',
@@ -237,8 +308,6 @@ Deno.serve(async (request: Request) => {
       universeError || !universeData || universeData.length === 0
         ? FALLBACK_TICKERS
         : [
-            // NASDAQ 100 first (highest growth potential), then S&P 500, then others
-            // Within each group, sort alphabetically for deterministic cursor
             ...universeData
               .filter((r) => r.index_membership === 'NASDAQ 100')
               .map((r) => r.ticker)
@@ -249,7 +318,6 @@ Deno.serve(async (request: Request) => {
               .sort(),
           ]
 
-    // Pre-filter and sort alphabetically for deterministic cursor-based rotation
     const preFiltered = rawUniverse
       .filter((ticker) => {
         if (ticker.endsWith('W') || ticker.endsWith('U') || ticker.endsWith('R')) return false
@@ -276,9 +344,6 @@ Deno.serve(async (request: Request) => {
       windowKey,
     })
 
-    // Cursor-based batch selection:
-    // Read where last run finished and continue from there.
-    // Wraps around to 0 when reaching the end of the universe.
     const cursorStart = await getLastCursor()
     const universeSize = preFiltered.length
     const endIndex = cursorStart + BATCH_SIZE
@@ -329,13 +394,30 @@ Deno.serve(async (request: Request) => {
     const pricePassList: PricePassCandidate[] = []
     const candidateLogIds = new Map<string, string>()
 
-    // ─── PASS 1: Price & Volume ───────────────────────────────────────────────
+    // ─── Fetch SPY bars once for RS line calculation ────────────────────────
+    // One API call before Pass 1. Uses same date range as stock bars.
+    let spyBarsForRs: AggregateBar[] = []
+    try {
+      const spyUrl =
+        `${massiveBaseUrl}/v2/aggs/ticker/SPY/range/1/day/${from}/${to}` +
+        `?adjusted=true&sort=desc&limit=200&apiKey=${massiveApiKey}`
+      const spyResponse = await fetchWithTimeout(spyUrl, {}, 10000)
+      if (spyResponse.ok) {
+        const spyJson = (await spyResponse.json()) as { results?: AggregateBar[] }
+        spyBarsForRs = spyJson.results ?? []
+        console.log(`[watchlist-screener] SPY bars fetched for RS: ${spyBarsForRs.length}`)
+      } else {
+        console.warn('[watchlist-screener] SPY bars fetch failed — RS line will be null')
+      }
+    } catch (err) {
+      console.warn('[watchlist-screener] SPY bars fetch error:', err)
+    }
+    // Rate limit delay after SPY fetch — replaces the 2000ms warm-up
+    await delay(12500)
+
+    // ─── PASS 1: Price, Volume & Trend Template ───────────────────────────────
 
     console.log(`[watchlist-screener] Pass 1 starting for ${tickersToProcess.length} tickers.`)
-
-    // Brief warm-up delay to allow the Edge Function runtime to fully initialise
-    // before making the first external API call — reduces cold start timeouts
-    await delay(2000)
 
     for (const ticker of tickersToProcess) {
       try {
@@ -427,16 +509,13 @@ Deno.serve(async (request: Request) => {
         }
 
         // ── Trend Template Check ────────────────────────────────────────
-        // bars is already sorted desc (newest first) — correct for SMA calc
         const sma50  = calculateSMA(sortedBars, 50)
         const sma150 = calculateSMA(sortedBars, 150)
         const sma200 = calculateSMA(sortedBars, 200)
-        // 200-day MA 30 trading days ago (to check if it's trending up)
         const sma200_30daysAgo = bars.length >= 230
           ? calculateSMA(sortedBars.slice(30), 200)
           : null
 
-        // 52-week high and low (most recent 252 trading days)
         const yearBars = sortedBars.slice(0, 252)
         const high52w = yearBars.length > 0
           ? Math.max(...yearBars.map(b => b.c ?? 0))
@@ -445,7 +524,6 @@ Deno.serve(async (request: Request) => {
           ? Math.min(...yearBars.map(b => b.c ?? 0))
           : null
 
-        // Evaluate all 8 criteria
         const ttCriteria = {
           aboveSma50:    sma50  !== null && price > sma50,
           aboveSma150:   sma150 !== null && price > sma150,
@@ -454,7 +532,8 @@ Deno.serve(async (request: Request) => {
           sma150AboveSma200: sma150 !== null && sma200 !== null && sma150 > sma200,
           sma200Trending:    sma200 !== null && sma200_30daysAgo !== null && sma200 > sma200_30daysAgo,
           within25PctOf52wHigh: high52w !== null && price >= high52w * 0.75,
-          above25PctOf52wLow:   low52w  !== null && price >= low52w  * 1.25,        }
+          above25PctOf52wLow:   low52w  !== null && price >= low52w  * 1.25,
+        }
 
         const trendTemplatePass = Object.values(ttCriteria).every(Boolean)
 
@@ -486,7 +565,27 @@ Deno.serve(async (request: Request) => {
           continue
         }
 
-        pricePassList.push({ ticker, price, volume: avgVolume50d })
+        // ── Calculate RS line state and volume dry-up from existing bars ────
+        // No extra API calls — uses bars already fetched above
+        const rsLineState = spyBarsForRs.length >= 60
+          ? calculateRsLineState(sortedBars, spyBarsForRs)
+          : null
+        const rsLineConfirmed =
+          rsLineState === 'leading' || rsLineState === 'confirmed' ? true
+          : rsLineState === 'warning' ? false
+          : null
+        const volumeDryUpPass = calculateVolumeDryUp(sortedBars, avgVolume50d)
+
+        console.log(`[watchlist-screener] ${ticker} — RS: ${rsLineState}, VolDryUp: ${volumeDryUpPass}`)
+
+        pricePassList.push({
+          ticker,
+          price,
+          volume: avgVolume50d,
+          rsLineState,
+          rsLineConfirmed,
+          volumeDryUpPass,
+        })
 
         try {
           const { data: logRow } = await supabase
@@ -554,12 +653,10 @@ Deno.serve(async (request: Request) => {
           continue
         }
 
-        // Most recent quarter
         const q0 = financialResults[0]
         const q1 = financialResults[1]
         const q2 = financialResults[2]
 
-        // Find same quarter from prior year for each
         const q0_py = q0?.fiscal_period && q0?.fiscal_year
           ? findPriorYearQuarter(financialResults, q0.fiscal_period, q0.fiscal_year)
           : undefined
@@ -571,37 +668,29 @@ Deno.serve(async (request: Request) => {
           : undefined
 
         if (!q0_py) {
-          // Can't calculate YoY growth without prior year data
           rejectionCounts.fetch_error += 1
           await delay(12500)
           continue
         }
 
-        // EPS — most recent quarter YoY
         const currentEps = toNumberOrNull(
           q0?.financials?.income_statement?.basic_earnings_per_share?.value
         )
         const priorEps = toNumberOrNull(
           q0_py?.financials?.income_statement?.basic_earnings_per_share?.value
         )
-
-        // EPS — prior quarter YoY (for acceleration)
         const currentEps1 = toNumberOrNull(
           q1?.financials?.income_statement?.basic_earnings_per_share?.value
         )
         const priorEps1 = toNumberOrNull(
           q1_py?.financials?.income_statement?.basic_earnings_per_share?.value
         )
-
-        // EPS — two quarters ago YoY (for acceleration)
         const currentEps2 = toNumberOrNull(
           q2?.financials?.income_statement?.basic_earnings_per_share?.value
         )
         const priorEps2 = toNumberOrNull(
           q2_py?.financials?.income_statement?.basic_earnings_per_share?.value
         )
-
-        // Revenue — most recent quarter YoY
         const currentRevenue = toNumberOrNull(
           q0?.financials?.income_statement?.revenues?.value
         )
@@ -614,12 +703,10 @@ Deno.serve(async (request: Request) => {
         const epsGrowth2 = calculateGrowth(currentEps2, priorEps2)
         const revenueGrowth = calculateGrowth(currentRevenue, priorRevenue)
 
-        // EPS acceleration: most recent quarter growth must be >= prior quarter growth
-        // Requires at least 2 YoY data points. If only 1 available, skip acceleration check.
         const epsAccelerating =
           epsGrowth !== null && epsGrowth1 !== null
             ? epsGrowth >= epsGrowth1
-            : true // only 1 data point — can't check, don't penalise
+            : true
 
         const candidate: Candidate = {
           ticker,
@@ -630,7 +717,6 @@ Deno.serve(async (request: Request) => {
           revenueGrowthPct: revenueGrowth,
         }
 
-        // FIX: Determine single rejection reason — no double-counting
         let rejectionReason: string | null = null
 
         if (candidate.epsGrowthPct === null || candidate.revenueGrowthPct === null) {
@@ -641,7 +727,7 @@ Deno.serve(async (request: Request) => {
           rejectionCounts.eps_too_low += 1
         } else if (!epsAccelerating) {
           rejectionReason = 'eps_decelerating'
-          rejectionCounts.eps_too_low += 1 // count under eps_too_low for simplicity
+          rejectionCounts.eps_too_low += 1
           console.log(
             `[watchlist-screener] ${ticker} rejected: EPS decelerating ` +
             `(Q0: ${epsGrowth?.toFixed(1)}% vs Q1: ${epsGrowth1?.toFixed(1)}% vs Q2: ${epsGrowth2?.toFixed(1)}%)`
@@ -678,7 +764,7 @@ Deno.serve(async (request: Request) => {
           continue
         }
 
-        // Passed all fundamental checks — fetch company name
+        // Fetch company name
         try {
           const detailUrl =
             `${massiveBaseUrl}/v3/reference/tickers/${encodeURIComponent(ticker)}` +
@@ -689,12 +775,11 @@ Deno.serve(async (request: Request) => {
             candidate.companyName = detailData?.results?.name ?? null
           }
         } catch {
-          // company name is optional — continue without it
+          // company name is optional
         }
 
         passedCount += 1
 
-        // Check if already in watchlist
         const { data: existing, error: existingError } = await supabase
           .from('watchlist')
           .select('ticker')
@@ -731,7 +816,8 @@ Deno.serve(async (request: Request) => {
           continue
         }
 
-        // Insert into watchlist
+        // Insert into watchlist — includes rs_line_state, rs_line_confirmed,
+        // volume_dry_up_pass calculated from Pass 1 bars (no extra API calls)
         const { data: insertedRow, error: insertError } = await supabase
           .from('watchlist')
           .insert({
@@ -750,12 +836,13 @@ Deno.serve(async (request: Request) => {
             target_1_price: null,
             target_2_price: null,
             trend_template_pass: true,
-            volume_dry_up_pass: null,
-            rs_line_confirmed: null,
+            volume_dry_up_pass: shortlisted.volumeDryUpPass,
+            rs_line_state: shortlisted.rsLineState,
+            rs_line_confirmed: shortlisted.rsLineConfirmed,
             base_pattern_valid: null,
             entry_near_pivot: null,
             volume_breakout_confirmed: null,
-            liquidity_pass: null,
+            liquidity_pass: true,
             earnings_within_2_weeks: false,
             binary_event_risk: false,
             eps_growth_pct: candidate.epsGrowthPct,
@@ -845,7 +932,6 @@ Deno.serve(async (request: Request) => {
       },
     })
 
-    // Send email notification
     const recipientEmail = settings.notification_email
     if (recipientEmail) {
       try {

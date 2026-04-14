@@ -112,6 +112,15 @@ function buildMarketSnapshotReminder(data: WeeklyDigestData) {
               </div>
             </div>
             `
+              : currentPhase === 'under_pressure'
+            ? `
+            <div style="margin-top:16px;padding:16px;border-radius:8px;background:#fff7ed;border:1px solid #fb923c;">
+              <div style="font-size:15px;font-weight:700;color:#c2410c;">⚠️ Market Under Pressure</div>
+              <div style="margin-top:8px;font-size:14px;line-height:1.7;color:#9a3412;">
+                A+ setups only. Reduce position sizes. Tighten stops on existing positions. No aggressive new entries.
+              </div>
+            </div>
+            `
             : `
             <div style="margin-top:16px;padding:16px;border-radius:8px;background:#f5f5f5;border:1px solid #e5e5e5;">
               <div style="font-size:14px;line-height:1.7;color:#525252;">
