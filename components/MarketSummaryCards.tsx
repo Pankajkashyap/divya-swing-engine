@@ -1,6 +1,6 @@
 import type { MarketSnapshot, WatchlistRow } from '@/app/page'
 
-  type Props = {
+type Props = {
   market: MarketSnapshot | null
   marketPhaseOverride?: string | null
   stock: WatchlistRow | null
@@ -8,8 +8,37 @@ import type { MarketSnapshot, WatchlistRow } from '@/app/page'
   setPortfolioValue: (value: string) => void
 }
 
-export function MarketSummaryCards({ market, marketPhaseOverride, stock, portfolioValue, setPortfolioValue
+export function MarketSummaryCards({
+  market,
+  marketPhaseOverride,
+  stock,
+  portfolioValue,
+  setPortfolioValue,
 }: Props) {
+  const ftdConfidence = market?.ftd_confidence
+
+  const ftdConfidenceDisplay =
+    ftdConfidence === 'high'
+      ? {
+          text: '✅ High',
+          className: 'text-sm font-medium text-green-700 dark:text-[#8fd0ab]',
+        }
+      : ftdConfidence === 'medium'
+        ? {
+            text: '⚠️ Medium',
+            className: 'text-sm font-medium text-amber-700 dark:text-[#e7c27d]',
+          }
+        : ftdConfidence === 'low'
+          ? {
+              text: '⚠️ Low',
+              note: 'Verify on TradingView before trading',
+              className: 'text-sm font-medium text-red-700 dark:text-[#f0a3a3]',
+            }
+          : {
+              text: 'Calculating...',
+              className: 'text-sm font-medium text-neutral-500 dark:text-[#8b98a7]',
+            }
+
   return (
     <div className="mt-8 grid gap-6 md:grid-cols-3">
       <div className="ui-card">
@@ -20,7 +49,22 @@ export function MarketSummaryCards({ market, marketPhaseOverride, stock, portfol
           Current phase
         </p>
         <p className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-        {marketPhaseOverride ?? market?.market_phase ?? '—'}        </p>
+          {marketPhaseOverride ?? market?.market_phase ?? '—'}
+        </p>
+
+        {market?.ftd_active === true && (
+          <div className="mt-3">
+            <p className="text-xs text-neutral-500 dark:text-[#8b98a7]">
+              FTD confidence
+            </p>
+            <p className={ftdConfidenceDisplay.className}>
+              {ftdConfidenceDisplay.text}
+              {'note' in ftdConfidenceDisplay && ftdConfidenceDisplay.note
+                ? ` — ${ftdConfidenceDisplay.note}`
+                : ''}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="ui-card">

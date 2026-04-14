@@ -231,7 +231,14 @@ Deno.serve(async (request: Request) => {
       )
     }
 
-    const marketSnapshot = marketSnapshotResult.data as MarketSnapshotRow | null
+    const today = new Date().toLocaleDateString('en-CA')
+    const { data: marketSnapshot } = await supabase
+      .from('market_snapshots')
+      .select('market_phase, ftd_confidence')
+      .eq('snapshot_date', today)
+      .maybeSingle()
+
+    const latestMarketSnapshot = marketSnapshotResult.data as MarketSnapshotRow | null
     const closedTrades = (closedTradesResult.data ?? []) as ClosedTradeRow[]
     const openTradesCount = Number(openTradesCountResult.count ?? 0)
     const watchlistRows = (watchlistHealthResult.data ?? []) as WatchlistHealthRow[]
@@ -263,7 +270,7 @@ Deno.serve(async (request: Request) => {
 
     const digestData: WeeklyDigestData = {
       weekEnding,
-      marketPhase: marketSnapshot?.market_phase ?? 'unknown',
+      marketPhase: latestMarketSnapshot?.market_phase ?? 'unknown',
       openTradesCount,
       closedTradesCount: closedTrades.length,
       winsCount: wins.length,
@@ -274,6 +281,8 @@ Deno.serve(async (request: Request) => {
       watchlistCount: activeWatchlist.length,
       flaggedCount: flaggedWatchlist.length,
       appUrl: Deno.env.get('APP_BASE_URL') ?? '',
+      current_market_phase: marketSnapshot?.market_phase ?? null,
+      ftd_confidence: marketSnapshot?.ftd_confidence ?? null,
     }
 
     const { subject, html } = weeklyDigest(digestData)

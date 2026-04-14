@@ -28,8 +28,7 @@ export function useDashboardData() {
     ] = await Promise.all([
       supabase
         .from('market_snapshots')
-        .select('id, market_phase, max_long_exposure_pct, snapshot_date')
-        .order('snapshot_date', { ascending: false })
+        .select('id, market_phase, max_long_exposure_pct, snapshot_date, ftd_active, ftd_confidence')        .order('snapshot_date', { ascending: false })
         .limit(1)
         .maybeSingle(),
       supabase

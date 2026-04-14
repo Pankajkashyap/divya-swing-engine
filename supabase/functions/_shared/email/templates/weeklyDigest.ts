@@ -13,6 +13,8 @@ export type WeeklyDigestData = {
   watchlistCount: number
   flaggedCount: number
   appUrl?: string
+  current_market_phase?: string | null
+  ftd_confidence?: string | null
 }
 
 function fmtMoney(value: number) {
@@ -55,6 +57,87 @@ function layout(title: string, body: string) {
   `
 }
 
+function buildMarketSnapshotReminder(data: WeeklyDigestData) {
+  const dashboard = dashboardUrl(data.appUrl)
+  const currentPhase = data.current_market_phase ?? null
+  const ftdConfidence = data.ftd_confidence ?? null
+
+  const ftdConfidenceLine =
+    ftdConfidence === 'high'
+      ? `<div style="margin-top:10px;font-size:14px;font-weight:700;color:#15803d;">Current FTD confidence: HIGH</div>`
+      : ftdConfidence === 'medium'
+        ? `<div style="margin-top:10px;font-size:14px;font-weight:700;color:#b45309;">Current FTD confidence: MEDIUM</div>`
+        : ftdConfidence === 'low'
+          ? `<div style="margin-top:10px;font-size:14px;font-weight:700;color:#dc2626;">Current FTD confidence: LOW</div>`
+          : ''
+
+  const phaseAlert =
+    currentPhase === 'confirmed_uptrend'
+      ? `
+      <div style="margin-top:16px;padding:16px;border-radius:8px;background:#fffbeb;border:1px solid #f59e0b;">
+        <div style="font-size:15px;font-weight:700;color:#92400e;">⚠️ Phase is Confirmed Uptrend — Check FTD Confidence Before Trading</div>
+        <div style="margin-top:8px;font-size:14px;line-height:1.7;color:#78350f;">
+          Your system has detected an active Follow-Through Day. Before deploying any capital, check the FTD Confidence indicator in the Market card on your app Dashboard:
+          <div style="margin-top:8px;">✅ HIGH — System confident. Proceed with A and A+ setups.</div>
+          <div>⚠️ MEDIUM — Glance at TradingView to confirm the FTD date looks correct before entering.</div>
+          <div>⚠️ LOW — Always verify the FTD manually on TradingView before any capital deployment.</div>
+          ${ftdConfidenceLine}
+        </div>
+      </div>
+      `
+      : currentPhase === 'rally_attempt'
+        ? `
+        <div style="margin-top:16px;padding:16px;border-radius:8px;background:#eff6ff;border:1px solid #60a5fa;">
+          <div style="font-size:15px;font-weight:700;color:#1d4ed8;">Rally Attempt in Progress</div>
+          <div style="margin-top:8px;font-size:14px;line-height:1.7;color:#1e40af;">
+            No confirmed Follow-Through Day yet. Maximum 25% exposure. Watch for an FTD on Day 4 or later — a 1.7%+ close on higher volume than the prior day. Do not deploy full capital until confirmed.
+          </div>
+        </div>
+        `
+        : currentPhase === 'correction'
+          ? `
+          <div style="margin-top:16px;padding:16px;border-radius:8px;background:#fef2f2;border:1px solid #f87171;">
+            <div style="font-size:15px;font-weight:700;color:#b91c1c;">🔴 Market in Correction — Stay in Cash</div>
+            <div style="margin-top:8px;font-size:14px;line-height:1.7;color:#991b1b;">
+              No new long entries. The system will block trade plans automatically. Apply the market snapshot to confirm the current phase.
+            </div>
+          </div>
+          `
+          : currentPhase === 'bear'
+            ? `
+            <div style="margin-top:16px;padding:16px;border-radius:8px;background:#7f1d1d;border:1px solid #991b1b;">
+              <div style="font-size:15px;font-weight:700;color:#fecaca;">🐻 Bear Market — Capital Preservation Mode</div>
+              <div style="margin-top:8px;font-size:14px;line-height:1.7;color:#fee2e2;">
+                No new long entries under any circumstances.
+              </div>
+            </div>
+            `
+            : `
+            <div style="margin-top:16px;padding:16px;border-radius:8px;background:#f5f5f5;border:1px solid #e5e5e5;">
+              <div style="font-size:14px;line-height:1.7;color:#525252;">
+                Apply the market snapshot on the Dashboard to confirm the current phase before placing any trades this week.
+              </div>
+            </div>
+            `
+
+  return `
+    <div style="margin-top:24px;padding:20px;border-radius:8px;background:#fafafa;border:1px solid #e5e5e5;">
+      <div style="font-size:18px;font-weight:700;">📋 Market Snapshot — Action Required</div>
+      <div style="margin-top:10px;font-size:14px;line-height:1.7;color:#525252;">
+        Your technical indicators were calculated automatically overnight. Complete these steps before placing any trades this week:
+      </div>
+      <div style="margin-top:10px;font-size:14px;line-height:1.9;color:#525252;">
+        <div>1. Open the <a href="${dashboard}" style="color:#171717;text-decoration:underline;">app Dashboard</a></div>
+        <div>2. Click "Copy prompt" in Step 1</div>
+        <div>3. Open ChatGPT with web browsing enabled — paste the prompt</div>
+        <div>4. Copy the 4-field JSON response</div>
+        <div>5. Paste into Step 2 → click Apply</div>
+      </div>
+      ${phaseAlert}
+    </div>
+  `
+}
+
 export function weeklyDigest(data: WeeklyDigestData): { subject: string; html: string } {
   const subject = `📈 Weekly Review — Week ending ${data.weekEnding}`
   const reviewUrl = weeklyReviewUrl(data.appUrl)
@@ -67,12 +150,16 @@ export function weeklyDigest(data: WeeklyDigestData): { subject: string; html: s
       ? `${((data.winsCount / data.closedTradesCount) * 100).toFixed(1)}%`
       : '—'
 
+  const marketSnapshotReminder = buildMarketSnapshotReminder(data)
+
   const html = layout(
     `
     <div style="font-size:28px;font-weight:700;">Weekly Review</div>
     <div style="margin-top:6px;color:#737373;font-size:14px;">Week ending ${data.weekEnding}</div>
     `,
     `
+    ${marketSnapshotReminder}
+
     <div style="margin-top:24px;font-size:18px;font-weight:700;">Performance</div>
     <table style="width:100%;border-collapse:collapse;margin-top:12px;">
       <tr><td style="padding:10px 0;color:#737373;border-bottom:1px solid #e5e5e5;">Closed trades</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-weight:600;border-bottom:1px solid #e5e5e5;">${data.closedTradesCount}</td></tr>

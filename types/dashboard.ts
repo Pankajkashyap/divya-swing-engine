@@ -3,6 +3,8 @@ export type MarketSnapshot = {
   market_phase: string
   max_long_exposure_pct: number | null
   snapshot_date: string | null  
+  ftd_active: boolean | null
+  ftd_confidence: string | null
 }
 
 export type WatchlistRow = {
