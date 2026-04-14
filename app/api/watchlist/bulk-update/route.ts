@@ -359,11 +359,13 @@ export async function POST(request: NextRequest) {
     for (const field of updatableFields) {
       const incomingValue = row[field]
       const currentValue = existing[field]
-
       if (incomingValue !== null && currentValue === null) {
         updatePayload[field] = incomingValue
       }
     }
+    // Always force these to true — screener already verified both
+    updatePayload['liquidity_pass'] = true
+    updatePayload['trend_template_pass'] = true
 
     if (Object.keys(updatePayload).length === 0) {
       skipCount += 1

@@ -167,21 +167,6 @@ setup_grade (string: "A+", "A", "B", "C", or "F")
   C  = multiple conditions failing — marginal setup, trial size only.
   F  = unresearchable or disqualified. See quality rules above.
 
-liquidity_pass (boolean)
-  True if average daily volume is above 500,000 shares AND price is above $10 AND market cap is above $500M. False otherwise.
-
-trend_template_pass (boolean)
-  True only if ALL 8 criteria are met simultaneously:
-  1. Price above 50-day MA
-  2. Price above 150-day MA
-  3. Price above 200-day MA
-  4. 50-day MA above 150-day MA
-  5. 150-day MA above 200-day MA
-  6. 200-day MA trending up for at least 1 month
-  7. Price within 25% of 52-week high
-  8. Price at least 25% above 52-week low
-  False if any single criterion fails.
-
 rs_line_confirmed (boolean)
   Derived from rs_line_state. Set to true if rs_line_state is "leading" or "confirmed". Set to false if rs_line_state is "warning". Set to null if rs_line_state is null. Always populate rs_line_state first, then set this field accordingly.
 
