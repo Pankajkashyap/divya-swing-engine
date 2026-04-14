@@ -11,8 +11,6 @@ type MarketPhase =
   | 'bear'
 
 type RawMarketData = {
-  spy_price: number
-  spy_change_pct: number
   new_highs_count: number | null
   new_lows_count: number | null
 }
@@ -24,7 +22,7 @@ type TechnicalRow = {
   spy_200dma_trending_up: boolean | null
   distribution_days: number | null
   spy_distribution_days: number | null
-  qqq_distribution_days: number | null 
+  qqq_distribution_days: number | null
   ftd_active: boolean | null
   ftd_invalidated: boolean | null
   leading_sectors: string | null
@@ -129,11 +127,8 @@ function isValidRawData(body: unknown): body is RawMarketData {
       b.new_lows_count >= 0)
 
   return (
-    typeof b.spy_price === 'number' &&
-    Number.isFinite(b.spy_price) &&
-    b.spy_price > 0 &&
-    typeof b.spy_change_pct === 'number' &&
-    Number.isFinite(b.spy_change_pct) &&
+    'new_highs_count' in b &&
+    'new_lows_count' in b &&
     validNewHighs &&
     validNewLows
   )
@@ -168,7 +163,7 @@ export async function POST(request: Request) {
   const { data: technicals, error: technicalsError } = await supabase
     .from('market_snapshots')
     .select(
-    'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, spy_distribution_days, qqq_distribution_days, ftd_active, ftd_invalidated, leading_sectors'
+      'spy_above_50dma, spy_above_150dma, spy_above_200dma, spy_200dma_trending_up, distribution_days, spy_distribution_days, qqq_distribution_days, ftd_active, ftd_invalidated, leading_sectors'
     )
     .eq('snapshot_date', today)
     .maybeSingle()
@@ -226,11 +221,11 @@ export async function POST(request: Request) {
   const snapshot_date = today
   const last_market_scan_at = new Date().toISOString()
 
+  // spy_price and spy_change_pct are now calculated automatically by the
+  // calculate-market-technicals Edge Function — not written here
   const payload = {
     snapshot_date,
     user_id: user.id,
-    spy_price: body.spy_price,
-    spy_change_pct: body.spy_change_pct,
     new_highs_count: body.new_highs_count,
     new_lows_count: body.new_lows_count,
     market_phase,
@@ -258,7 +253,7 @@ export async function POST(request: Request) {
     spy_200dma_trending_up,
     distribution_days,
     spy_distribution_days: typedTechnicals.spy_distribution_days,
-  qqq_distribution_days: typedTechnicals.qqq_distribution_days,
+    qqq_distribution_days: typedTechnicals.qqq_distribution_days,
     ftd_active,
     ftd_invalidated,
     leading_sectors: technicals.leading_sectors ?? null,

@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type RawMarketData = {
-  spy_price: number
-  spy_change_pct: number
   new_highs_count: number | null
   new_lows_count: number | null
 }
@@ -35,29 +33,24 @@ type MarketSnapshotChatGPTWorkflowProps = {
 function buildClipboardContent(): string {
   const today = new Date().toLocaleDateString('en-CA')
 
-  return `You are a financial data researcher. Your only job is to 
-look up 3 specific data points and return them as a JSON 
+  return `You are a financial data researcher. Your only job is to
+look up 2 specific data points and return them as a JSON
 object.
 
 STRICT OUTPUT RULES:
 - Return ONLY a valid JSON object.
-- No markdown, no backticks, no explanation, no preamble, 
+- No markdown, no backticks, no explanation, no preamble,
   no trailing text.
-- All 4 fields must be present.
+- Both fields must be present.
 - Return null for any field you cannot verify with a source.
   Do not guess. Do not infer.
 
 TODAY'S DATE: ${today}
 
-FIELD 1 & 2 — SPY price and change:
-Look up the most recent SPY closing price and % change.
-If today is a weekend or market holiday, use the most 
-recent trading day's close.
-
-FIELD 3 & 4 — New 52-week highs and lows:
-Look up how many stocks made new 52-week highs and new 
+FIELD 1 & 2 — New 52-week highs and lows:
+Look up how many stocks made new 52-week highs and new
 52-week lows today on NYSE + NASDAQ combined.
-Use the most recent trading day if today is not a 
+Use the most recent trading day if today is not a
 trading day.
 Preferred sources: WSJ Markets (wsj.com/market-data),
 Barchart.com, or StockCharts.com.
@@ -66,21 +59,18 @@ Do not estimate.
 
 SELF-VALIDATION — run these checks before returning JSON:
 
-CHECK 1 — Breadth sanity:
-If new_highs_count and new_lows_count are both populated,
-check the ratio. If SPY closed above $560 and new_lows 
-exceed new_highs, re-verify your breadth source. If still
-inconsistent after re-checking, return null for both.
-
-CHECK 2 — Source confirmation:
-For new_highs_count and new_lows_count, you must have 
+CHECK 1 — Source confirmation:
+For new_highs_count and new_lows_count, you must have
 found a specific number from a specific page. If you only
 found general commentary, return null.
 
+CHECK 2 — Sanity check:
+If SPY is above $550 and new_lows exceed new_highs by
+more than 5:1, re-verify your breadth source before
+returning.
+
 RETURN THIS EXACT JSON STRUCTURE:
 {
-  "spy_price": 0.00,
-  "spy_change_pct": 0.00,
   "new_highs_count": 0,
   "new_lows_count": 0
 }`
@@ -102,15 +92,7 @@ function isValidRawData(row: unknown): row is RawMarketData {
       Number.isFinite(r.new_lows_count) &&
       r.new_lows_count >= 0)
 
-  return (
-    typeof r.spy_price === 'number' &&
-    Number.isFinite(r.spy_price) &&
-    r.spy_price > 0 &&
-    typeof r.spy_change_pct === 'number' &&
-    Number.isFinite(r.spy_change_pct) &&
-    validNewHighs &&
-    validNewLows
-  )
+  return validNewHighs && validNewLows && 'new_highs_count' in r && 'new_lows_count' in r
 }
 
 async function copyTextWithFallback(text: string): Promise<void> {
@@ -233,7 +215,7 @@ export function MarketSnapshotChatGPTWorkflow({
         </h2>
         <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
           Click copy. Open ChatGPT with web browsing enabled. Paste. ChatGPT
-          will research the current market and return a JSON assessment.
+          will look up new 52-week highs and lows and return a JSON object.
         </p>
 
         <textarea
@@ -285,10 +267,6 @@ export function MarketSnapshotChatGPTWorkflow({
 
         {importValidation === 'valid' && parsedImport ? (
           <div className="mt-3 space-y-1 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600 dark:border-[#2a313b] dark:bg-[#181d23] dark:text-[#a8b2bf]">
-            <div>
-              SPY: ${parsedImport.spy_price} ({parsedImport.spy_change_pct > 0 ? '+' : ''}
-              {parsedImport.spy_change_pct}%)
-            </div>
             <div>
               New highs: {parsedImport.new_highs_count === null ? 'null' : parsedImport.new_highs_count} · New lows:{' '}
               {parsedImport.new_lows_count === null ? 'null' : parsedImport.new_lows_count}
