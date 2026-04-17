@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
-import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 type Props = {
   title: string
@@ -80,24 +79,23 @@ export function AppHeader({ title }: Props) {
         <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]">
           {title}
         </h1>
-        <div className="flex shrink-0 items-center gap-2">
-          <ThemeToggle />
-          <button
-            ref={toggleBtnRef}
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            className="ui-btn-secondary relative"
-            aria-label="Toggle navigation"
-            aria-expanded={menuOpen}
-          >
-            <span className="text-base leading-none">{menuOpen ? '✕' : '☰'}</span>
-            {pendingCount > 0 && !menuOpen && (
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#7c93ff] text-[9px] font-bold text-[#0f1720]">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-        </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          ref={toggleBtnRef}
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          className="ui-btn-secondary relative"
+          aria-label="Toggle navigation"
+          aria-expanded={menuOpen}
+        >
+          <span className="text-base leading-none">{menuOpen ? '✕' : '☰'}</span>
+          {pendingCount > 0 && !menuOpen && (
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#7c93ff] text-[9px] font-bold text-[#0f1720]">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+      </div>
       </div>
 
       {/* Dropdown nav */}
