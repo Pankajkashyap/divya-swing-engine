@@ -19,11 +19,11 @@ export const metadata: Metadata = {
   description: 'Divya + Shayna platform',
   applicationName: 'Vyana',
   manifest: '/manifest.webmanifest',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Vyana',
-  },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'Vyana',
+    },
   formatDetection: {
     telephone: false,
   },
