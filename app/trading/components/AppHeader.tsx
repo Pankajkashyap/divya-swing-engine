@@ -70,10 +70,10 @@ export function AppHeader({ title }: Props) {
   ]
 
   return (
-    <header
-      ref={headerRef}
-      className="mb-4 border-b border-neutral-200 pb-3 dark:border-neutral-800"
-    >
+      <header
+        ref={headerRef}
+        className="relative z-40 mb-4 border-b border-neutral-200 pb-3 dark:border-neutral-800"
+      >
       {/* Top bar — always visible */}
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]">
@@ -100,7 +100,7 @@ export function AppHeader({ title }: Props) {
 
       {/* Dropdown nav */}
       {menuOpen && (
-        <nav className="mt-3 flex flex-col gap-0.5">
+        <nav className="absolute left-0 right-0 top-full z-50 mt-3 flex flex-col gap-0.5 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-[#2a313b] dark:bg-[#181d23]">
           {navItems.map((item) => {
             const isActive =
               item.href === '/trading'
