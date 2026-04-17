@@ -100,7 +100,7 @@ export function AppHeader({ title }: Props) {
 
       {/* Dropdown nav */}
       {menuOpen && (
-        <nav className="absolute left-0 right-0 top-full z-50 mt-3 flex flex-col gap-0.5 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-[#2a313b] dark:bg-[#181d23]">
+        <nav className="absolute right-0 top-full z-50 mt-2 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-1 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-[#2a313b] dark:bg-[#181d23]">
           {navItems.map((item) => {
             const isActive =
               item.href === '/trading'
@@ -111,8 +111,7 @@ export function AppHeader({ title }: Props) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium transition-all duration-150 ${
-                  isActive
+                className={`flex min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${                  isActive
                     ? 'bg-neutral-900 text-white dark:bg-[#7c93ff] dark:text-[#0f1720]'
                     : 'text-neutral-700 hover:bg-neutral-100 dark:text-[#d7dde6] dark:hover:bg-[#20262e]'
                 }`}

@@ -30,8 +30,8 @@ export function TopBar() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-neutral-800 dark:bg-[#111418]/90 dark:supports-[backdrop-filter]:bg-[#111418]/80">
-      <div className="mx-auto flex h-[56px] max-w-screen-2xl items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top)] sm:px-6">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-neutral-200 bg-white/90 backdrop-blur supports-backdrop-filter:bg-white/80 dark:border-neutral-800 dark:bg-[#111418]/90 dark:supports-backdrop-filter:bg-[#111418]/80">
+      <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top)] sm:px-6">
         <div className="min-w-0">
           <Link
             href="/"
@@ -45,14 +45,14 @@ export function TopBar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <button
+            <button
             type="button"
             onClick={handleLogout}
             disabled={loggingOut}
-            className="ui-btn-secondary hidden md:inline-flex"
-          >
+            className="ui-btn-secondary"
+            >
             {loggingOut ? 'Logging out...' : 'Logout'}
-          </button>
+            </button>
           <ThemeToggle />
         </div>
       </div>
