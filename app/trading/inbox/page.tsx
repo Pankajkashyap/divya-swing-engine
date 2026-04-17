@@ -8,6 +8,7 @@ import { NotificationLogTable } from '@/app/trading/components/inbox/Notificatio
 import { ExecuteBuyDialog } from '@/app/trading/components/inbox/ExecuteBuyDialog'
 import { ExecuteSellDialog } from '@/app/trading/components/inbox/ExecuteSellDialog'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 export type PendingAction = {
   id: string
@@ -598,186 +599,246 @@ export default function InboxPage() {
   )
 
   if (loading) {
-    return <main className="ui-page">Loading inbox...</main>
+    return (
+      <main className="ui-page">
+        <section className="mx-auto max-w-7xl">
+          <AppHeader title="Inbox" />
+          <div className="mt-6 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Loading inbox...
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
-        <AppHeader
-          title="Inbox"
-        />
+        <AppHeader title="Inbox" />
 
-        <section className="ui-section">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              Pending Actions
-              <Tooltip text="Items that require your decision: proposed buy signals, watchlist additions or removals, and system alerts waiting for your confirmation." />
-            </h2>
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="ui-card">
+              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                Awaiting action
+              </div>
+              <div className="mt-2 text-3xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                {pendingActions.length}
+              </div>
+            </div>
+
+            <div className="ui-card">
+              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                Urgent
+              </div>
+              <div className="mt-2 text-3xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                {pendingActions.filter((action) => action.urgency === 'urgent').length}
+              </div>
+            </div>
+
+            <div className="ui-card">
+              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                Watchlist removals
+              </div>
+              <div className="mt-2 text-3xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                {watchlistRemovalActions.length}
+              </div>
+            </div>
+
+            <div className="ui-card">
+              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                Recent notifications
+              </div>
+              <div className="mt-2 text-3xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                {notifications.length}
+              </div>
+            </div>
           </div>
 
-          {streakAlertActions.length > 0 ? (
-            <div className="mb-6 space-y-3">
-              {streakAlertActions.map((action) => {
-                const threshold = typeof action.payload_json?.threshold === 'string'
-                  ? action.payload_json.threshold
-                  : ''
+          <CollapsibleSection
+            title="Pending actions"
+            subtitle="Items that require your decision: proposed buys, sells, watchlist changes, and alerts."
+            defaultOpen={true}
+          >
+            <div className="space-y-4">
+              {streakAlertActions.length > 0 ? (
+                <div className="space-y-3">
+                  {streakAlertActions.map((action) => {
+                    const threshold =
+                      typeof action.payload_json?.threshold === 'string'
+                        ? action.payload_json.threshold
+                        : ''
 
-                const thresholdLabel =
-                  threshold === 'soft_pause'
-                    ? 'Soft Pause'
-                    : threshold === 'hard_pause'
-                      ? 'Hard Pause'
-                      : threshold === 'full_stop'
-                        ? 'Full Stop'
-                        : 'Streak Alert'
+                    const thresholdLabel =
+                      threshold === 'soft_pause'
+                        ? 'Soft Pause'
+                        : threshold === 'hard_pause'
+                          ? 'Hard Pause'
+                          : threshold === 'full_stop'
+                            ? 'Full Stop'
+                            : 'Streak Alert'
 
-                return (
-                  <div key={action.id} className="ui-card p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                          {action.title}
+                    return (
+                      <div key={action.id} className="ui-card p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                              {action.title}
+                            </div>
+                            {action.message ? (
+                              <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                                {action.message}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="ui-pill-warning shrink-0">{thresholdLabel}</span>
                         </div>
-                        {action.message ? (
-                          <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                            {action.message}
-                          </p>
-                        ) : null}
-                      </div>
-                      <span className="ui-pill-warning shrink-0">{thresholdLabel}</span>
-                    </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="ui-btn-primary"
-                        onClick={() => handleResetStreak(action.id)}
-                        disabled={executingId === action.id}
-                      >
-                        {executingId === action.id ? 'Working...' : 'Reset Streak Counter'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ui-btn-secondary"
-                        onClick={() => handleDismiss(action.id)}
-                        disabled={executingId === action.id}
-                      >
-                        {executingId === action.id ? 'Working...' : 'Dismiss'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : null}
-
-          {holdAlertActions.length > 0 ? (
-            <div className="mb-6 space-y-3">
-              {holdAlertActions.map((action) => {
-                const daysHeld = typeof action.payload_json?.daysHeld === 'number'
-                  ? action.payload_json.daysHeld
-                  : null
-                const weeksHeld = daysHeld !== null ? Math.floor(daysHeld / 7) : null
-
-                return (
-                  <div key={action.id} className="ui-card p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                          {action.title}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="ui-btn-primary"
+                            onClick={() => handleResetStreak(action.id)}
+                            disabled={executingId === action.id}
+                          >
+                            {executingId === action.id
+                              ? 'Working...'
+                              : 'Reset Streak Counter'}
+                          </button>
+                          <button
+                            type="button"
+                            className="ui-btn-secondary"
+                            onClick={() => handleDismiss(action.id)}
+                            disabled={executingId === action.id}
+                          >
+                            {executingId === action.id ? 'Working...' : 'Dismiss'}
+                          </button>
                         </div>
-                        {action.message ? (
-                          <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                            {action.message}
-                          </p>
-                        ) : null}
                       </div>
-                      <span className="ui-pill-neutral shrink-0">
-                        {weeksHeld !== null ? `Week ${weeksHeld}` : '8-Week Rule'}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="ui-btn-secondary"
-                        onClick={() => handleDismiss(action.id)}
-                        disabled={executingId === action.id}
-                      >
-                        {executingId === action.id ? 'Working...' : 'Reviewed — Dismiss'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : null}
-
-          {watchlistRemovalActions.length > 0 ? (
-            <div className="mb-6 space-y-3">
-              {watchlistRemovalActions.map((action) => (
-                <div key={action.id} className="ui-card p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                        {action.title}
-                      </div>
-                      {action.message ? (
-                        <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                          {action.message}
-                        </p>
-                      ) : null}
-                    </div>
-                    <span className="ui-pill-warning shrink-0">Removal proposal</span>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="ui-btn-danger"
-                      onClick={() => handleRemoveWatchlistCandidate(action)}
-                      disabled={executingId === action.id}
-                    >
-                      {executingId === action.id ? 'Working...' : 'Remove from watchlist'}
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-btn-secondary"
-                      onClick={() => handleKeepWatchlistCandidate(action.id)}
-                      disabled={executingId === action.id}
-                    >
-                      Keep
-                    </button>
-                  </div>
+                    )
+                  })}
                 </div>
-              ))}
+              ) : null}
+
+              {holdAlertActions.length > 0 ? (
+                <div className="space-y-3">
+                  {holdAlertActions.map((action) => {
+                    const daysHeld =
+                      typeof action.payload_json?.daysHeld === 'number'
+                        ? action.payload_json.daysHeld
+                        : null
+                    const weeksHeld = daysHeld !== null ? Math.floor(daysHeld / 7) : null
+
+                    return (
+                      <div key={action.id} className="ui-card p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                              {action.title}
+                            </div>
+                            {action.message ? (
+                              <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                                {action.message}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="ui-pill-neutral shrink-0">
+                            {weeksHeld !== null ? `Week ${weeksHeld}` : '8-Week Rule'}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="ui-btn-secondary"
+                            onClick={() => handleDismiss(action.id)}
+                            disabled={executingId === action.id}
+                          >
+                            {executingId === action.id
+                              ? 'Working...'
+                              : 'Reviewed — Dismiss'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : null}
+
+              {watchlistRemovalActions.length > 0 ? (
+                <div className="space-y-3">
+                  {watchlistRemovalActions.map((action) => (
+                    <div key={action.id} className="ui-card p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                            {action.title}
+                          </div>
+                          {action.message ? (
+                            <p className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                              {action.message}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="ui-pill-warning shrink-0">Removal proposal</span>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="ui-btn-danger"
+                          onClick={() => handleRemoveWatchlistCandidate(action)}
+                          disabled={executingId === action.id}
+                        >
+                          {executingId === action.id
+                            ? 'Working...'
+                            : 'Remove from watchlist'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ui-btn-secondary"
+                          onClick={() => handleKeepWatchlistCandidate(action.id)}
+                          disabled={executingId === action.id}
+                        >
+                          Keep
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                    Action table
+                    <Tooltip text="Items that still require a detailed execution decision." />
+                  </h2>
+                </div>
+
+                <PendingActionsTable
+                  actions={tableActions}
+                  executingId={executingId}
+                  onExecuteBuy={(action: PendingAction) => setBuyDialogAction(action)}
+                  onExecuteSell={(action: PendingAction, mode: 'full' | 'partial') =>
+                    setSellDialogAction({ action, mode })
+                  }
+                  onDismiss={handleDismiss}
+                  onSnooze={handleSnooze}
+                  onArchiveWatchlistItem={handleArchiveWatchlistItem}
+                />
+              </div>
             </div>
-          ) : null}
+          </CollapsibleSection>
 
-          <PendingActionsTable
-            actions={tableActions}
-            executingId={executingId}
-            onExecuteBuy={(action: PendingAction) => setBuyDialogAction(action)}
-            onExecuteSell={(action: PendingAction, mode: 'full' | 'partial') =>
-              setSellDialogAction({ action, mode })
-            }
-            onDismiss={handleDismiss}
-            onSnooze={handleSnooze}
-            onArchiveWatchlistItem={handleArchiveWatchlistItem}
-          />
-        </section>
-
-        <section className="ui-section mt-8">
-          <div className="mb-4">
-            <h2 className="flex items-center gap-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              Notification Log
-              <Tooltip text="A record of all emails and alerts the system has sent you." />
-            </h2>
-          </div>
-
-          <NotificationLogTable notifications={notifications} />
-        </section>
+          <CollapsibleSection
+            title="Notification log"
+            subtitle="A record of all emails and alerts the system has sent you."
+            defaultOpen={false}
+          >
+            <NotificationLogTable notifications={notifications} />
+          </CollapsibleSection>
+        </div>
       </section>
 
       {buyDialogAction ? (

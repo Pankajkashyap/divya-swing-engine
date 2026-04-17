@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 import { WeeklyReviewSummary } from '@/app/trading/components/WeeklyReviewSummary'
 import { AppHeader } from '@/app/trading/components/AppHeader'
+import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 type MarketSnapshot = {
   id: string
@@ -40,7 +41,7 @@ export default function WeeklyReviewPage() {
   const [phaseChanged, setPhaseChanged] = useState(false)
   const [priorPhase, setPriorPhase] = useState('')
   const [topSectors, setTopSectors] = useState('')
-  const [deterioratingSectors, setDeteriorizatingSectors] = useState('')
+  const [deterioratingSectors, setDeterioratingSectors] = useState('')
   const [totalHeatPct, setTotalHeatPct] = useState('')
   const [drawdownFromHwmPct, setDrawdownFromHwmPct] = useState('')
   const [loading, setLoading] = useState(true)
@@ -70,14 +71,12 @@ export default function WeeklyReviewPage() {
       if (tradeError) console.error('Trade load error:', tradeError)
 
       setMarket(marketData ?? null)
-      setTrades(tradeData ?? [])
+      setTrades((tradeData ?? []) as TradeRow[])
 
-      // Auto-calculate portfolio heat from open trades
-      const openTrades = (tradeData ?? []).filter(
+      const openTrades = ((tradeData ?? []) as TradeRow[]).filter(
         (t) => t.status === 'open' || t.status === 'partial'
       )
 
-      // Get portfolio value from user_settings
       const { data: settingsData } = await supabase
         .from('user_settings')
         .select('portfolio_value')
@@ -202,291 +201,314 @@ export default function WeeklyReviewPage() {
     setPhaseChanged(false)
     setPriorPhase('')
     setTopSectors('')
-    setDeteriorizatingSectors('')
+    setDeterioratingSectors('')
     setDrawdownFromHwmPct('')
 
     alert('Weekly review saved')
   }
 
   if (loading) {
-    return <main className="ui-page">Loading weekly review...</main>
+    return (
+      <main className="ui-page">
+        <section className="mx-auto max-w-7xl">
+          <AppHeader title="Weekly Review" />
+          <div className="mt-6 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Loading weekly review...
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
-        <AppHeader
-          title="Weekly Review"
-        />
+        <AppHeader title="Weekly Review" />
 
-        <WeeklyReviewSummary
-          marketPhase={market?.market_phase ?? ''}
-          openTradesCount={metrics.openTradesCount}
-          closedTradesCount={metrics.closedTradesCount}
-          totalRealizedPnl={metrics.totalRealizedPnl}
-          winsCount={metrics.winsCount}
-          lossesCount={metrics.lossesCount}
-          avgWin={metrics.avgWin}
-          avgLoss={metrics.avgLoss}
-        />
+        <div className="space-y-4">
+          <WeeklyReviewSummary
+            marketPhase={market?.market_phase ?? ''}
+            openTradesCount={metrics.openTradesCount}
+            closedTradesCount={metrics.closedTradesCount}
+            totalRealizedPnl={metrics.totalRealizedPnl}
+            winsCount={metrics.winsCount}
+            lossesCount={metrics.lossesCount}
+            avgWin={metrics.avgWin}
+            avgLoss={metrics.avgLoss}
+          />
 
-        <div className="ui-section mt-8">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-            Closed Trades
-          </h2>
-
-          {metrics.closedTrades.length === 0 ? (
-            <p className="mt-4 text-neutral-600 dark:text-[#a8b2bf]">
-              No closed trades yet.
-            </p>
-          ) : (
-            <div className="mt-4 ui-table-wrap">
-              <table className="ui-table">
-                <thead>
-                  <tr>
-                    <th>Ticker</th>
-                    <th>Entry Date</th>
-                    <th>Exit Date</th>
-                    <th>Exit Price</th>
-                    <th>P&amp;L $</th>
-                    <th>P&amp;L %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {metrics.closedTrades.map((trade) => (
-                    <tr key={trade.id}>
-                      <td className="py-3 pr-4 font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                        {trade.ticker}
-                      </td>
-                      <td className="py-3 pr-4">{trade.entry_date ?? '—'}</td>
-                      <td className="py-3 pr-4">{trade.exit_date ?? '—'}</td>
-                      <td className="py-3 pr-4">
-                        {trade.exit_price_actual ?? '—'}
-                      </td>
-                      <td className="py-3 pr-4">{trade.pnl_dollar ?? '—'}</td>
-                      <td className="py-3 pr-4">{trade.pnl_pct ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        <div className="ui-section mt-8">
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-            Weekly Review Notes
-          </h2>
-
-          <div className="mt-4 grid gap-4">
-            <h3 className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-              Market Conditions
-            </h3>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                  SPX Distribution Days
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={spxDistributionDays}
-                  onChange={(e) => setSpxDistributionDays(e.target.value)}
-                  className="ui-input"
-                  placeholder="0"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                  NDX Distribution Days
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={ndxDistributionDays}
-                  onChange={(e) => setNdxDistributionDays(e.target.value)}
-                  className="ui-input"
-                  placeholder="0"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-6">
-              <label className="flex items-center gap-2 text-sm text-neutral-900 dark:text-[#e6eaf0]">
-                <input
-                  type="checkbox"
-                  checked={ftdActive}
-                  onChange={(e) => setFtdActive(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                Follow-Through Day active
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-neutral-900 dark:text-[#e6eaf0]">
-                <input
-                  type="checkbox"
-                  checked={phaseChanged}
-                  onChange={(e) => setPhaseChanged(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                Market phase changed this week
-              </label>
-            </div>
-
-            {phaseChanged ? (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                  Prior phase
-                </label>
-                <select
-                  value={priorPhase}
-                  onChange={(e) => setPriorPhase(e.target.value)}
-                  className="ui-select"
-                >
-                  <option value="">Select...</option>
-                  <option value="confirmed_uptrend">Confirmed Uptrend</option>
-                  <option value="under_pressure">Under Pressure</option>
-                  <option value="rally_attempt">Rally Attempt</option>
-                  <option value="correction">Correction</option>
-                  <option value="bear">Bear</option>
-                </select>
-              </div>
-            ) : null}
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Top sectors this week
-              </label>
-              <input
-                value={topSectors}
-                onChange={(e) => setTopSectors(e.target.value)}
-                className="ui-input"
-                placeholder="e.g. Technology, Healthcare"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Deteriorating sectors
-              </label>
-              <input
-                value={deterioratingSectors}
-                onChange={(e) => setDeteriorizatingSectors(e.target.value)}
-                className="ui-input"
-                placeholder="e.g. Energy, Financials"
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            <h3 className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-              Portfolio State
-            </h3>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="ui-card p-4">
-                <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Portfolio Heat %</div>
-                <div className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  {totalHeatPct || '—'}%
-                </div>
-                <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">Auto-calculated</p>
-              </div>
-
-              <div className="ui-card p-4">
-                <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Heat Ceiling %</div>
-                <div className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  {market?.max_long_exposure_pct ?? '—'}%
-                </div>
-                <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">From market snapshot</p>
-              </div>
-
-              <div className="ui-card p-4">
-                <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Open Positions</div>
-                <div className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  {metrics.openTradesCount}
-                </div>
-                <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">Auto-calculated</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Drawdown from high-water mark (%)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                value={drawdownFromHwmPct}
-                onChange={(e) => setDrawdownFromHwmPct(e.target.value)}
-                className="ui-input"
-                placeholder="0.0"
-              />
-              <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
-                Enter manually from your account statement
+          <CollapsibleSection
+            title="Closed trades"
+            subtitle="Review closed positions from the recent trading period."
+            defaultOpen={true}
+          >
+            {metrics.closedTrades.length === 0 ? (
+              <p className="text-neutral-600 dark:text-[#a8b2bf]">
+                No closed trades yet.
               </p>
-            </div>
-          </div>
+            ) : (
+              <div className="ui-table-wrap">
+                <table className="ui-table">
+                  <thead>
+                    <tr>
+                      <th>Ticker</th>
+                      <th>Entry Date</th>
+                      <th>Exit Date</th>
+                      <th>Exit Price</th>
+                      <th>P&amp;L $</th>
+                      <th>P&amp;L %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {metrics.closedTrades.map((trade) => (
+                      <tr key={trade.id}>
+                        <td className="py-3 pr-4 font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                          {trade.ticker}
+                        </td>
+                        <td className="py-3 pr-4">{trade.entry_date ?? '—'}</td>
+                        <td className="py-3 pr-4">{trade.exit_date ?? '—'}</td>
+                        <td className="py-3 pr-4">{trade.exit_price_actual ?? '—'}</td>
+                        <td className="py-3 pr-4">{trade.pnl_dollar ?? '—'}</td>
+                        <td className="py-3 pr-4">{trade.pnl_pct ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CollapsibleSection>
 
-          <div className="mt-4 grid gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Primary Focus for Next Week
-              </label>
-              <input
-                value={primaryFocus}
-                onChange={(e) => setPrimaryFocus(e.target.value)}
-                className="ui-input"
-                placeholder="Focus on A-grade setups only"
-              />
-            </div>
+          <CollapsibleSection
+            title="Market conditions"
+            subtitle="Record distribution, follow-through state, and sector leadership."
+            defaultOpen={true}
+          >
+            <div className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    SPX Distribution Days
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={spxDistributionDays}
+                    onChange={(e) => setSpxDistributionDays(e.target.value)}
+                    className="ui-input"
+                    placeholder="0"
+                  />
+                </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Biggest Rule Issue
-              </label>
-              <input
-                value={biggestRuleIssue}
-                onChange={(e) => setBiggestRuleIssue(e.target.value)}
-                className="ui-input"
-                placeholder="Entered too far from pivot"
-              />
-            </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    NDX Distribution Days
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={ndxDistributionDays}
+                    onChange={(e) => setNdxDistributionDays(e.target.value)}
+                    className="ui-input"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Next Week Triggers
-              </label>
-              <input
-                value={nextWeekTriggers}
-                onChange={(e) => setNextWeekTriggers(e.target.value)}
-                className="ui-input"
-                placeholder="Watch for confirmed_uptrend continuation"
-              />
-            </div>
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 text-sm text-neutral-900 dark:text-[#e6eaf0]">
+                  <input
+                    type="checkbox"
+                    checked={ftdActive}
+                    onChange={(e) => setFtdActive(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Follow-Through Day active
+                </label>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Notes
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="ui-textarea min-h-32"
-                placeholder="Weekly reflection..."
-              />
-            </div>
-          </div>
+                <label className="flex items-center gap-2 text-sm text-neutral-900 dark:text-[#e6eaf0]">
+                  <input
+                    type="checkbox"
+                    checked={phaseChanged}
+                    onChange={(e) => setPhaseChanged(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Market phase changed this week
+                </label>
+              </div>
 
-          <div className="mt-4">
-            <button
-              onClick={handleSaveWeeklyReview}
-              className="ui-btn-primary"
-            >
-              Save Weekly Review
-            </button>
-          </div>
+              {phaseChanged ? (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Prior phase
+                  </label>
+                  <select
+                    value={priorPhase}
+                    onChange={(e) => setPriorPhase(e.target.value)}
+                    className="ui-select"
+                  >
+                    <option value="">Select...</option>
+                    <option value="confirmed_uptrend">Confirmed Uptrend</option>
+                    <option value="under_pressure">Under Pressure</option>
+                    <option value="rally_attempt">Rally Attempt</option>
+                    <option value="correction">Correction</option>
+                    <option value="bear">Bear</option>
+                  </select>
+                </div>
+              ) : null}
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Top sectors this week
+                </label>
+                <input
+                  value={topSectors}
+                  onChange={(e) => setTopSectors(e.target.value)}
+                  className="ui-input"
+                  placeholder="e.g. Technology, Healthcare"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Deteriorating sectors
+                </label>
+                <input
+                  value={deterioratingSectors}
+                  onChange={(e) => setDeterioratingSectors(e.target.value)}
+                  className="ui-input"
+                  placeholder="e.g. Energy, Financials"
+                />
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Portfolio state"
+            subtitle="Capture heat, drawdown, and current portfolio posture."
+            defaultOpen={true}
+          >
+            <div className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="ui-card p-4">
+                  <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                    Portfolio Heat %
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                    {totalHeatPct || '—'}%
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    Auto-calculated
+                  </p>
+                </div>
+
+                <div className="ui-card p-4">
+                  <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                    Heat Ceiling %
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                    {market?.max_long_exposure_pct ?? '—'}%
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    From market snapshot
+                  </p>
+                </div>
+
+                <div className="ui-card p-4">
+                  <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                    Open Positions
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                    {metrics.openTradesCount}
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    Auto-calculated
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Drawdown from high-water mark (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={drawdownFromHwmPct}
+                  onChange={(e) => setDrawdownFromHwmPct(e.target.value)}
+                  className="ui-input"
+                  placeholder="0.0"
+                />
+                <p className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                  Enter manually from your account statement
+                </p>
+              </div>
+            </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Weekly review notes"
+            subtitle="Document focus, rule issues, triggers, and reflection."
+            defaultOpen={true}
+          >
+            <div className="grid gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Primary Focus for Next Week
+                </label>
+                <input
+                  value={primaryFocus}
+                  onChange={(e) => setPrimaryFocus(e.target.value)}
+                  className="ui-input"
+                  placeholder="Focus on A-grade setups only"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Biggest Rule Issue
+                </label>
+                <input
+                  value={biggestRuleIssue}
+                  onChange={(e) => setBiggestRuleIssue(e.target.value)}
+                  className="ui-input"
+                  placeholder="Entered too far from pivot"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Next Week Triggers
+                </label>
+                <input
+                  value={nextWeekTriggers}
+                  onChange={(e) => setNextWeekTriggers(e.target.value)}
+                  className="ui-input"
+                  placeholder="Watch for confirmed_uptrend continuation"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  Notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="ui-textarea min-h-32"
+                  placeholder="Weekly reflection..."
+                />
+              </div>
+
+              <div>
+                <button
+                  onClick={handleSaveWeeklyReview}
+                  className="ui-btn-primary"
+                >
+                  Save Weekly Review
+                </button>
+              </div>
+            </div>
+          </CollapsibleSection>
         </div>
       </section>
     </main>

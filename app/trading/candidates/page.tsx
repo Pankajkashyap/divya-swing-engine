@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 import { AppHeader } from '@/app/trading/components/AppHeader'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 type CandidateRow = {
   id: string
@@ -410,6 +411,7 @@ export default function CandidatesPage() {
     () => buildClipboardContent(candidates),
     [candidates]
   )
+
   const clipboardPreview = useMemo(
     () => clipboardContent.split('\n').slice(0, 3).join('\n'),
     [clipboardContent]
@@ -450,8 +452,9 @@ export default function CandidatesPage() {
       const typed = result as BulkUpdateResult
       const msg: string[] = []
       if (typed.updated > 0) msg.push(`${typed.updated} candidates updated`)
-      if (typed.rejected > 0)
+      if (typed.rejected > 0) {
         msg.push(`${typed.rejected} F-grade candidates removed`)
+      }
       setImportSuccess(msg.join('. ') + '.')
 
       setImportText('')
@@ -512,7 +515,7 @@ export default function CandidatesPage() {
       <main className="ui-page">
         <section className="mx-auto max-w-7xl">
           <AppHeader title="Candidates" />
-          <div className="mt-8 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+          <div className="mt-6 text-sm text-neutral-600 dark:text-[#a8b2bf]">
             Loading candidates...
           </div>
         </section>
@@ -526,17 +529,17 @@ export default function CandidatesPage() {
         <AppHeader title="Candidates" />
 
         {!screenerEnabled && candidates.length === 0 ? (
-          <div className="ui-section mt-8 text-neutral-700 dark:text-[#a8b2bf]">
+          <div className="ui-section mt-6 text-neutral-700 dark:text-[#a8b2bf]">
             No candidates yet. Enable the screener in Settings and it will run
             tonight.
           </div>
         ) : (
-          <>
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <div className="ui-card p-6">
                 <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
                   Awaiting research
-                  <Tooltip text="Candidates the screener has found but that still need technical fields filled in (RS line, base pattern, entry zone, etc.) before they can be evaluated." />
+                  <Tooltip text="Candidates the screener has found but still need technical fields filled in before evaluation." />
                 </div>
                 <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                   {awaitingResearchCount}
@@ -546,57 +549,62 @@ export default function CandidatesPage() {
               <div className="ui-card p-6">
                 <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
                   Ready for evaluation
-                  <Tooltip text="Candidates that have been fully researched and are ready for the rule-based evaluation engine to score." />
+                  <Tooltip text="Candidates that are fully researched and ready for the rule engine." />
                 </div>
                 <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                   {readyForEvaluationCount}
                 </div>
               </div>
 
-              <div className="ui-card p-6">
+              <div className="ui-card p-6 sm:col-span-2 xl:col-span-1">
                 <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
                   Last screener run
-                  <Tooltip text="The most recent time the automated screener ran and searched for new candidates." />
+                  <Tooltip text="The most recent time the automated screener ran." />
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                <div className="mt-2 text-xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                   {lastRunAt ? new Date(lastRunAt).toLocaleString() : 'No runs yet'}
                 </div>
               </div>
             </div>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              <div className="ui-section">
-                <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Step 1 — Copy to ChatGPT
-                </h2>
-                <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+            <CollapsibleSection
+              title="Step 1 — Copy to ChatGPT"
+              subtitle="Copy the full prompt and candidate data for research."
+              defaultOpen={true}
+            >
+              <div className="space-y-4">
+                <p className="text-neutral-600 dark:text-[#a8b2bf]">
                   Click copy. Open ChatGPT. Paste. The prompt and candidate data
                   are included.
                 </p>
-                <div className="mt-5 text-lg font-medium text-neutral-900 dark:text-[#e6eaf0]">
+
+                <div className="text-lg font-medium text-neutral-900 dark:text-[#e6eaf0]">
                   {candidates.length} candidates included
                 </div>
 
                 <textarea
                   readOnly
                   value={clipboardPreview}
-                  className="ui-textarea mt-5 h-32 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                  className="ui-textarea h-32 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
                 />
 
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="ui-btn-primary mt-5"
+                  className="ui-btn-primary"
                 >
                   {copySuccess ? 'Copied!' : 'Copy prompt + data'}
                 </button>
               </div>
+            </CollapsibleSection>
 
-              <div className="ui-section">
-                <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Step 2 — Paste ChatGPT output
-                </h2>
-                <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+            <CollapsibleSection
+              title="Step 2 — Paste ChatGPT output"
+              subtitle="Paste the JSON output and apply all candidate updates at once."
+              defaultOpen={true}
+            >
+              <div className="space-y-4">
+                <p className="text-neutral-600 dark:text-[#a8b2bf]">
                   Paste the JSON that ChatGPT returned. Click Apply to update all
                   candidates at once.
                 </p>
@@ -605,10 +613,10 @@ export default function CandidatesPage() {
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                   placeholder="Paste ChatGPT's JSON output here..."
-                  className="ui-textarea mt-5 h-48"
+                  className="ui-textarea h-48"
                 />
 
-                <div className="mt-4 min-h-7">
+                <div className="min-h-7">
                   {importValidation === 'valid' && parsedImport && (
                     <span className="ui-pill-success">
                       Valid JSON — {parsedImport.length} candidates ready to apply
@@ -627,13 +635,13 @@ export default function CandidatesPage() {
                 </div>
 
                 {importSuccess && (
-                  <div className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
+                  <div className="text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
                     {importSuccess}
                   </div>
                 )}
 
                 {importError && (
-                  <div className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
+                  <div className="text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
                     {importError}
                   </div>
                 )}
@@ -642,13 +650,13 @@ export default function CandidatesPage() {
                   type="button"
                   onClick={handleApply}
                   disabled={importValidation !== 'valid' || importing}
-                  className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="ui-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {importing ? 'Applying...' : 'Apply update'}
                 </button>
               </div>
-            </div>
-          </>
+            </CollapsibleSection>
+          </div>
         )}
       </section>
     </main>
@@ -728,7 +736,12 @@ function isCandidateReadyForApply(
   if (!isValidInstitutionalTrendApply(r.institutional_trend)) return false
   if (r.insider_buying !== null && typeof r.insider_buying !== 'boolean') return false
   if (!isValidShortInterestTrendApply(r.short_interest_trend)) return false
-  if (r.base_count !== null && (typeof r.base_count !== 'number' || r.base_count < 1 || r.base_count > 4)) return false
+  if (
+    r.base_count !== null &&
+    (typeof r.base_count !== 'number' || r.base_count < 1 || r.base_count > 4)
+  ) {
+    return false
+  }
   if (!isValidLikelyFailureTypeApply(r.likely_failure_type)) return false
   if (r.failure_response !== null && typeof r.failure_response !== 'string') return false
 

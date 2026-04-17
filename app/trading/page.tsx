@@ -1,30 +1,29 @@
 'use client'
 
-'use client'
-
 import { useMemo, useState } from 'react'
 import { useDashboardData } from '@/app/trading/hooks/useDashboardData'
 import { usePortfolioValue } from '@/app/trading/hooks/usePortfolioValue'
 import { useTradeActions } from '@/app/trading/hooks/useTradeActions'
 import { calculateExposure } from '@/app/trading/lib/calculateExposure'
-import { AppHeader } from "@/app/trading/components/AppHeader";
-import { DashboardMetrics } from "@/app/trading/components/DashboardMetrics";
-import { PortfolioHeatCard } from "@/app/trading/components/PortfolioHeatCard";
-import { MarketSummaryCards } from "@/app/trading/components/MarketSummaryCards";
-import { AddWatchlistStockForm } from "@/app/trading/components/AddWatchlistStockForm";
-import { WatchlistSelectionTable } from "@/app/trading/components/WatchlistSelectionTable";
-import { TradeActionButtons } from "@/app/trading/components/TradeActionButtons";
-import { EvaluationPanel } from "@/app/trading/components/EvaluationPanel";
-import { TradePlanPanel } from "@/app/trading/components/TradePlanPanel";
-import { SavedTradePlansTable } from "@/app/trading/components/SavedTradePlansTable";
-import { MarketSnapshotForm } from "@/app/trading/components/MarketSnapshotForm";
-import { TradeManagementTable } from "@/app/trading/components/TradeManagementTable";
-import { RuleAuditTable } from "@/app/trading/components/RuleAuditTable";
-import { StopUpdateTable } from "@/app/trading/components/StopUpdateTable";
-import { PartialExitTable } from "@/app/trading/components/PartialExitTable";
-import { ExposurePreviewPanel } from "@/app/trading/components/ExposurePreviewPanel";
-import { MarketSnapshotChatGPTWorkflow } from "@/app/trading/components/MarketSnapshotChatGPTWorkflow";
-
+import { AppHeader } from '@/app/trading/components/AppHeader'
+import { DashboardMetrics } from '@/app/trading/components/DashboardMetrics'
+import { PortfolioHeatCard } from '@/app/trading/components/PortfolioHeatCard'
+import { MarketSummaryCards } from '@/app/trading/components/MarketSummaryCards'
+import { AddWatchlistStockForm } from '@/app/trading/components/AddWatchlistStockForm'
+import { WatchlistSelectionTable } from '@/app/trading/components/WatchlistSelectionTable'
+import { TradeActionButtons } from '@/app/trading/components/TradeActionButtons'
+import { EvaluationPanel } from '@/app/trading/components/EvaluationPanel'
+import { TradePlanPanel } from '@/app/trading/components/TradePlanPanel'
+import { SavedTradePlansTable } from '@/app/trading/components/SavedTradePlansTable'
+import { MarketSnapshotForm } from '@/app/trading/components/MarketSnapshotForm'
+import { TradeManagementTable } from '@/app/trading/components/TradeManagementTable'
+import { RuleAuditTable } from '@/app/trading/components/RuleAuditTable'
+import { StopUpdateTable } from '@/app/trading/components/StopUpdateTable'
+import { PartialExitTable } from '@/app/trading/components/PartialExitTable'
+import { ExposurePreviewPanel } from '@/app/trading/components/ExposurePreviewPanel'
+import { MarketSnapshotChatGPTWorkflow } from '@/app/trading/components/MarketSnapshotChatGPTWorkflow'
+import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
+import { BottomSheet } from '@/components/ui/BottomSheet'
 
 export type {
   MarketSnapshot,
@@ -87,12 +86,10 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'watchlist' | 'trades' | 'review'
   >('overview')
-
-  // Override state — set immediately after Apply, takes priority over server data
   const [marketPhaseOverride, setMarketPhaseOverride] = useState<string | null>(null)
   const [marketExposureOverride, setMarketExposureOverride] = useState<number | null>(null)
+  const [watchlistFormOpen, setWatchlistFormOpen] = useState(false)
 
-  // Derived values: override wins if set, otherwise fall back to server data
   const marketPhaseState = marketPhaseOverride ?? market?.market_phase ?? null
   const marketExposureState = marketExposureOverride ?? market?.max_long_exposure_pct ?? null
 
@@ -123,8 +120,13 @@ export default function HomePage() {
       (sum, trade) => sum + (trade.pnl_dollar ?? 0),
       0
     )
+
     const parsedPortfolioValue = Number(portfolioValue) || 0
-    const { openPositionValue, exposurePct } = calculateExposure(openTrades, parsedPortfolioValue)
+    const { openPositionValue, exposurePct } = calculateExposure(
+      openTrades,
+      parsedPortfolioValue
+    )
+
     const marketMaxExposurePct = market?.max_long_exposure_pct ?? 0
     const heatPct =
       parsedPortfolioValue > 0
@@ -173,10 +175,10 @@ export default function HomePage() {
 
   const tradeMessageClass =
     tradeCreationMessage?.type === 'error'
-      ? 'mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300'
+      ? 'rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300'
       : tradeCreationMessage?.type === 'success'
-        ? 'mt-6 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300'
-        : 'mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm leading-6 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
+        ? 'rounded-2xl border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300'
+        : 'rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-sm leading-6 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
 
   const evaluateSetupBlockReason = !market
     ? 'Save a market snapshot to enable setup evaluation.'
@@ -207,7 +209,12 @@ export default function HomePage() {
   if (loading) {
     return (
       <main className="ui-page">
-        Loading...
+        <section className="mx-auto max-w-7xl">
+          <AppHeader title="Setup Evaluator" />
+          <div className="mt-6 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Loading dashboard...
+          </div>
+        </section>
       </main>
     )
   }
@@ -216,13 +223,16 @@ export default function HomePage() {
     <main className="ui-page">
       <section className="mx-auto max-w-7xl">
         <AppHeader title="Setup Evaluator" />
+
         <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
           {(['overview', 'watchlist', 'trades', 'review'] as const).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`shrink-0 capitalize ${activeTab === tab ? 'ui-link-pill-active' : 'ui-link-pill-idle'}`}
+              className={`shrink-0 capitalize ${
+                activeTab === tab ? 'ui-link-pill-active' : 'ui-link-pill-idle'
+              }`}
             >
               {tab}
             </button>
@@ -230,8 +240,14 @@ export default function HomePage() {
         </div>
 
         {activeTab === 'overview' && (
-          <>
-            <DashboardMetrics watchlistCount={metrics.watchlistCount} openTradesCount={metrics.openTradesCount} closedTradesCount={metrics.closedTradesCount} totalRealizedPnl={metrics.totalRealizedPnl} />
+          <div className="space-y-4">
+            <DashboardMetrics
+              watchlistCount={metrics.watchlistCount}
+              openTradesCount={metrics.openTradesCount}
+              closedTradesCount={metrics.closedTradesCount}
+              totalRealizedPnl={metrics.totalRealizedPnl}
+            />
+
             <PortfolioHeatCard
               portfolioValue={metrics.portfolioValue}
               openPositionValue={metrics.openPositionValue}
@@ -241,26 +257,65 @@ export default function HomePage() {
               heatRemainingPct={metrics.heatRemainingPct}
               freeRideCount={metrics.freeRideCount}
             />
-            <MarketSummaryCards market={market} marketPhaseOverride={marketPhaseState} stock={stock} portfolioValue={portfolioValue} setPortfolioValue={setPortfolioValue} />
-            <MarketSnapshotForm
-              key={`${market?.snapshot_date}-${marketPhaseState}-${marketExposureState}`}
-              onSave={handleSaveMarketSnapshot}
-              initialDate={market?.snapshot_date ?? null}
-              initialPhase={marketPhaseState}
-              initialExposure={marketExposureState}
+
+            <MarketSummaryCards
+              market={market}
+              marketPhaseOverride={marketPhaseState}
+              stock={stock}
+              portfolioValue={portfolioValue}
+              setPortfolioValue={setPortfolioValue}
             />
-            <MarketSnapshotChatGPTWorkflow
-              onApplySuccess={(result) => {
-                setMarketPhaseOverride(result.market_phase)
-                setMarketExposureOverride(result.max_long_exposure_pct)
-              }}
-            />
-          </>
+
+            <CollapsibleSection
+              title="Market snapshot"
+              subtitle="Update market phase, exposure cap, and current market context."
+              defaultOpen={false}
+            >
+              <MarketSnapshotForm
+                key={`${market?.snapshot_date}-${marketPhaseState}-${marketExposureState}`}
+                onSave={handleSaveMarketSnapshot}
+                initialDate={market?.snapshot_date ?? null}
+                initialPhase={marketPhaseState}
+                initialExposure={marketExposureState}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Apply market snapshot from ChatGPT"
+              subtitle="Use ChatGPT output to set market phase and exposure quickly."
+              defaultOpen={false}
+            >
+              <MarketSnapshotChatGPTWorkflow
+                onApplySuccess={(applyResult) => {
+                  setMarketPhaseOverride(applyResult.market_phase)
+                  setMarketExposureOverride(applyResult.max_long_exposure_pct)
+                }}
+              />
+            </CollapsibleSection>
+          </div>
         )}
 
         {activeTab === 'watchlist' && (
-          <>
-            <AddWatchlistStockForm onAdd={handleAddWatchlistStock} />
+          <div className="space-y-4">
+            <div className="ui-card flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                  Watchlist workspace
+                </div>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  Select a stock, evaluate the setup, and generate a trade plan.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setWatchlistFormOpen(true)}
+                className="ui-btn-primary shrink-0"
+              >
+                Add stock
+              </button>
+            </div>
+
             <WatchlistSelectionTable
               watchlist={watchlist}
               stock={stock}
@@ -288,7 +343,9 @@ export default function HomePage() {
                     eps_accelerating: payload.epsAccelerating,
                     revenue_growth_pct: payload.revenueGrowth ? Number(payload.revenueGrowth) : null,
                     acc_dist_rating: payload.accDistRating ?? null,
-                    industry_group_rank: payload.industryRank ? Number(payload.industryRank) : null,
+                    industry_group_rank: payload.industryRank
+                      ? Number(payload.industryRank)
+                      : null,
                   })
                   .eq('id', rowId)
                   .select(
@@ -302,7 +359,9 @@ export default function HomePage() {
                   return
                 }
 
-                setWatchlist((prev) => prev.map((row) => (row.id === rowId ? updatedRow : row)))
+                setWatchlist((prev) =>
+                  prev.map((row) => (row.id === rowId ? updatedRow : row))
+                )
 
                 if (stock?.id === rowId) {
                   setStock(updatedRow)
@@ -356,43 +415,132 @@ export default function HomePage() {
                 }
               }}
             />
-            <TradeActionButtons
-              canEvaluate={!!market && !!stock && !saving}
-              canGenerate={!!market && !!stock && !!result && result.verdict !== 'fail'}
-              canCreate={!!stock && !!plan && !!latestTradePlanId && plan.approval_status === 'approved'}
-              saving={saving}
-              evaluateBlockReason={evaluateSetupBlockReason}
-              generateBlockReason={generateTradePlanBlockReason}
-              createBlockReason={createTradeBlockReason}
-              onEvaluate={runEvaluation}
-              onGenerate={handleGenerateTradePlan}
-              onCreateTrade={handleCreateTrade}
-            />
-            <ExposurePreviewPanel
-              portfolioValue={exposurePreview.portfolioValueNumber}
-              currentOpenPositionValue={exposurePreview.currentOpenPositionValue}
-              newTradePositionValue={exposurePreview.newTradePositionValue}
-              exposureLimitPct={exposurePreview.exposureLimitPct}
-              hasValidPlan={exposurePreview.hasValidPlan}
-            />
-            {tradeCreationMessage ? (
-              <div className={tradeMessageClass}>{tradeCreationMessage.text}</div>
-            ) : null}
-            <EvaluationPanel result={result} />
-            <TradePlanPanel plan={plan} />
-            <SavedTradePlansTable savedPlans={savedPlans} />
-          </>
+
+            <CollapsibleSection
+              title="Trade actions and exposure preview"
+              subtitle="Evaluate, generate a plan, and confirm portfolio exposure impact."
+              defaultOpen={true}
+            >
+              <div className="space-y-4">
+                <TradeActionButtons
+                  canEvaluate={!!market && !!stock && !saving}
+                  canGenerate={!!market && !!stock && !!result && result.verdict !== 'fail'}
+                  canCreate={
+                    !!stock &&
+                    !!plan &&
+                    !!latestTradePlanId &&
+                    plan.approval_status === 'approved'
+                  }
+                  saving={saving}
+                  evaluateBlockReason={evaluateSetupBlockReason}
+                  generateBlockReason={generateTradePlanBlockReason}
+                  createBlockReason={createTradeBlockReason}
+                  onEvaluate={runEvaluation}
+                  onGenerate={handleGenerateTradePlan}
+                  onCreateTrade={handleCreateTrade}
+                />
+
+                <ExposurePreviewPanel
+                  portfolioValue={exposurePreview.portfolioValueNumber}
+                  currentOpenPositionValue={exposurePreview.currentOpenPositionValue}
+                  newTradePositionValue={exposurePreview.newTradePositionValue}
+                  exposureLimitPct={exposurePreview.exposureLimitPct}
+                  hasValidPlan={exposurePreview.hasValidPlan}
+                />
+
+                {tradeCreationMessage ? (
+                  <div className={tradeMessageClass}>{tradeCreationMessage.text}</div>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Evaluation result"
+              subtitle="Rule-based evaluation output for the selected setup."
+              defaultOpen={!!result}
+            >
+              <EvaluationPanel result={result} />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Trade plan"
+              subtitle="Generated plan, approval status, risk and reward setup."
+              defaultOpen={!!plan}
+            >
+              <TradePlanPanel plan={plan} />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Saved trade plans"
+              subtitle="Previously generated plans for later review."
+              defaultOpen={false}
+            >
+              <SavedTradePlansTable savedPlans={savedPlans} />
+            </CollapsibleSection>
+
+            <BottomSheet
+              open={watchlistFormOpen}
+              onClose={() => setWatchlistFormOpen(false)}
+              title="Add watchlist stock"
+            >
+              <AddWatchlistStockForm
+                onAdd={async (...args) => {
+                  await handleAddWatchlistStock(...args)
+                  setWatchlistFormOpen(false)
+                }}
+              />
+            </BottomSheet>
+          </div>
         )}
 
         {activeTab === 'trades' && (
-          <>
-            <TradeManagementTable savedTrades={savedTrades} onCloseTrade={handleCloseTrade} />
-            <StopUpdateTable savedTrades={savedTrades} onUpdateStop={handleUpdateStop} />
-            <PartialExitTable savedTrades={savedTrades} onPartialExit={handlePartialExit} />
-          </>
+          <div className="space-y-4">
+            <CollapsibleSection
+              title="Trade management"
+              subtitle="Review open and partial trades and close positions."
+              defaultOpen={true}
+            >
+              <TradeManagementTable
+                savedTrades={savedTrades}
+                onCloseTrade={handleCloseTrade}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Stop updates"
+              subtitle="Adjust stops for active positions."
+              defaultOpen={false}
+            >
+              <StopUpdateTable
+                savedTrades={savedTrades}
+                onUpdateStop={handleUpdateStop}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Partial exits"
+              subtitle="Take partial profits while keeping the trade active."
+              defaultOpen={false}
+            >
+              <PartialExitTable
+                savedTrades={savedTrades}
+                onPartialExit={handlePartialExit}
+              />
+            </CollapsibleSection>
+          </div>
         )}
 
-        {activeTab === 'review' && <RuleAuditTable rows={ruleAuditRows} />}
+        {activeTab === 'review' && (
+          <div className="space-y-4">
+            <CollapsibleSection
+              title="Rule audit"
+              subtitle="Recent rule checks and system audit output."
+              defaultOpen={true}
+            >
+              <RuleAuditTable rows={ruleAuditRows} />
+            </CollapsibleSection>
+          </div>
+        )}
       </section>
     </main>
   )

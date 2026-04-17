@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 import { AppHeader } from '@/app/trading/components/AppHeader'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 type UniverseRow = {
   id: string
@@ -58,8 +59,7 @@ QUALITY RULES:
 - Do not include any ticker you cannot verify with a real
   company name from a reliable source.
 - The S&P 500 contains approximately 503 tickers. If your list
-  is significantly shorter (below 450) or longer (above 520),
-  re-check your source before returning.
+  is significantly shorter (below 450) or longer (above 520),re-check your source before returning.
 
 RESEARCH INSTRUCTIONS:
 Using your web browsing capability, look up the current official
@@ -394,7 +394,6 @@ export default function UniversePage() {
         return
       }
 
-      // Strip any ticker_changes where old === new — these are never valid
       const cleaned = p as AuditDiff
       if (Array.isArray(cleaned.ticker_changes)) {
         cleaned.ticker_changes = cleaned.ticker_changes.filter(
@@ -600,16 +599,16 @@ export default function UniversePage() {
         <AppHeader title="Universe" />
 
         {loading ? (
-          <div className="mt-8 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+          <div className="mt-6 text-sm text-neutral-600 dark:text-[#a8b2bf]">
             Loading universe...
           </div>
         ) : (
-          <>
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <div className="ui-card p-6">
                 <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
                   Active tickers
-                  <Tooltip text="The number of stocks currently in the screener universe. The screener randomly samples from this list each night." />
+                  <Tooltip text="The number of stocks currently in the screener universe." />
                 </div>
                 <div className="mt-2 text-4xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                   {activeCount}
@@ -619,126 +618,125 @@ export default function UniversePage() {
               <div className="ui-card p-6">
                 <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
                   Last updated
-                  <Tooltip text="The last time the ticker universe was refreshed from a ChatGPT index pull." />
+                  <Tooltip text="The last time the ticker universe was refreshed." />
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                <div className="mt-2 text-xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                   {lastUpdated}
                 </div>
               </div>
 
-              <div className="ui-card p-6">
+              <div className="ui-card p-6 sm:col-span-2 xl:col-span-1">
                 <div className="flex items-center gap-1 text-sm uppercase tracking-wide text-neutral-500 dark:text-[#a8b2bf]">
                   Index coverage
-                  <Tooltip text="The indices whose constituents make up the universe. Update quarterly or after major index rebalancing." />
+                  <Tooltip text="The indices whose constituents make up the universe." />
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                <div className="mt-2 text-xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                   <div>S&amp;P 500</div>
                   <div>NASDAQ 100</div>
-                  <div className="text-sm font-normal text-neutral-500 dark:text-[#a8b2bf] mt-1">
+                  <div className="mt-1 text-sm font-normal text-neutral-500 dark:text-[#a8b2bf]">
                     Applied separately
                   </div>
                 </div>
               </div>
             </div>
 
-            <section className="ui-section mt-8">
-              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                Step 1 — Sync from GitHub
-              </h2>
-              <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                Fetches the current S&amp;P 500 constituent list from a
-                community-maintained GitHub dataset sourced from Wikipedia. This is
-                the source of truth.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleSyncFromGitHub}
-                disabled={syncing}
-                className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {syncing ? 'Syncing...' : 'Sync S&P 500 from GitHub'}
-              </button>
-
-              {syncing ? (
-                <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                  Fetching from GitHub...
+            <CollapsibleSection
+              title="Step 1 — Sync from GitHub"
+              subtitle="Fetch the current S&P 500 constituent list from the GitHub source of truth."
+              defaultOpen={true}
+            >
+              <div className="space-y-4">
+                <p className="text-neutral-600 dark:text-[#a8b2bf]">
+                  Fetches the current S&amp;P 500 constituent list from a
+                  community-maintained GitHub dataset sourced from Wikipedia.
                 </p>
-              ) : null}
 
-              {syncError ? (
-                <p className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
-                  {syncError}
-                </p>
-              ) : null}
+                <button
+                  type="button"
+                  onClick={handleSyncFromGitHub}
+                  disabled={syncing}
+                  className="ui-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {syncing ? 'Syncing...' : 'Sync S&P 500 from GitHub'}
+                </button>
 
-              {syncCount !== null && syncedTickers ? (
-                <p className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
-                  ✓ {syncCount} tickers synced from GitHub. Copy the audit prompt below to check for recent changes.
-                </p>
-              ) : null}
-            </section>
+                {syncing ? (
+                  <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                    Fetching from GitHub...
+                  </p>
+                ) : null}
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+                {syncError ? (
+                  <p className="text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
+                    {syncError}
+                  </p>
+                ) : null}
+
+                {syncCount !== null && syncedTickers ? (
+                  <p className="text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
+                    ✓ {syncCount} tickers synced from GitHub. Copy the audit prompt below to check for recent changes.
+                  </p>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Step 2 — Audit with ChatGPT"
+              subtitle="Audit the GitHub list for very recent additions, removals, and ticker changes."
+              defaultOpen={false}
+            >
               <div
                 className={[
-                  'ui-section',
-                  !syncedTickers ? 'opacity-50 pointer-events-none' : '',
+                  'space-y-4',
+                  !syncedTickers ? 'pointer-events-none opacity-50' : '',
                 ].join(' ')}
               >
-                <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Step 2 — Audit with ChatGPT
-                </h2>
-                <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
+                <p className="text-neutral-600 dark:text-[#a8b2bf]">
                   Copy this prompt and paste into ChatGPT with web browsing enabled.
-                  ChatGPT will check the GitHub list for recent acquisitions,
-                  delistings, and ticker changes.
                 </p>
 
                 {!syncedTickers ? (
-                  <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                     Complete Step 1 first.
                   </p>
                 ) : (
                   <>
-                    <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                    <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                       {syncCount} tickers loaded from GitHub
                     </p>
 
                     <textarea
                       readOnly
                       value={auditPromptPreview}
-                      className="ui-textarea mt-5 h-24 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                      className="ui-textarea h-24 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
                     />
 
                     <button
                       type="button"
                       onClick={handleCopyAuditPrompt}
                       disabled={!syncedTickers}
-                      className="ui-btn-secondary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="ui-btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {copyAuditSuccess ? 'Copied!' : 'Copy audit prompt'}
                     </button>
                   </>
                 )}
               </div>
+            </CollapsibleSection>
 
+            <CollapsibleSection
+              title="Step 3 — Paste audit result"
+              subtitle="Paste the JSON diff from ChatGPT and apply confirmed changes."
+              defaultOpen={false}
+            >
               <div
                 className={[
-                  'ui-section',
-                  !syncedTickers ? 'opacity-50 pointer-events-none' : '',
+                  'space-y-4',
+                  !syncedTickers ? 'pointer-events-none opacity-50' : '',
                 ].join(' ')}
               >
-                <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Step 3 — Paste audit result
-                </h2>
-                <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                  Paste the JSON diff ChatGPT returned. Click Apply to update the
-                  universe with any confirmed changes.
-                </p>
-
                 {!syncedTickers ? (
-                  <p className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                     Complete Step 1 first.
                   </p>
                 ) : null}
@@ -747,10 +745,10 @@ export default function UniversePage() {
                   value={auditText}
                   onChange={(e) => setAuditText(e.target.value)}
                   placeholder="Paste ChatGPT's audit diff here..."
-                  className="ui-textarea mt-5 h-48"
+                  className="ui-textarea h-48"
                 />
 
-                <div className="mt-4 min-h-7">
+                <div className="min-h-7">
                   {auditValidation === 'valid' && (
                     <span className="ui-pill-success">
                       Valid diff — ready to apply
@@ -769,19 +767,19 @@ export default function UniversePage() {
                 </div>
 
                 {auditValidation === 'valid' && parsedAudit ? (
-                  <p className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                     Removing: {parsedAudit.remove?.length ?? 0} | Adding: {parsedAudit.add?.length ?? 0} | Ticker changes: {parsedAudit.ticker_changes?.length ?? 0}
                   </p>
                 ) : null}
 
                 {auditSuccess ? (
-                  <div className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
+                  <div className="text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
                     {auditSuccess}
                   </div>
                 ) : null}
 
                 {auditError ? (
-                  <div className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
+                  <div className="text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
                     {auditError}
                   </div>
                 ) : null}
@@ -790,98 +788,76 @@ export default function UniversePage() {
                   type="button"
                   onClick={handleApplyAudit}
                   disabled={auditValidation !== 'valid' || applyingAudit || syncedTickers === null}
-                  className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="ui-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {applyingAudit ? 'Applying...' : 'Apply audit changes'}
                 </button>
               </div>
-            </div>
+            </CollapsibleSection>
 
-            <section className="ui-section mt-8">
-              <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                Manual workflow (NASDAQ 100 + fallback)
-              </h2>
-              <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                Use these prompts to manually update the NASDAQ 100, or as a fallback if the GitHub sync fails.
-              </p>
-
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div className="ui-section">
-                  <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                    Step 1 — Copy prompts
-                  </h2>
-                  <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                    Run both prompts separately in ChatGPT with web browsing enabled.
-                    Paste each result into Step 2 and apply one at a time.
-                  </p>
-
-                  <div className="mt-5 space-y-4">
-                    <div className="ui-card p-4">
-                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                        S&amp;P 500
-                      </div>
-                      <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                        ~503 tickers. Paste result into Step 2, then apply.
-                      </p>
-
-                      <textarea
-                        readOnly
-                        value={sp500PromptPreview}
-                        className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={handleCopySP500}
-                        className="ui-btn-secondary mt-4"
-                      >
-                        {copySP500Success ? 'Copied!' : 'Copy S&P 500 prompt'}
-                      </button>
+            <CollapsibleSection
+              title="Manual workflow (NASDAQ 100 + fallback)"
+              subtitle="Use these prompts to manually update the NASDAQ 100, or as a fallback if the GitHub sync fails."
+              defaultOpen={false}
+            >
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="ui-card p-4">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      S&amp;P 500
                     </div>
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      ~503 tickers. Paste result into the apply section below.
+                    </p>
 
-                    <div className="ui-card p-4">
-                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                        NASDAQ 100
-                      </div>
-                      <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                        ~101 tickers. Run after S&amp;P 500. Apply separately.
-                      </p>
+                    <textarea
+                      readOnly
+                      value={sp500PromptPreview}
+                      className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                    />
 
-                      <textarea
-                        readOnly
-                        value={nasdaqPromptPreview}
-                        className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
-                      />
+                    <button
+                      type="button"
+                      onClick={handleCopySP500}
+                      className="ui-btn-secondary mt-4"
+                    >
+                      {copySP500Success ? 'Copied!' : 'Copy S&P 500 prompt'}
+                    </button>
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={handleCopyNASDAQ}
-                        className="ui-btn-secondary mt-4"
-                      >
-                        {copyNASDAQSuccess ? 'Copied!' : 'Copy NASDAQ 100 prompt'}
-                      </button>
+                  <div className="ui-card p-4">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      NASDAQ 100
                     </div>
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      ~101 tickers. Run after S&amp;P 500 and apply separately.
+                    </p>
+
+                    <textarea
+                      readOnly
+                      value={nasdaqPromptPreview}
+                      className="ui-textarea mt-4 h-20 overflow-hidden font-mono text-xs text-neutral-500 dark:text-[#a8b2bf]"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleCopyNASDAQ}
+                      className="ui-btn-secondary mt-4"
+                    >
+                      {copyNASDAQSuccess ? 'Copied!' : 'Copy NASDAQ 100 prompt'}
+                    </button>
                   </div>
                 </div>
 
-                <div className="ui-section">
-                  <h2 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                    Step 2 — Paste ChatGPT output
-                  </h2>
-                  <p className="mt-3 text-neutral-600 dark:text-[#a8b2bf]">
-                    Paste the JSON array ChatGPT returned for either prompt.
-                    Click Apply. Run both prompts and apply each one separately
-                    to build the full universe.
-                  </p>
-
+                <div className="space-y-4">
                   <textarea
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
                     placeholder="Paste ChatGPT's JSON output here..."
-                    className="ui-textarea mt-5 h-48"
+                    className="ui-textarea h-48"
                   />
 
-                  <div className="mt-4 min-h-7">
+                  <div className="min-h-7">
                     {importValidation === 'valid' && parsedImport && (
                       <span className="ui-pill-success">
                         Valid JSON — {parsedImport.length} tickers ready to apply
@@ -900,13 +876,13 @@ export default function UniversePage() {
                   </div>
 
                   {applySuccess ? (
-                    <div className="mt-4 text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
+                    <div className="text-sm font-medium text-green-700 dark:text-[#8fd0ab]">
                       {applySuccess}
                     </div>
                   ) : null}
 
                   {applyError ? (
-                    <div className="mt-4 text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
+                    <div className="text-sm font-medium text-red-700 dark:text-[#f0a3a3]">
                       {applyError}
                     </div>
                   ) : null}
@@ -915,66 +891,72 @@ export default function UniversePage() {
                     type="button"
                     onClick={handleApply}
                     disabled={importValidation !== 'valid' || applying}
-                    className="ui-btn-primary mt-5 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="ui-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {applying ? 'Applying...' : 'Apply update'}
                   </button>
                 </div>
               </div>
-            </section>
+            </CollapsibleSection>
 
-            <section className="ui-section mt-8">
-              <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                  Ticker Universe
-                </h2>
+            <CollapsibleSection
+              title="Ticker universe"
+              subtitle="Search and review the current active and inactive ticker universe."
+              defaultOpen={true}
+            >
+              <div className="space-y-4">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                    Ticker Universe
+                  </h2>
 
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search tickers..."
-                  className="ui-input md:w-72"
-                />
-              </div>
-
-              {filteredRows.length === 0 ? (
-                <p className="text-neutral-600 dark:text-[#a8b2bf]">
-                  No tickers found.
-                </p>
-              ) : (
-                <div className="ui-table-wrap">
-                  <table className="ui-table">
-                    <thead>
-                      <tr>
-                        <th>Ticker</th>
-                        <th>Company Name</th>
-                        <th>Index Membership</th>
-                        <th>Status</th>
-                        <th>Updated</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredRows.map((row) => (
-                        <tr key={row.id}>
-                          <td className="font-medium">{row.ticker}</td>
-                          <td>{row.company_name ?? '—'}</td>
-                          <td>{row.index_membership ?? '—'}</td>
-                          <td>
-                            {row.is_active ? (
-                              <span className="ui-pill-success">Active</span>
-                            ) : (
-                              <span className="ui-pill-neutral">Inactive</span>
-                            )}
-                          </td>
-                          <td>{new Date(row.updated_at).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search tickers..."
+                    className="ui-input md:w-72"
+                  />
                 </div>
-              )}
-            </section>
-          </>
+
+                {filteredRows.length === 0 ? (
+                  <p className="text-neutral-600 dark:text-[#a8b2bf]">
+                    No tickers found.
+                  </p>
+                ) : (
+                  <div className="ui-table-wrap">
+                    <table className="ui-table">
+                      <thead>
+                        <tr>
+                          <th>Ticker</th>
+                          <th>Company Name</th>
+                          <th>Index Membership</th>
+                          <th>Status</th>
+                          <th>Updated</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredRows.map((row) => (
+                          <tr key={row.id}>
+                            <td className="font-medium">{row.ticker}</td>
+                            <td>{row.company_name ?? '—'}</td>
+                            <td>{row.index_membership ?? '—'}</td>
+                            <td>
+                              {row.is_active ? (
+                                <span className="ui-pill-success">Active</span>
+                              ) : (
+                                <span className="ui-pill-neutral">Inactive</span>
+                              )}
+                            </td>
+                            <td>{new Date(row.updated_at).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </CollapsibleSection>
+          </div>
         )}
       </section>
     </main>
