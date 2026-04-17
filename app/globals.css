@@ -21,14 +21,22 @@ html {
   scroll-behavior: smooth;
 }
 
+html,
+body {
+  min-height: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
+  overscroll-behavior-y: none;
+  text-rendering: optimizeLegibility;
 }
 
 @layer base {
   * {
     border-color: rgb(229 229 229);
+    -webkit-tap-highlight-color: transparent;
   }
 
   .dark * {
@@ -53,7 +61,7 @@ body {
 
 @layer components {
   .ui-btn-primary {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
+    @apply inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
     @apply select-none transition-all duration-150;
     @apply bg-neutral-900 text-white shadow-sm;
     @apply hover:-translate-y-px hover:bg-neutral-800 hover:shadow-md;
@@ -64,7 +72,7 @@ body {
   }
 
   .ui-btn-secondary {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
+    @apply inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
     @apply select-none transition-all duration-150;
     @apply border border-neutral-200 bg-white text-neutral-700 shadow-sm;
     @apply hover:-translate-y-px hover:bg-neutral-50 hover:shadow-md;
@@ -75,7 +83,7 @@ body {
   }
 
   .ui-btn-danger {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
+    @apply inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
     @apply select-none transition-all duration-150;
     @apply border border-red-200 bg-white text-red-700 shadow-sm;
     @apply hover:-translate-y-px hover:bg-red-50 hover:shadow-md;
@@ -86,7 +94,7 @@ body {
   }
 
   .ui-link-pill-active {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
+    @apply inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
     @apply select-none transition-all duration-150;
     @apply bg-neutral-900 text-white shadow-sm;
     @apply hover:-translate-y-px hover:bg-neutral-800 hover:shadow-md;
@@ -96,7 +104,7 @@ body {
   }
 
   .ui-link-pill-idle {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
+    @apply inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium;
     @apply select-none transition-all duration-150;
     @apply border border-neutral-200 bg-white text-neutral-700 shadow-sm;
     @apply hover:-translate-y-px hover:bg-neutral-50 hover:shadow-md;
@@ -106,24 +114,24 @@ body {
   }
 
   .ui-card {
-    @apply rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm;
+    @apply rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5;
     @apply dark:border-[#2a313b] dark:bg-[#181d23] dark:shadow-[0_8px_24px_rgba(0,0,0,0.22)];
   }
 
   .ui-section {
-    @apply rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm;
+    @apply rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-6;
     @apply dark:border-[#2a313b] dark:bg-[#181d23] dark:shadow-[0_8px_24px_rgba(0,0,0,0.22)];
   }
 
   .ui-input {
-    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900;
+    @apply min-h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900;
     @apply placeholder:text-neutral-400 transition-all duration-150;
     @apply focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:border-neutral-400;
     @apply dark:border-[#313946] dark:bg-[#20262e] dark:text-[#e6eaf0] dark:placeholder:text-[#7f8996] dark:focus:ring-[#5f78ff]/30 dark:focus:border-[#7c93ff];
   }
 
   .ui-select {
-    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 pr-10 text-sm leading-6 text-neutral-900 shadow-sm;
+    @apply min-h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 pr-10 text-sm leading-6 text-neutral-900 shadow-sm;
     @apply transition-all duration-150;
     @apply focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:border-neutral-400;
     @apply dark:border-[#313946] dark:bg-[#20262e] dark:text-[#e6eaf0] dark:focus:ring-[#5f78ff]/30 dark:focus:border-[#7c93ff];
@@ -140,7 +148,7 @@ body {
   }
 
   .ui-textarea {
-    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900;
+    @apply min-h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900;
     @apply placeholder:text-neutral-400 transition-all duration-150;
     @apply focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:border-neutral-400;
     @apply dark:border-[#313946] dark:bg-[#20262e] dark:text-[#e6eaf0] dark:placeholder:text-[#7f8996] dark:focus:ring-[#5f78ff]/30 dark:focus:border-[#7c93ff];
@@ -172,8 +180,9 @@ body {
     @apply py-3 pr-4;
     @apply dark:text-[#dbe2ea];
   }
+
   .ui-page {
-    @apply min-h-screen bg-white px-6 py-10 text-neutral-900;
+    @apply min-h-full bg-white px-4 py-4 text-neutral-900 sm:px-6 sm:py-6 md:px-8 md:py-8;
     @apply dark:bg-[#111418] dark:text-[#e6eaf0];
   }
 
@@ -183,62 +192,75 @@ body {
   }
 
   .ui-pill-neutral {
-    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+    @apply inline-flex min-h-6 items-center rounded-full px-3 py-1 text-xs font-medium;
     @apply border border-neutral-200 bg-neutral-100 text-neutral-600;
     @apply dark:border-[#2a313b] dark:bg-[#20262e] dark:text-[#a8b2bf];
   }
 
   .ui-pill-success {
-    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+    @apply inline-flex min-h-6 items-center rounded-full px-3 py-1 text-xs font-medium;
     @apply border border-green-200 bg-green-100 text-green-700;
     @apply dark:border-[#2f5a43] dark:bg-[#1f3329] dark:text-[#8fd0ab];
   }
 
   .ui-pill-danger {
-    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+    @apply inline-flex min-h-6 items-center rounded-full px-3 py-1 text-xs font-medium;
     @apply border border-red-200 bg-red-100 text-red-700;
     @apply dark:border-[#5a2d33] dark:bg-[#3a2227] dark:text-[#f0a3a3];
   }
 
   .ui-pill-warning {
-    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+    @apply inline-flex min-h-6 items-center rounded-full px-3 py-1 text-xs font-medium;
     @apply border border-amber-200 bg-amber-100 text-amber-700;
     @apply dark:border-[#5c4b2a] dark:bg-[#3a3120] dark:text-[#e3c98a];
   }
 
   .ui-heading-1 {
-  @apply text-3xl font-semibold tracking-tight text-neutral-900;
-}
-.dark .ui-heading-1 {
-  color: #e6eaf0;
+    @apply text-3xl font-semibold tracking-tight text-neutral-900;
+  }
+
+  .dark .ui-heading-1 {
+    color: #e6eaf0;
+  }
+
+  .ui-heading-2 {
+    @apply text-lg font-semibold text-neutral-900;
+  }
+
+  .dark .ui-heading-2 {
+    color: #e6eaf0;
+  }
+
+  .ui-heading-3 {
+    @apply text-sm font-semibold uppercase tracking-wide text-neutral-500;
+  }
+
+  .dark .ui-heading-3 {
+    color: #a8b2bf;
+  }
+
+  .ui-muted {
+    @apply text-sm text-neutral-600;
+  }
+
+  .dark .ui-muted {
+    color: #a8b2bf;
+  }
+
+  .ui-stat-value {
+    @apply text-2xl font-semibold text-neutral-900;
+  }
+
+  .dark .ui-stat-value {
+    color: #e6eaf0;
+  }
+
+.app-sticky-header {
+  @apply sticky top-14 z-30 bg-white/90 backdrop-blur supports-backdrop-filter:bg-white/80;
+  @apply dark:bg-[#111418]/90 dark:supports-backdrop-filter:bg-[#111418]/80;
 }
 
-.ui-heading-2 {
-  @apply text-lg font-semibold text-neutral-900;
-}
-.dark .ui-heading-2 {
-  color: #e6eaf0;
-}
-
-.ui-heading-3 {
-  @apply text-sm font-semibold uppercase tracking-wide text-neutral-500;
-}
-.dark .ui-heading-3 {
-  color: #a8b2bf;
-}
-
-.ui-muted {
-  @apply text-sm text-neutral-600;
-}
-.dark .ui-muted {
-  color: #a8b2bf;
-}
-
-.ui-stat-value {
-  @apply text-2xl font-semibold text-neutral-900;
-}
-.dark .ui-stat-value {
-  color: #e6eaf0;
-}
-
+  .app-bottom-safe {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
 }
