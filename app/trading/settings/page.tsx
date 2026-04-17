@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { AppHeader } from '@/app/trading/components/AppHeader'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 
 type UserSettings = {
@@ -45,13 +46,13 @@ const scanScheduleOptions = [
     value: 'evening_only' as const,
     label: 'Evening only',
     description:
-      'Watchlist scans run at 4:30 PM ET after market close. Review signals at night and place orders before market open.',
+      'Watchlist scans run after market close. Review signals at night and place orders before market open.',
   },
   {
     value: 'three_times_daily' as const,
     label: 'Three times daily',
     description:
-      'Watchlist scans run at 8:30 AM, 12:30 PM, and 4:30 PM ET. Signals may arrive during market hours.',
+      'Watchlist scans run in the morning, midday, and after market close. Signals may arrive during market hours.',
   },
 ]
 
@@ -157,7 +158,9 @@ function ToggleRow({
           onClick={() => onChange(!value)}
           className={[
             'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors',
-            value ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-300 dark:bg-[#39414d]',
+            value
+              ? 'bg-neutral-900 dark:bg-neutral-100'
+              : 'bg-neutral-300 dark:bg-[#39414d]',
           ].join(' ')}
         >
           <span
@@ -169,28 +172,6 @@ function ToggleRow({
         </button>
       </div>
     </div>
-  )
-}
-
-function SectionShell({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description?: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="ui-section">
-      <div className="border-b border-neutral-200 px-6 py-5 dark:border-[#2a313b]">
-        <h2 className="ui-heading-2">{title}</h2>
-        {description ? (
-          <p className="mt-2 ui-muted">{description}</p>
-        ) : null}
-      </div>
-      <div className="space-y-6 px-6 py-6">{children}</div>
-    </section>
   )
 }
 
@@ -211,7 +192,8 @@ export default function SettingsPage() {
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true)
   const [digestEmailEnabled, setDigestEmailEnabled] = useState(true)
   const [urgentAlertsEnabled, setUrgentAlertsEnabled] = useState(true)
-  const [scanSchedule, setScanSchedule] = useState<'evening_only' | 'three_times_daily'>('evening_only')
+  const [scanSchedule, setScanSchedule] =
+    useState<'evening_only' | 'three_times_daily'>('evening_only')
   const [buySignalExpiryDays, setBuySignalExpiryDays] = useState<1 | 2 | 3>(1)
   const [morningTradeMonitorEnabled, setMorningTradeMonitorEnabled] = useState(true)
   const [portfolioValueError, setPortfolioValueError] = useState<string | null>(null)
@@ -278,10 +260,16 @@ export default function SettingsPage() {
       setScreenerEnabled(nextSettings?.screener_enabled ?? false)
       setScreenerMinPrice(String(nextSettings?.screener_min_price ?? 10))
       setScreenerMinAvgVolume(String(nextSettings?.screener_min_avg_volume ?? 500000))
-      setScreenerMinEpsGrowthPct(String(nextSettings?.screener_min_eps_growth_pct ?? 25))
-      setScreenerMinRevenueGrowthPct(String(nextSettings?.screener_min_revenue_growth_pct ?? 20))
+      setScreenerMinEpsGrowthPct(
+        String(nextSettings?.screener_min_eps_growth_pct ?? 25)
+      )
+      setScreenerMinRevenueGrowthPct(
+        String(nextSettings?.screener_min_revenue_growth_pct ?? 20)
+      )
       setScreenerExchanges(nextSettings?.screener_exchanges ?? 'XNAS,XNYS')
-      setScreenerMaxCandidates((nextSettings?.screener_max_candidates ?? 20) as 10 | 20 | 30)
+      setScreenerMaxCandidates(
+        (nextSettings?.screener_max_candidates ?? 20) as 10 | 20 | 30
+      )
       setConsecutiveStopOuts(Number(data?.consecutive_stop_outs ?? 0))
       setLoading(false)
     }
@@ -414,19 +402,21 @@ export default function SettingsPage() {
   return (
     <main className="ui-page">
       <div className="mx-auto max-w-7xl">
-        <AppHeader
-          title="Settings"
-        />
+        <AppHeader title="Settings" />
 
         {loading ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-[#20262e]" />
             <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-[#20262e]" />
             <div className="h-24 animate-pulse rounded-xl bg-neutral-100 dark:bg-[#20262e]" />
           </div>
         ) : (
-          <div className="space-y-6">
-            <SectionShell title="Appearance" description="Choose how Divya Swing Engine looks.">
+          <div className="space-y-4">
+            <CollapsibleSection
+              title="Appearance"
+              subtitle="Choose how the platform looks."
+              defaultOpen={true}
+            >
               <div className="grid gap-3 md:grid-cols-3">
                 {[
                   { value: 'light', label: 'Light', icon: <SunIcon /> },
@@ -469,9 +459,13 @@ export default function SettingsPage() {
                   )
                 })}
               </div>
-            </SectionShell>
+            </CollapsibleSection>
 
-            <SectionShell title="Portfolio">
+            <CollapsibleSection
+              title="Portfolio"
+              subtitle="Update your current portfolio value."
+              defaultOpen={true}
+            >
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                   Portfolio Value ($)
@@ -490,346 +484,369 @@ export default function SettingsPage() {
               </label>
 
               {portfolioValueError ? (
-                <p className="text-sm text-red-600 dark:text-[#f0a3a3]">{portfolioValueError}</p>
+                <p className="mt-2 text-sm text-red-600 dark:text-[#f0a3a3]">
+                  {portfolioValueError}
+                </p>
               ) : null}
-            </SectionShell>
+            </CollapsibleSection>
 
-            <SectionShell title="Notifications">
-              <div>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                    Notification Email
-                  </span>
-                  <input
-                    type="email"
-                    className="ui-input"
-                    placeholder="you@example.com"
-                    value={notificationEmail}
-                    onChange={(event) => {
-                      setNotificationEmail(event.target.value)
-                      if (notificationEmailError) setNotificationEmailError(null)
-                    }}
-                  />
-                </label>
+            <CollapsibleSection
+              title="Notifications"
+              subtitle="Manage emails, alert types, and timezone."
+              defaultOpen={true}
+            >
+              <div className="space-y-4">
+                <div>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                      Notification Email
+                    </span>
+                    <input
+                      type="email"
+                      className="ui-input"
+                      placeholder="you@example.com"
+                      value={notificationEmail}
+                      onChange={(event) => {
+                        setNotificationEmail(event.target.value)
+                        if (notificationEmailError) setNotificationEmailError(null)
+                      }}
+                    />
+                  </label>
 
-                <p className="mt-2 ui-muted">
-                  Buy signals, stop alerts, and digests are sent to this address.
-                </p>
-
-                {notificationEmailError ? (
-                  <p className="mt-2 text-sm text-red-600 dark:text-[#f0a3a3]">
-                    {notificationEmailError}
+                  <p className="mt-2 ui-muted">
+                    Buy signals, stop alerts, and digests are sent to this address.
                   </p>
-                ) : null}
+
+                  {notificationEmailError ? (
+                    <p className="mt-2 text-sm text-red-600 dark:text-[#f0a3a3]">
+                      {notificationEmailError}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                      Timezone
+                    </span>
+                    <select
+                      className="ui-select"
+                      value={timezone}
+                      onChange={(event) => setTimezone(event.target.value)}
+                    >
+                      {timezoneOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <ToggleRow
+                    label="Email notifications"
+                    description="Receive buy signal and alert emails."
+                    value={emailNotificationsEnabled}
+                    onChange={setEmailNotificationsEnabled}
+                  />
+
+                  <ToggleRow
+                    label="Digest emails"
+                    description="Receive daily and weekly summary emails."
+                    value={digestEmailEnabled}
+                    onChange={setDigestEmailEnabled}
+                  />
+
+                  <ToggleRow
+                    label="Urgent alerts"
+                    description="Receive urgent stop and target alert emails."
+                    value={urgentAlertsEnabled}
+                    onChange={setUrgentAlertsEnabled}
+                  />
+                </div>
               </div>
+            </CollapsibleSection>
 
-              <div>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                    Timezone
-                  </span>
-                  <select
-                    className="ui-select"
-                    value={timezone}
-                    onChange={(event) => setTimezone(event.target.value)}
-                  >
-                    {timezoneOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="space-y-3">
-                <ToggleRow
-                  label="Email notifications"
-                  description="Receive buy signal and alert emails"
-                  value={emailNotificationsEnabled}
-                  onChange={setEmailNotificationsEnabled}
-                />
-
-                <ToggleRow
-                  label="Digest emails"
-                  description="Receive daily and weekly summary emails"
-                  value={digestEmailEnabled}
-                  onChange={setDigestEmailEnabled}
-                />
-
-                <ToggleRow
-                  label="Urgent alerts"
-                  description="Receive urgent stop and target alert emails"
-                  value={urgentAlertsEnabled}
-                  onChange={setUrgentAlertsEnabled}
-                />
-              </div>
-            </SectionShell>
-
-            <SectionShell
+            <CollapsibleSection
               title="Workflow preferences"
-              description="Control when the system scans for setups and how long signals stay active."
+              subtitle="Control scan timing, signal expiry, and morning trade checks."
+              defaultOpen={false}
             >
-              <div>
-                <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                  Scan schedule
-                  <Tooltip text="How often the system scans your watchlist for buy signals. Evening only is recommended for swing traders who review signals at night." />
-                </div>
-                <p className="mt-1 ui-muted">
-                  Evening only is recommended for swing traders who review signals at night and place pre-market orders.
-                </p>
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Scan schedule
+                    <Tooltip text="How often the system scans your watchlist for buy signals." />
+                  </div>
+                  <p className="mt-1 ui-muted">
+                    Evening only is recommended for swing traders who review signals at night.
+                  </p>
 
-                <div className="mt-4 space-y-3">
-                  {scanScheduleOptions.map((option) => {
-                    const selected = scanSchedule === option.value
+                  <div className="mt-4 space-y-3">
+                    {scanScheduleOptions.map((option) => {
+                      const selected = scanSchedule === option.value
 
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setScanSchedule(option.value)}
-                        className={[
-                          'ui-card w-full cursor-pointer p-4 text-left',
-                          selected
-                            ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-[#20262e]'
-                            : '',
-                        ].join(' ')}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span
-                            className={[
-                              'mt-1 inline-flex h-4 w-4 shrink-0 rounded-full border',
-                              selected
-                                ? 'border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100'
-                                : 'border-neutral-300 bg-white dark:border-[#4a5564] dark:bg-[#181d23]',
-                            ].join(' ')}
-                          >
-                            {selected ? (
-                              <span className="m-auto h-2 w-2 rounded-full bg-white dark:bg-neutral-900" />
-                            ) : null}
-                          </span>
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setScanSchedule(option.value)}
+                          className={[
+                            'ui-card w-full cursor-pointer p-4 text-left',
+                            selected
+                              ? 'border-2 border-neutral-900 bg-neutral-50 dark:border-neutral-100 dark:bg-[#20262e]'
+                              : '',
+                          ].join(' ')}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={[
+                                'mt-1 inline-flex h-4 w-4 shrink-0 rounded-full border',
+                                selected
+                                  ? 'border-neutral-900 bg-neutral-900 dark:border-neutral-100 dark:bg-neutral-100'
+                                  : 'border-neutral-300 bg-white dark:border-[#4a5564] dark:bg-[#181d23]',
+                              ].join(' ')}
+                            >
+                              {selected ? (
+                                <span className="m-auto h-2 w-2 rounded-full bg-white dark:bg-neutral-900" />
+                              ) : null}
+                            </span>
 
-                          <div>
-                            <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                              {option.label}
+                            <div>
+                              <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                                {option.label}
+                              </div>
+                              <p className="mt-1 ui-muted">{option.description}</p>
                             </div>
-                            <p className="mt-1 ui-muted">{option.description}</p>
                           </div>
-                        </div>
-                      </button>
-                    )
-                  })}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
+
+                <div>
+                  <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Buy signal active for
+                    <Tooltip text="How many trading days a buy signal stays in your Inbox before it expires." />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {[1, 2, 3].map((days) => {
+                      const selected = buySignalExpiryDays === days
+
+                      return (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setBuySignalExpiryDays(days as 1 | 2 | 3)}
+                          className={
+                            selected
+                              ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
+                              : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-[#2a313b] dark:text-[#c7d0db]'
+                          }
+                        >
+                          {days} day{days > 1 ? 's' : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <ToggleRow
+                  label="Morning trade monitor"
+                  description="Check open trades at market open for stop hits at the open."
+                  value={morningTradeMonitorEnabled}
+                  onChange={setMorningTradeMonitorEnabled}
+                />
               </div>
+            </CollapsibleSection>
 
-              <div>
-                <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                  Buy signal active for
-                  <Tooltip text="How many trading days a buy signal stays in your Inbox before it expires." />
-                </div>
-                <p className="mt-1 ui-muted">
-                  How many trading days a buy signal stays in your Inbox before it expires.
-                </p>
-
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {[1, 2, 3].map((days) => {
-                    const selected = buySignalExpiryDays === days
-
-                    return (
-                      <button
-                        key={days}
-                        type="button"
-                        onClick={() => setBuySignalExpiryDays(days as 1 | 2 | 3)}
-                        className={
-                          selected
-                            ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
-                            : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-[#2a313b] dark:text-[#c7d0db]'
-                        }
-                      >
-                        {days} day{days > 1 ? 's' : ''}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <ToggleRow
-                label="Morning trade monitor"
-                description="Check open trades at market open for stop hits at the open."
-                value={morningTradeMonitorEnabled}
-                onChange={setMorningTradeMonitorEnabled}
-              />
-            </SectionShell>
-
-            <SectionShell
+            <CollapsibleSection
               title="Screener"
-              description="The screener runs nightly and automatically discovers stock candidates using market data."
+              subtitle="Manage the autonomous candidate screener and its thresholds."
+              defaultOpen={false}
             >
-              <ToggleRow
-                label="Autonomous screener"
-                description="Automatically discover new candidates each night based on your criteria below."
-                value={screenerEnabled}
-                onChange={setScreenerEnabled}
-              />
+              <div className="space-y-6">
+                <ToggleRow
+                  label="Autonomous screener"
+                  description="Automatically discover new candidates each night based on your criteria below."
+                  value={screenerEnabled}
+                  onChange={setScreenerEnabled}
+                />
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                    Minimum price ($)
-                    <Tooltip text="Only consider stocks trading above this price." />
-                  </span>
-                  <input
-                    type="number"
-                    step="1"
-                    className="ui-input"
-                    value={screenerMinPrice}
-                    onChange={(event) => setScreenerMinPrice(event.target.value)}
-                  />
-                </label>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                      Minimum price ($)
+                      <Tooltip text="Only consider stocks trading above this price." />
+                    </span>
+                    <input
+                      type="number"
+                      step="1"
+                      className="ui-input"
+                      value={screenerMinPrice}
+                      onChange={(event) => setScreenerMinPrice(event.target.value)}
+                    />
+                  </label>
 
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                    Minimum average volume
-                    <Tooltip text="Only consider stocks with at least this many shares traded per day on average." />
-                  </span>
-                  <input
-                    type="number"
-                    step="10000"
-                    placeholder="500000"
-                    className="ui-input"
-                    value={screenerMinAvgVolume}
-                    onChange={(event) => setScreenerMinAvgVolume(event.target.value)}
-                  />
-                </label>
+                  <label className="block">
+                    <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                      Minimum average volume
+                      <Tooltip text="Only consider stocks with at least this many shares traded per day on average." />
+                    </span>
+                    <input
+                      type="number"
+                      step="10000"
+                      placeholder="500000"
+                      className="ui-input"
+                      value={screenerMinAvgVolume}
+                      onChange={(event) => setScreenerMinAvgVolume(event.target.value)}
+                    />
+                  </label>
 
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                    Minimum EPS growth (%)
-                    <Tooltip text="Only consider stocks with at least this level of earnings growth year over year." />
-                  </span>
-                  <input
-                    type="number"
-                    step="1"
-                    placeholder="25"
-                    className="ui-input"
-                    value={screenerMinEpsGrowthPct}
-                    onChange={(event) => setScreenerMinEpsGrowthPct(event.target.value)}
-                  />
-                </label>
+                  <label className="block">
+                    <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                      Minimum EPS growth (%)
+                      <Tooltip text="Only consider stocks with at least this level of earnings growth year over year." />
+                    </span>
+                    <input
+                      type="number"
+                      step="1"
+                      placeholder="25"
+                      className="ui-input"
+                      value={screenerMinEpsGrowthPct}
+                      onChange={(event) => setScreenerMinEpsGrowthPct(event.target.value)}
+                    />
+                  </label>
 
-                <label className="block">
-                  <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                    Minimum revenue growth (%)
-                    <Tooltip text="Only consider stocks with at least this level of sales growth year over year." />
-                  </span>
-                  <input
-                    type="number"
-                    step="1"
-                    placeholder="20"
-                    className="ui-input"
-                    value={screenerMinRevenueGrowthPct}
-                    onChange={(event) => setScreenerMinRevenueGrowthPct(event.target.value)}
-                  />
-                </label>
+                  <label className="block">
+                    <span className="mb-2 flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                      Minimum revenue growth (%)
+                      <Tooltip text="Only consider stocks with at least this level of sales growth year over year." />
+                    </span>
+                    <input
+                      type="number"
+                      step="1"
+                      placeholder="20"
+                      className="ui-input"
+                      value={screenerMinRevenueGrowthPct}
+                      onChange={(event) => setScreenerMinRevenueGrowthPct(event.target.value)}
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Max new candidates per night
+                    <Tooltip text="The maximum number of new stocks the screener will add in a single night." />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {[10, 20, 30].map((count) => {
+                      const selected = screenerMaxCandidates === count
+
+                      return (
+                        <button
+                          key={count}
+                          type="button"
+                          onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
+                          className={
+                            selected
+                              ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
+                              : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-[#2a313b] dark:text-[#c7d0db]'
+                          }
+                        >
+                          {count}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
+            </CollapsibleSection>
 
-              <div>
+            <CollapsibleSection
+              title="Losing streak counter"
+              subtitle="Track consecutive stop-outs and reset manually when needed."
+              defaultOpen={false}
+            >
+              <div className="space-y-4">
                 <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                  Max new candidates per night
-                  <Tooltip text="The maximum number of new stocks the screener will add in a single night." />
+                  Losing Streak Counter
+                  <Tooltip text="Tracks consecutive stop-outs. Resets automatically when a target is hit." />
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {[10, 20, 30].map((count) => {
-                    const selected = screenerMaxCandidates === count
+                <div className="ui-card p-6">
+                  <div
+                    className={[
+                      'text-4xl font-semibold',
+                      consecutiveStopOuts <= 2
+                        ? 'text-green-600 dark:text-[#8fd0ab]'
+                        : consecutiveStopOuts === 3
+                          ? 'text-amber-600 dark:text-[#f3c27a]'
+                          : 'text-red-600 dark:text-[#f0a3a3]',
+                    ].join(' ')}
+                  >
+                    {consecutiveStopOuts}
+                  </div>
+                  <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                    consecutive stop-outs
+                  </div>
 
-                    return (
-                      <button
-                        key={count}
-                        type="button"
-                        onClick={() => setScreenerMaxCandidates(count as 10 | 20 | 30)}
-                        className={
-                          selected
-                            ? 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white dark:bg-neutral-100 dark:text-neutral-900'
-                            : 'rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-[#2a313b] dark:text-[#c7d0db]'
-                        }
-                      >
-                        {count}
-                      </button>
-                    )
-                  })}
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={handleResetStreak}
+                      className="ui-btn-primary"
+                    >
+                      Reset Counter
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                    The counter resets automatically when a target alert is hit.
+                  </p>
                 </div>
               </div>
-            </SectionShell>
+            </CollapsibleSection>
 
-            <SectionShell title="Losing Streak Counter">
-              <div className="flex items-center gap-1 text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Losing Streak Counter
-                <Tooltip text="Tracks consecutive stop-outs. Resets automatically when a target is hit. At 3 stop-outs a Soft Pause alert fires. At 4 a Hard Pause fires. At 5 a Full Stop fires." />
-              </div>
-
-              <div className="ui-card p-6">
-                <div
-                  className={[
-                    'text-4xl font-semibold',
-                    consecutiveStopOuts <= 2
-                      ? 'text-green-600 dark:text-[#8fd0ab]'
-                      : consecutiveStopOuts === 3
-                        ? 'text-amber-600 dark:text-[#f3c27a]'
-                        : 'text-red-600 dark:text-[#f0a3a3]',
-                  ].join(' ')}
-                >
-                  {consecutiveStopOuts}
-                </div>
-                <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                  consecutive stop-outs
+            <CollapsibleSection
+              title="Account"
+              subtitle="Account details and sign-out action."
+              defaultOpen={false}
+            >
+              <div className="space-y-4">
+                <div>
+                  <div className="text-sm font-medium text-neutral-500 dark:text-[#a8b2bf]">
+                    Email address
+                  </div>
+                  <div className="mt-1 text-sm text-neutral-900 dark:text-[#e6eaf0]">
+                    {accountEmail}
+                  </div>
                 </div>
 
-                <div className="mt-4">
+                <div>
+                  <div className="text-sm font-medium text-neutral-500 dark:text-[#a8b2bf]">
+                    Member since
+                  </div>
+                  <div className="mt-1 text-sm text-neutral-900 dark:text-[#e6eaf0]">
+                    {formatMemberSince(settings?.created_at)}
+                  </div>
+                </div>
+
+                <div className="pt-2">
                   <button
                     type="button"
-                    onClick={handleResetStreak}
-                    className="ui-btn-primary"
+                    onClick={handleSignOut}
+                    className="ui-btn-secondary"
                   >
-                    Reset Counter
+                    Sign out
                   </button>
                 </div>
-
-                <p className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                  The counter resets automatically when a target alert is hit. Use this button only if you are manually resuming after a pause.
-                </p>
               </div>
-            </SectionShell>
-
-            <SectionShell title="Account">
-              <div>
-                <div className="text-sm font-medium text-neutral-500 dark:text-[#a8b2bf]">
-                  Email address
-                </div>
-                <div className="mt-1 text-sm text-neutral-900 dark:text-[#e6eaf0]">
-                  {accountEmail}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm font-medium text-neutral-500 dark:text-[#a8b2bf]">
-                  Member since
-                </div>
-                <div className="mt-1 text-sm text-neutral-900 dark:text-[#e6eaf0]">
-                  {formatMemberSince(settings?.created_at)}
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="ui-btn-secondary"
-                >
-                  Sign out
-                </button>
-              </div>
-            </SectionShell>
+            </CollapsibleSection>
 
             <div className="flex flex-col gap-3">
               <div>
