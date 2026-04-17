@@ -22,11 +22,8 @@ export default function HomePage() {
             href="/trading"
             className="group rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
           >
-            <div className="mb-3 text-sm font-medium uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
-              Module 01
-            </div>
             <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-              Trading
+              Divya Trading
             </h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
               Setup evaluation, watchlist management, market snapshots, trade plans,
@@ -41,11 +38,8 @@ export default function HomePage() {
             href="/investing"
             className="group rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
           >
-            <div className="mb-3 text-sm font-medium uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
-              Module 02
-            </div>
             <h2 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-              Investing
+              Shayna Investing
             </h2>
             <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-neutral-400">
               Long-term investing workspace. Module scaffold only for now; implementation
