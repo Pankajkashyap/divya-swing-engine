@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 
 type Props = {
@@ -10,7 +10,6 @@ type Props = {
 
 export function AppHeader({ title }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [pendingCount, setPendingCount] = useState<number>(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -78,10 +77,10 @@ export function AppHeader({ title }: Props) {
     { label: 'Settings', href: '/trading/settings' },
   ]
 
-  const handleNavigate = (href: string) => {
-    setMenuOpen(false)
-    router.push(href)
-  }
+    const handleNavigate = (href: string) => {
+      setMenuOpen(false)
+      window.location.assign(href)
+    }
 
   return (
     <header
@@ -137,7 +136,9 @@ export function AppHeader({ title }: Props) {
                 }`}
               >
                 <span>{item.label}</span>
-                {item.badge ? <span className="ui-pill-neutral">{item.badge}</span> : null}
+                {item.badge ? (
+                  <span className="ui-pill-neutral">{item.badge}</span>
+                ) : null}
               </button>
             )
           })}
