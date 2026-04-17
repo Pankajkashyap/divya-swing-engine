@@ -62,13 +62,13 @@ export function AppHeader({ title }: Props) {
   }, [pathname])
 
   const navItems = [
-    { label: 'Dashboard', href: '/' },
-    { label: 'Inbox', href: '/inbox', badge: pendingCount },
-    { label: 'Candidates', href: '/candidates' },
-    { label: 'Universe', href: '/universe' },
-    { label: 'Weekly Review', href: '/weekly-review' },
-    { label: 'Docs', href: '/docs' },
-    { label: 'Settings', href: '/settings' },
+    { label: 'Dashboard', href: '/trading' },
+    { label: 'Inbox', href: '/trading/inbox', badge: pendingCount },
+    { label: 'Candidates', href: '/trading/candidates' },
+    { label: 'Universe', href: '/trading/universe' },
+    { label: 'Weekly Review', href: '/trading/weekly-review' },
+    { label: 'Docs', href: '/trading/docs' },
+    { label: 'Settings', href: '/trading/settings' },
   ]
 
   const handleLogout = async () => {
@@ -112,8 +112,8 @@ export function AppHeader({ title }: Props) {
         <nav className="mt-3 flex flex-col gap-0.5">
           {navItems.map((item) => {
             const isActive =
-              item.href === '/'
-                ? pathname === '/'
+              item.href === '/trading'
+                ? pathname === '/trading'
                 : pathname.startsWith(item.href)
             return (
               <Link
