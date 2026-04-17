@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 
 type Props = {
@@ -11,6 +10,7 @@ type Props = {
 
 export function AppHeader({ title }: Props) {
   const pathname = usePathname()
+  const router = useRouter()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [pendingCount, setPendingCount] = useState<number>(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -45,7 +45,7 @@ export function AppHeader({ title }: Props) {
   useEffect(() => {
     if (!menuOpen) return
 
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+    const handleDocumentClick = (event: MouseEvent) => {
       const target = event.target as Node | null
       if (!target) return
 
@@ -56,12 +56,10 @@ export function AppHeader({ title }: Props) {
       setMenuOpen(false)
     }
 
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('touchstart', handlePointerDown)
+    document.addEventListener('click', handleDocumentClick)
 
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('touchstart', handlePointerDown)
+      document.removeEventListener('click', handleDocumentClick)
     }
   }, [menuOpen])
 
@@ -80,6 +78,11 @@ export function AppHeader({ title }: Props) {
     { label: 'Settings', href: '/trading/settings' },
   ]
 
+  const handleNavigate = (href: string) => {
+    setMenuOpen(false)
+    router.push(href)
+  }
+
   return (
     <header
       ref={headerRef}
@@ -93,7 +96,10 @@ export function AppHeader({ title }: Props) {
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={(event) => {
+              event.stopPropagation()
+              setMenuOpen((open) => !open)
+            }}
             className="ui-btn-secondary relative"
             aria-label="Toggle navigation"
             aria-expanded={menuOpen}
@@ -109,7 +115,10 @@ export function AppHeader({ title }: Props) {
       </div>
 
       {menuOpen && (
-        <nav className="absolute right-0 top-full z-50 mt-2 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-1 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-[#2a313b] dark:bg-[#181d23]">
+        <nav
+          className="absolute right-0 top-full z-50 mt-2 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-1 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-[#2a313b] dark:bg-[#181d23]"
+          onClick={(event) => event.stopPropagation()}
+        >
           {navItems.map((item) => {
             const isActive =
               item.href === '/trading'
@@ -117,20 +126,19 @@ export function AppHeader({ title }: Props) {
                 : pathname.startsWith(item.href)
 
             return (
-              <Link
+              <button
                 key={item.href}
-                href={item.href}
-                className={`flex min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+                type="button"
+                onClick={() => handleNavigate(item.href)}
+                className={`flex min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all duration-150 ${
                   isActive
                     ? 'bg-[#7c93ff] text-[#0f1720]'
                     : 'text-neutral-700 hover:bg-neutral-100 dark:text-[#d7dde6] dark:hover:bg-[#20262e]'
                 }`}
               >
                 <span>{item.label}</span>
-                {item.badge ? (
-                  <span className="ui-pill-neutral">{item.badge}</span>
-                ) : null}
-              </Link>
+                {item.badge ? <span className="ui-pill-neutral">{item.badge}</span> : null}
+              </button>
             )
           })}
         </nav>
