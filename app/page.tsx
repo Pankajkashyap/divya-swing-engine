@@ -6,7 +6,7 @@ export default function HomePage() {
       <section className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-5xl flex-col justify-center">
         <div className="mb-10 text-center">
           <p className="mb-3 text-sm font-medium uppercase tracking-[0.2em] text-neutral-500 dark:text-neutral-400">
-            Divya Platform
+            Vyana
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl">
             Trading + Investing

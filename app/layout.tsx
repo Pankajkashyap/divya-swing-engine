@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Divya Platform',
+  title: 'Vyana',
   description: 'Trading + Investing platform',
 }
 
@@ -46,7 +46,7 @@ export default function RootLayout({
                   href="/"
                   className="text-sm font-semibold tracking-[0.18em] uppercase text-neutral-900 dark:text-neutral-100"
                 >
-                  Divya Platform
+                  Vyana
                 </Link>
 
                 <nav className="flex items-center gap-2">
@@ -60,9 +60,9 @@ export default function RootLayout({
               </div>
 
               <div className="flex items-center gap-2">
-  <GlobalLogoutButton />
-  <ThemeToggle />
-</div>
+                <GlobalLogoutButton />
+                <ThemeToggle />
+              </div>
             </div>
           </header>
 
