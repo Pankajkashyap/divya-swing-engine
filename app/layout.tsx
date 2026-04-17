@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { GlobalLogoutButton } from '@/components/GlobalLogoutButton'
 import './globals.css'
 
 const geistSans = Geist({
@@ -58,7 +59,10 @@ export default function RootLayout({
                 </nav>
               </div>
 
-              <ThemeToggle />
+              <div className="flex items-center gap-2">
+  <GlobalLogoutButton />
+  <ThemeToggle />
+</div>
             </div>
           </header>
 

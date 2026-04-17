@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
@@ -12,7 +12,6 @@ type Props = {
 
 export function AppHeader({ title }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [pendingCount, setPendingCount] = useState<number>(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -70,12 +69,6 @@ export function AppHeader({ title }: Props) {
     { label: 'Docs', href: '/trading/docs' },
     { label: 'Settings', href: '/trading/settings' },
   ]
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
 
   return (
     <header
@@ -135,15 +128,6 @@ export function AppHeader({ title }: Props) {
               </Link>
             )
           })}
-
-          {/* Logout at the bottom of the menu */}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-1 flex w-full items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition-all duration-150 hover:bg-red-50 dark:text-[#e27d7d] dark:hover:bg-[#3a2227]"
-          >
-            Logout
-          </button>
         </nav>
       )}
     </header>
