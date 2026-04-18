@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
-function CardSkeleton() {
+function SkeletonCard() {
   return (
     <div className="ui-card p-4">
-      <div className="h-4 w-32 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
+      <div className="h-4 w-36 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
       <div className="mt-4 space-y-3">
         <div className="h-4 w-full animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
         <div className="h-4 w-5/6 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
@@ -19,86 +20,101 @@ function CardSkeleton() {
 }
 
 export default function InvestingDashboardPage() {
-  const [loading, setLoading] = useState(true)
+  const [loading] = useState(false)
 
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setLoading(false)
-    }, 700)
-
-    return () => window.clearTimeout(timeout)
-  }, [])
+  const summaryCards = useMemo(
+    () => [
+      {
+        title: 'Portfolio Summary',
+        rows: [
+          ['Total value', '—'],
+          ['Equity exposure', '—'],
+          ['Cash position', '—'],
+        ],
+      },
+      {
+        title: 'Sector Exposure',
+        rows: [
+          ['Top sector', '—'],
+          ['Most underweight', '—'],
+          ['Most overweight', '—'],
+        ],
+      },
+      {
+        title: 'Allocation Buckets',
+        rows: [
+          ['Core compounder', '—'],
+          ['Quality growth', '—'],
+          ['Special opportunity', '—'],
+        ],
+      },
+      {
+        title: 'Watchlist Alerts',
+        rows: [
+          ['Ready to buy', '—'],
+          ['Approaching entry', '—'],
+          ['Under research', '—'],
+        ],
+      },
+      {
+        title: 'Upcoming Reviews',
+        rows: [
+          ['3M reviews due', '—'],
+          ['12M reviews due', '—'],
+          ['Quarterly review', '—'],
+        ],
+      },
+    ],
+    []
+  )
 
   return (
     <div className="space-y-4">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]">
-          Shayna — Investment Dashboard
-        </h1>
-        <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
-          Long-term portfolio view, allocation health, watchlist signals, and review cadence.
-        </p>
-      </header>
+      <InvestingPageHeader
+        title="Shayna — Investment Dashboard"
+        subtitle="High-level snapshot of portfolio health, watchlist readiness, review cadence, and allocation posture."
+      />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           <>
-            <CardSkeleton />
-            <CardSkeleton />
-            <CardSkeleton />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </>
         ) : (
           <>
-            <DataCard title="Portfolio Summary">
-              <DataCardRow label="Total value" value="$—" />
-              <DataCardRow label="Total holdings" value="—" />
-              <DataCardRow label="Cash position" value="—" />
-            </DataCard>
-
-            <DataCard title="Sector Exposure">
-              <DataCardRow label="Largest sector" value="—" />
-              <DataCardRow label="Most underweight" value="—" />
-              <DataCardRow label="Most overweight" value="—" />
-            </DataCard>
-
-            <DataCard title="Allocation Buckets">
-              <DataCardRow label="Core compounder" value="—" />
-              <DataCardRow label="Quality growth" value="—" />
-              <DataCardRow label="Special opportunity" value="—" />
-            </DataCard>
+            {summaryCards.slice(0, 3).map((card) => (
+              <DataCard key={card.title} title={card.title}>
+                {card.rows.map(([label, value]) => (
+                  <DataCardRow key={label} label={label} value={value} />
+                ))}
+              </DataCard>
+            ))}
           </>
         )}
       </section>
 
       <CollapsibleSection
-        title="Watchlist alerts"
-        subtitle="Upcoming buy opportunities, valuation gaps, and research candidates."
+        title="Watchlist and review signals"
+        subtitle="Priority items first, with secondary details collapsed by default."
         defaultOpen={true}
       >
         {loading ? (
-          <CardSkeleton />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
         ) : (
-          <DataCard title="Watchlist Alerts">
-            <DataCardRow label="Ready to buy" value="—" />
-            <DataCardRow label="Approaching entry" value="—" />
-            <DataCardRow label="Needs research" value="—" />
-          </DataCard>
-        )}
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="Upcoming reviews"
-        subtitle="Decision journal follow-ups and quarterly review checkpoints."
-        defaultOpen={false}
-      >
-        {loading ? (
-          <CardSkeleton />
-        ) : (
-          <DataCard title="Upcoming Reviews">
-            <DataCardRow label="3-month reviews due" value="—" />
-            <DataCardRow label="12-month reviews due" value="—" />
-            <DataCardRow label="Quarterly review status" value="—" />
-          </DataCard>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {summaryCards.slice(3).map((card) => (
+              <DataCard key={card.title} title={card.title}>
+                {card.rows.map(([label, value]) => (
+                  <DataCardRow key={label} label={label} value={value} />
+                ))}
+              </DataCard>
+            ))}
+          </div>
         )}
       </CollapsibleSection>
     </div>

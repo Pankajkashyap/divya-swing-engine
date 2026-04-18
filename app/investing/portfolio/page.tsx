@@ -1,11 +1,24 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
-import type { BucketTarget, Holding, SectorTarget } from '@/app/investing/types'
+import type {
+  BucketTarget,
+  DecisionJournalEntry,
+  Holding,
+  SectorTarget,
+} from '@/app/investing/types'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
+import { BottomSheet } from '@/components/ui/BottomSheet'
+import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
+import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
+import { HoldingForm } from '@/components/investing/HoldingForm'
+import { HoldingsTable } from '@/components/investing/HoldingsTable'
+import { HoldingsCardList } from '@/components/investing/HoldingsCardList'
+import { DecisionJournalForm } from '@/components/investing/DecisionJournalForm'
 
 type SectorExposureRow = {
   sector: string
@@ -24,6 +37,38 @@ type BucketExposureRow = {
   targetMax: number | null
 }
 
+type HoldingFormPayload = {
+  ticker: string
+  company: string
+  account: Holding['account']
+  base_currency: string
+  sector: string
+  shares: number
+  avg_cost: number
+  current_price: number
+  thesis: string | null
+  thesis_breakers: string | null
+  thesis_status: Holding['thesis_status']
+  date_bought: string | null
+  bucket: Holding['bucket']
+}
+
+type DecisionJournalFormPayload = {
+  entry_date: string
+  ticker: string
+  account: DecisionJournalEntry['account']
+  action: DecisionJournalEntry['action']
+  shares: number | null
+  price: number | null
+  portfolio_weight_after: number | null
+  reasoning: string | null
+  emotional_state: DecisionJournalEntry['emotional_state']
+  scorecard_overall: number | null
+  framework_supported: DecisionJournalEntry['framework_supported']
+  three_month_review: string | null
+  twelve_month_review: string | null
+}
+
 function formatCurrency(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return '—'
 
@@ -31,17 +76,6 @@ function formatCurrency(value: number | null | undefined) {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 0,
-  }).format(value)
-}
-
-function formatPrice(value: number | null | undefined) {
-  if (value == null || Number.isNaN(value)) return '—'
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
   }).format(value)
 }
 
@@ -70,13 +104,106 @@ function SkeletonCard() {
   )
 }
 
-export default function InvestingPortfolioPage() {
+function getTodayDateString() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function toNullableNumber(value: string | null): number | null {
+  if (!value) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildPrefilledHolding(searchParams: URLSearchParams): Holding | null {
+  const ticker = searchParams.get('ticker')?.trim().toUpperCase() ?? ''
+  if (!ticker) return null
+
+  const shares = toNullableNumber(searchParams.get('shares')) ?? 0
+  const avgCost = toNullableNumber(searchParams.get('avg_cost')) ?? 0
+  const currentPrice = toNullableNumber(searchParams.get('current_price')) ?? 0
+
+  return {
+    id: '',
+    user_id: null,
+    ticker,
+    company: searchParams.get('company')?.trim() ?? ticker,
+    account:
+      (searchParams.get('account')?.trim() as Holding['account'] | null) ?? 'TFSA',
+    base_currency: searchParams.get('base_currency')?.trim() ?? 'USD',
+    sector: searchParams.get('sector')?.trim() ?? '',
+    shares,
+    avg_cost: avgCost,
+    current_price: currentPrice,
+    market_value: shares * currentPrice,
+    gain_loss_pct:
+      avgCost > 0 ? ((currentPrice - avgCost) / avgCost) * 100 : null,
+    thesis: searchParams.get('thesis')?.trim() || null,
+    thesis_breakers: searchParams.get('thesis_breakers')?.trim() || null,
+    thesis_status:
+      (searchParams.get('thesis_status')?.trim() as Holding['thesis_status'] | null) ??
+      'Intact',
+    date_bought: searchParams.get('date_bought')?.trim() || null,
+    bucket:
+      (searchParams.get('bucket')?.trim() as Holding['bucket'] | null) ??
+      'Core compounder',
+    created_at: '',
+    updated_at: '',
+  }
+}
+
+function holdingToJournalSeed(holding: Holding): DecisionJournalEntry {
+  return {
+    id: '',
+    user_id: null,
+    entry_number: 0,
+    entry_date: getTodayDateString(),
+    ticker: holding.ticker,
+    account: holding.account,
+    action: 'HOLD',
+    shares: holding.shares,
+    price: holding.current_price,
+    portfolio_weight_after: null,
+    reasoning: holding.thesis ?? null,
+    emotional_state: null,
+    scorecard_overall: null,
+    framework_supported: null,
+    three_month_review: null,
+    twelve_month_review: null,
+    review_due_3m: null,
+    review_due_12m: null,
+    created_at: '',
+  }
+}
+
+function InvestingPortfolioPageContent() {
   const supabase = useMemo(() => createInvestingSupabaseBrowserClient(), [])
+  const searchParams = useSearchParams()
+
+  const queryMode = searchParams.get('mode')
+  const queryPrefillHolding = useMemo(
+    () => (queryMode === 'new' ? buildPrefilledHolding(searchParams) : null),
+    [queryMode, searchParams]
+  )
+
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [sectorTargets, setSectorTargets] = useState<SectorTarget[]>([])
   const [bucketTargets, setBucketTargets] = useState<BucketTarget[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const [sheetOpen, setSheetOpen] = useState(
+    () => queryMode === 'new' && !!buildPrefilledHolding(searchParams)
+  )
+  const [editingHolding, setEditingHolding] = useState<Holding | null>(
+    () => (queryMode === 'new' ? buildPrefilledHolding(searchParams) : null)
+  )
+  const [formBusy, setFormBusy] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const [journalSheetOpen, setJournalSheetOpen] = useState(false)
+  const [journalHolding, setJournalHolding] = useState<Holding | null>(null)
+  const [journalBusy, setJournalBusy] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -86,18 +213,9 @@ export default function InvestingPortfolioPage() {
       setError(null)
 
       const [holdingsRes, sectorTargetsRes, bucketTargetsRes] = await Promise.all([
-        supabase
-          .from('holdings')
-          .select('*')
-          .order('market_value', { ascending: false }),
-        supabase
-          .from('sector_targets')
-          .select('*')
-          .order('sector', { ascending: true }),
-        supabase
-          .from('bucket_targets')
-          .select('*')
-          .order('bucket', { ascending: true }),
+        supabase.from('holdings').select('*').order('market_value', { ascending: false }),
+        supabase.from('sector_targets').select('*').order('sector', { ascending: true }),
+        supabase.from('bucket_targets').select('*').order('bucket', { ascending: true }),
       ])
 
       if (cancelled) return
@@ -137,10 +255,7 @@ export default function InvestingPortfolioPage() {
   }, [supabase])
 
   const summary = useMemo(() => {
-    const totalValue = holdings.reduce(
-      (sum, holding) => sum + Number(holding.market_value ?? 0),
-      0
-    )
+    const totalValue = holdings.reduce((sum, holding) => sum + Number(holding.market_value ?? 0), 0)
 
     const equityHoldings = holdings.filter(
       (h) => h.bucket !== 'TFSA Cash' && h.bucket !== 'Non-registered Cash'
@@ -240,22 +355,218 @@ export default function InvestingPortfolioPage() {
 
   const topHoldings = useMemo(() => holdings.slice(0, 5), [holdings])
 
+  function openAddSheet() {
+    setSuccess(null)
+    setEditingHolding(queryPrefillHolding)
+    setSheetOpen(true)
+  }
+
+  function openEditSheet(holding: Holding) {
+    setSuccess(null)
+    setEditingHolding(holding)
+    setSheetOpen(true)
+  }
+
+  function closeSheet() {
+    if (formBusy) return
+    setSheetOpen(false)
+    setEditingHolding(null)
+  }
+
+  function openJournalSheet(holding: Holding) {
+    setSuccess(null)
+    setJournalHolding(holding)
+    setJournalSheetOpen(true)
+  }
+
+  function closeJournalSheet() {
+    if (journalBusy) return
+    setJournalSheetOpen(false)
+    setJournalHolding(null)
+  }
+
+  async function handleSaveHolding(payload: HoldingFormPayload) {
+    setFormBusy(true)
+    setError(null)
+    setSuccess(null)
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) {
+      setError(authError.message)
+      setFormBusy(false)
+      return
+    }
+
+    const record = {
+      user_id: user?.id ?? null,
+      ticker: payload.ticker,
+      company: payload.company,
+      account: payload.account,
+      base_currency: payload.base_currency,
+      sector: payload.sector,
+      shares: payload.shares,
+      avg_cost: payload.avg_cost,
+      current_price: payload.current_price,
+      thesis: payload.thesis,
+      thesis_breakers: payload.thesis_breakers,
+      thesis_status: payload.thesis_status,
+      date_bought: payload.date_bought,
+      bucket: payload.bucket,
+    }
+
+    if (editingHolding && editingHolding.id) {
+      const { error: updateError } = await supabase
+        .from('holdings')
+        .update(record)
+        .eq('id', editingHolding.id)
+
+      if (updateError) {
+        setError(updateError.message)
+        setFormBusy(false)
+        return
+      }
+
+      setHoldings((prev) =>
+        prev
+          .map((holding) =>
+            holding.id === editingHolding.id
+              ? {
+                  ...holding,
+                  ...record,
+                  market_value: payload.shares * payload.current_price,
+                  gain_loss_pct:
+                    payload.avg_cost > 0
+                      ? ((payload.current_price - payload.avg_cost) / payload.avg_cost) * 100
+                      : null,
+                }
+              : holding
+          )
+          .sort(
+            (a, b) =>
+              Number(b.market_value ?? b.shares * b.current_price) -
+              Number(a.market_value ?? a.shares * a.current_price)
+          )
+      )
+
+      setSuccess(`Updated ${payload.ticker} holding.`)
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from('holdings')
+        .insert(record)
+        .select('*')
+        .single()
+
+      if (insertError) {
+        setError(insertError.message)
+        setFormBusy(false)
+        return
+      }
+
+      setHoldings((prev) =>
+        [inserted as Holding, ...prev].sort(
+          (a, b) => Number(b.market_value ?? 0) - Number(a.market_value ?? 0)
+        )
+      )
+
+      setSuccess(`Added ${payload.ticker} holding.`)
+    }
+
+    setFormBusy(false)
+    setSheetOpen(false)
+    setEditingHolding(null)
+  }
+
+  async function handleDeleteHolding(holding: Holding) {
+    const confirmed = window.confirm(`Delete ${holding.ticker}?`)
+    if (!confirmed) return
+
+    setDeletingId(holding.id)
+    setError(null)
+    setSuccess(null)
+
+    const { error: deleteError } = await supabase
+      .from('holdings')
+      .delete()
+      .eq('id', holding.id)
+
+    if (deleteError) {
+      setError(deleteError.message)
+      setDeletingId(null)
+      return
+    }
+
+    setHoldings((prev) => prev.filter((item) => item.id !== holding.id))
+    setDeletingId(null)
+    setSuccess(`Deleted ${holding.ticker} holding.`)
+  }
+
+  async function handleCreateJournalEntry(payload: DecisionJournalFormPayload) {
+    if (!journalHolding) return
+
+    setJournalBusy(true)
+    setError(null)
+    setSuccess(null)
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError) {
+      setError(authError.message)
+      setJournalBusy(false)
+      return
+    }
+
+    const record = {
+      user_id: user?.id ?? null,
+      entry_date: payload.entry_date,
+      ticker: payload.ticker,
+      account: payload.account,
+      action: payload.action,
+      shares: payload.shares,
+      price: payload.price,
+      portfolio_weight_after: payload.portfolio_weight_after,
+      reasoning: payload.reasoning,
+      emotional_state: payload.emotional_state,
+      scorecard_overall: payload.scorecard_overall,
+      framework_supported: payload.framework_supported,
+      three_month_review: payload.three_month_review,
+      twelve_month_review: payload.twelve_month_review,
+    }
+
+    const { error: insertError } = await supabase.from('decision_journal').insert(record)
+
+    if (insertError) {
+      setError(insertError.message)
+      setJournalBusy(false)
+      return
+    }
+
+    setJournalBusy(false)
+    setJournalSheetOpen(false)
+    setSuccess(`Created journal entry for ${payload.ticker}.`)
+    setJournalHolding(null)
+  }
+
   return (
     <div className="space-y-4">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]">
-          Portfolio
-        </h1>
-        <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
-          Current positions, account split, sector balance, and allocation buckets.
-        </p>
-      </header>
+      <InvestingPageHeader
+        title="Portfolio"
+        subtitle="Current positions, account split, sector balance, and allocation buckets."
+        actions={
+          <button type="button" onClick={openAddSheet} className="ui-btn-primary">
+            Add holding
+          </button>
+        }
+      />
 
-      {error ? (
-        <div className="ui-card border border-red-200 p-4 text-sm text-red-700 dark:border-red-900 dark:text-[#f0a3a3]">
-          {error}
-        </div>
-      ) : null}
+      <InlineStatusBanner tone="error" message={error} />
+      <InlineStatusBanner tone="success" message={success} />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
@@ -400,40 +711,95 @@ export default function InvestingPortfolioPage() {
             No holdings found.
           </div>
         ) : (
-          <div className="ui-table-wrap">
-            <table className="ui-table">
-              <thead>
-                <tr>
-                  <th>Ticker</th>
-                  <th>Company</th>
-                  <th>Account</th>
-                  <th>Bucket</th>
-                  <th>Shares</th>
-                  <th>Avg Cost</th>
-                  <th>Current Price</th>
-                  <th>Market Value</th>
-                  <th>Gain/Loss</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="space-y-3">
+            <div className="lg:hidden">
+              <HoldingsCardList
+                holdings={holdings}
+                onEdit={openEditSheet}
+                onDelete={handleDeleteHolding}
+                deletingId={deletingId}
+              />
+            </div>
+
+            <div className="hidden lg:block">
+              <HoldingsTable
+                holdings={holdings}
+                onEdit={openEditSheet}
+                onDelete={handleDeleteHolding}
+                deletingId={deletingId}
+              />
+            </div>
+
+            <div className="ui-card p-4">
+              <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                Create a journal entry directly from a holding:
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {holdings.map((holding) => (
-                  <tr key={holding.id}>
-                    <td className="font-medium">{holding.ticker}</td>
-                    <td>{holding.company}</td>
-                    <td>{holding.account}</td>
-                    <td>{holding.bucket ?? '—'}</td>
-                    <td>{holding.shares}</td>
-                    <td>{formatPrice(holding.avg_cost)}</td>
-                    <td>{formatPrice(holding.current_price)}</td>
-                    <td>{formatCurrency(holding.market_value)}</td>
-                    <td>{formatPercent(holding.gain_loss_pct)}</td>
-                  </tr>
+                  <button
+                    key={`journal-${holding.id}`}
+                    type="button"
+                    onClick={() => openJournalSheet(holding)}
+                    className="ui-btn-secondary"
+                  >
+                    Journal {holding.ticker}
+                  </button>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
         )}
       </CollapsibleSection>
+
+      <BottomSheet
+        open={sheetOpen}
+        onClose={closeSheet}
+        title={editingHolding?.id ? `Edit ${editingHolding.ticker}` : 'Add holding'}
+      >
+        <HoldingForm
+          key={
+            editingHolding?.id
+              ? editingHolding.id
+              : `new-holding-${editingHolding?.ticker ?? 'blank'}`
+          }
+          initialHolding={editingHolding}
+          onSubmit={handleSaveHolding}
+          onCancel={closeSheet}
+          submitLabel={editingHolding?.id ? 'Save changes' : 'Add holding'}
+          busy={formBusy}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        open={journalSheetOpen}
+        onClose={closeJournalSheet}
+        title={journalHolding ? `Journal ${journalHolding.ticker}` : 'Create journal entry'}
+      >
+        {journalHolding ? (
+          <DecisionJournalForm
+            key={`journal-form-${journalHolding.id || journalHolding.ticker}`}
+            initialEntry={holdingToJournalSeed(journalHolding)}
+            onSubmit={handleCreateJournalEntry}
+            onCancel={closeJournalSheet}
+            submitLabel="Create journal entry"
+            busy={journalBusy}
+          />
+        ) : null}
+      </BottomSheet>
     </div>
+  )
+}
+
+export default function InvestingPortfolioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-4">
+          <SkeletonCard />
+        </div>
+      }
+    >
+      <InvestingPortfolioPageContent />
+    </Suspense>
   )
 }
