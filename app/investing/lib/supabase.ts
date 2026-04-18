@@ -1,4 +1,3 @@
-
 import { createBrowserClient } from '@supabase/ssr'
 
 function getInvestingEnv() {
@@ -23,5 +22,3 @@ export function createInvestingSupabaseBrowserClient() {
   const { supabaseUrl, supabaseAnonKey } = getInvestingEnv()
   return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
-
-export const supabase = createInvestingSupabaseBrowserClient()
