@@ -23,5 +23,3 @@ export function createInvestingSupabaseBrowserClient() {
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
-
-export const investingSupabase = createInvestingSupabaseBrowserClient()

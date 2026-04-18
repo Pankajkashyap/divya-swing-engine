@@ -286,7 +286,12 @@ function InvestingJournalPageContent() {
     const reviewDue3m = addMonths(payload.entry_date, 3)
     const reviewDue12m = addMonths(payload.entry_date, 12)
 
-    const record = {
+    const nextEntryNumber =
+      entries.length > 0
+        ? Math.max(...entries.map((e) => e.entry_number)) + 1
+        : 1
+
+    const baseRecord = {
       user_id: user?.id ?? null,
       entry_date: payload.entry_date,
       ticker: payload.ticker,
@@ -301,12 +306,14 @@ function InvestingJournalPageContent() {
       framework_supported: payload.framework_supported,
       three_month_review: payload.three_month_review,
       twelve_month_review: payload.twelve_month_review,
+      review_due_3m: reviewDue3m,
+      review_due_12m: reviewDue12m,
     }
 
     if (editingEntry && editingEntry.id) {
       const { error: updateError } = await supabase
         .from('decision_journal')
-        .update(record)
+        .update(baseRecord)
         .eq('id', editingEntry.id)
 
       if (updateError) {
@@ -321,9 +328,7 @@ function InvestingJournalPageContent() {
             entry.id === editingEntry.id
               ? {
                   ...entry,
-                  ...record,
-                  review_due_3m: reviewDue3m,
-                  review_due_12m: reviewDue12m,
+                  ...baseRecord,
                 }
               : entry
           )
@@ -338,7 +343,7 @@ function InvestingJournalPageContent() {
     } else {
       const { data: inserted, error: insertError } = await supabase
         .from('decision_journal')
-        .insert(record)
+        .insert({ ...baseRecord, entry_number: nextEntryNumber })
         .select('*')
         .single()
 

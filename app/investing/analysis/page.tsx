@@ -330,6 +330,7 @@ function InvestingAnalysisPageContent() {
       roic_score: payload.roic_score,
       fin_health_score: payload.fin_health_score,
       biz_understanding_score: payload.biz_understanding_score,
+      overall_score: overallScore,
       verdict: payload.verdict,
       fair_value_low: payload.fair_value_low,
       fair_value_high: payload.fair_value_high,
@@ -358,7 +359,6 @@ function InvestingAnalysisPageContent() {
               ? {
                   ...analysis,
                   ...record,
-                  overall_score: overallScore,
                 }
               : analysis
           )

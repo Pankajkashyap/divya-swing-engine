@@ -206,6 +206,7 @@ export default function InvestingReviewsPage() {
       top_lesson: payload.top_lesson,
       action_items: payload.action_items,
       emotional_discipline: payload.emotional_discipline,
+      alpha,
     }
 
     if (editingReview) {
@@ -227,7 +228,6 @@ export default function InvestingReviewsPage() {
               ? {
                   ...review,
                   ...record,
-                  alpha,
                 }
               : review
           )

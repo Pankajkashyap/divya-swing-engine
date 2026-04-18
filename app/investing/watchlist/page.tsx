@@ -585,36 +585,31 @@ function InvestingWatchlistPageContent() {
             <SkeletonCard />
             <SkeletonCard />
           </div>
+        ) : priorityItems.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No active watchlist items found.
+          </div>
         ) : (
           <div className="space-y-3">
-            {priorityItems.length === 0 ? (
-              <WatchlistCardList
-                items={priorityItems}
-                onEdit={openEditSheet}
-                onDelete={handleDeleteItem}
-                deletingId={deletingId}
-              />
-            ) : (
-              priorityItems.map((item) => (
-                <div key={item.id} className="space-y-2">
-                  <WatchlistCardList
-                    items={[item]}
-                    onEdit={openEditSheet}
-                    onDelete={handleDeleteItem}
-                    deletingId={deletingId}
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => openAnalysisSheet(item)}
-                      className="ui-btn-secondary"
-                    >
-                      Analyze
-                    </button>
-                  </div>
+            {priorityItems.map((item) => (
+              <div key={item.id} className="space-y-2">
+                <WatchlistCardList
+                  items={[item]}
+                  onEdit={openEditSheet}
+                  onDelete={handleDeleteItem}
+                  deletingId={deletingId}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => openAnalysisSheet(item)}
+                    className="ui-btn-secondary"
+                  >
+                    Analyze
+                  </button>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
         )}
       </CollapsibleSection>
