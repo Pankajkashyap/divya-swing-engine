@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
+import { createShaynaInvestingSupabaseBrowserClient } from '@/app/investing/lib/investing-supabase'
 import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
@@ -9,7 +9,7 @@ import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 
 
 export default function InvestingSettingsPage() {
-  const supabase = useMemo(() => createInvestingSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => createShaynaInvestingSupabaseBrowserClient(), [])
 
   const [defaultAccount, setDefaultAccount] = useState('TFSA')
   const [defaultCurrency, setDefaultCurrency] = useState('USD')

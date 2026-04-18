@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
+import { createShaynaInvestingSupabaseBrowserClient } from '@/app/investing/lib/investing-supabase'
 import type { StockAnalysis, WatchlistItem } from '@/app/investing/types'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
@@ -154,7 +154,7 @@ function watchlistToAnalysisSeed(item: WatchlistItem): StockAnalysis {
 }
 
 function InvestingWatchlistPageContent() {
-  const supabase = useMemo(() => createInvestingSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => createShaynaInvestingSupabaseBrowserClient(), [])
   const searchParams = useSearchParams()
 
   const queryMode = searchParams.get('mode')
