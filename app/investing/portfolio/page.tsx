@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createShaynaInvestingSupabaseBrowserClient } from '@/app/investing/lib/investing-supabase'
+import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
 import type {
   BucketTarget,
   DecisionJournalEntry,
@@ -176,7 +176,7 @@ function holdingToJournalSeed(holding: Holding): DecisionJournalEntry {
 }
 
 function InvestingPortfolioPageContent() {
-  const supabase = useMemo(() => createShaynaInvestingSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => createInvestingSupabaseBrowserClient(), [])
   const searchParams = useSearchParams()
 
   const queryMode = searchParams.get('mode')
