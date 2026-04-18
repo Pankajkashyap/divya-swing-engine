@@ -20,5 +20,10 @@ function getShaynaInvestingEnv() {
 
 export function createShaynaInvestingSupabaseBrowserClient() {
   const { supabaseUrl, supabaseAnonKey } = getShaynaInvestingEnv()
+
+  if (typeof window !== 'undefined') {
+    console.log('SHAYNA_CLIENT_URL', supabaseUrl)
+  }
+
   return createBrowserClient(supabaseUrl, supabaseAnonKey)
 }
