@@ -392,14 +392,7 @@ function InvestingPortfolioPageContent() {
 
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser()
-
-    if (authError) {
-      setError(authError.message)
-      setFormBusy(false)
-      return
-    }
 
     const record = {
       user_id: user?.id ?? null,
@@ -513,14 +506,7 @@ function InvestingPortfolioPageContent() {
 
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser()
-
-    if (authError) {
-      setError(authError.message)
-      setJournalBusy(false)
-      return
-    }
 
     const record = {
       user_id: user?.id ?? null,
