@@ -1,7 +1,6 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const investingTabs = [
@@ -30,7 +29,7 @@ function InvestingTabNav() {
               : pathname === tab.href || pathname.startsWith(`${tab.href}/`)
 
           return (
-            <Link
+            <a
               key={tab.href}
               href={tab.href}
               className={
@@ -38,7 +37,7 @@ function InvestingTabNav() {
               }
             >
               {tab.label}
-            </Link>
+            </a>
           )
         })}
       </nav>
