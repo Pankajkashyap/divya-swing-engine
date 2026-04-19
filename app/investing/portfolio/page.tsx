@@ -508,6 +508,10 @@ function InvestingPortfolioPageContent() {
       data: { user },
     } = await supabase.auth.getUser()
 
+    const { data: sessionData } = await supabase.auth.getSession()
+    console.log('INVESTING SESSION', sessionData.session)
+    console.log('INVESTING USER', user)
+    
     const record = {
       user_id: user?.id ?? null,
       entry_date: payload.entry_date,
