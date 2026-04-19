@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
+import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
 
 function getModuleLabel(pathname: string) {
   if (pathname.startsWith('/trading')) return 'Divya'
@@ -16,8 +17,14 @@ function getModuleLabel(pathname: string) {
 export function TopBar() {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [loggingOut, setLoggingOut] = useState(false)
+
+  const supabase = useMemo(() => {
+    if (pathname.startsWith('/investing')) {
+      return createInvestingSupabaseBrowserClient()
+    }
+    return createSupabaseBrowserClient()
+  }, [pathname])
 
   const moduleLabel = getModuleLabel(pathname)
 
