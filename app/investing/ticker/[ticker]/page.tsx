@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { createInvestingSupabaseServerClient } from '@/app/investing/lib/supabase-server'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import type {
   DecisionJournalEntry,
   Holding,
@@ -115,8 +115,7 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
     notFound()
   }
 
-  const supabase = await createInvestingSupabaseServerClient()
-
+const supabase = await createSupabaseServerClient()
   const [holdingsRes, watchlistRes, analysesRes, journalRes] = await Promise.all([
     supabase
       .from('investing_holdings')
