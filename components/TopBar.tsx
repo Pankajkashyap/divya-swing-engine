@@ -18,19 +18,18 @@ export function TopBar() {
   const pathname = usePathname()
   const [loggingOut, setLoggingOut] = useState(false)
 
-  const tradingSupabase = useMemo(() => createSupabaseBrowserClient(), [])
-  const investingSupabase = useMemo(() => createInvestingSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => {
+    if (pathname.startsWith('/investing')) {
+      return createInvestingSupabaseBrowserClient()
+    }
+    return createSupabaseBrowserClient()
+  }, [pathname])
 
   const moduleLabel = getModuleLabel(pathname)
 
   const handleLogout = async () => {
     setLoggingOut(true)
-
-    await Promise.allSettled([
-      tradingSupabase.auth.signOut(),
-      investingSupabase.auth.signOut(),
-    ])
-
+    await supabase.auth.signOut()
     window.location.href = '/login'
   }
 

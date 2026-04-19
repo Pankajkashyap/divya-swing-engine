@@ -1,27 +1,24 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
 
 export function GlobalLogoutButton() {
-  const router = useRouter()
+  const pathname = usePathname()
   const [loading, setLoading] = useState(false)
 
-  const tradingSupabase = useMemo(() => createSupabaseBrowserClient(), [])
-  const investingSupabase = useMemo(() => createInvestingSupabaseBrowserClient(), [])
+  const supabase = useMemo(() => {
+    if (pathname.startsWith('/investing')) {
+      return createInvestingSupabaseBrowserClient()
+    }
+    return createSupabaseBrowserClient()
+  }, [pathname])
 
   const handleLogout = async () => {
     setLoading(true)
-
-    await Promise.allSettled([
-      tradingSupabase.auth.signOut(),
-      investingSupabase.auth.signOut(),
-    ])
-
-    router.push('/login')
-    router.refresh()
+    await supabase.auth.signOut()
     window.location.href = '/login'
   }
 
