@@ -20,5 +20,14 @@ function getInvestingEnv() {
 
 export function createInvestingSupabaseBrowserClient() {
   const { supabaseUrl, supabaseAnonKey } = getInvestingEnv()
-  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  const client = createBrowserClient(supabaseUrl, supabaseAnonKey)
+
+  const originalFrom = client.from.bind(client)
+
+  client.from = ((table: string) => {
+    console.log('[INVESTING CLIENT] from(', table, ') host =', supabaseUrl)
+    return originalFrom(table)
+  }) as typeof client.from
+
+  return client
 }
