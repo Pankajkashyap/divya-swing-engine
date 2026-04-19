@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navItems = [
@@ -22,19 +21,23 @@ export function DesktopNav() {
 
       <nav className="flex flex-col gap-2">
         {navItems.map((item) => {
-          const isActive =
+          const active =
             item.href === '/'
               ? pathname === '/'
               : pathname === item.href || pathname.startsWith(`${item.href}/`)
 
           return (
-            <Link
+            <a
               key={item.href}
               href={item.href}
-              className={isActive ? 'ui-link-pill-active w-full justify-start' : 'ui-link-pill-idle w-full justify-start'}
+              className={
+                active
+                  ? 'ui-link-pill-active w-full justify-start'
+                  : 'ui-link-pill-idle w-full justify-start'
+              }
             >
               {item.label}
-            </Link>
+            </a>
           )
         })}
       </nav>
