@@ -7,5 +7,3 @@ export function createSupabaseBrowserClient() {
     appConfig.supabaseAnonKey
   )
 }
-
-export const supabase = createSupabaseBrowserClient()
