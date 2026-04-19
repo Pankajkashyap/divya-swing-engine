@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 export default function HomePage() {
   return (
     <main className="ui-page">
@@ -18,7 +16,7 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Link
+          <a
             href="/trading"
             className="group rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
           >
@@ -32,9 +30,9 @@ export default function HomePage() {
             <div className="mt-6 text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Open Trading →
             </div>
-          </Link>
+          </a>
 
-          <Link
+          <a
             href="/investing"
             className="group rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm transition hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
           >
@@ -48,7 +46,7 @@ export default function HomePage() {
             <div className="mt-6 text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Open Investing →
             </div>
-          </Link>
+          </a>
         </div>
       </section>
     </main>
