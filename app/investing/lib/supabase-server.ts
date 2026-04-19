@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+/* import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { NextRequest, NextResponse } from 'next/server'
 import { appConfig } from '@/lib/config'
@@ -48,4 +48,4 @@ export function createInvestingSupabaseMiddlewareClient(
       },
     },
   })
-}
+} */

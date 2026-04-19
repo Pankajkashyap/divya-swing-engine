@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr'
+/* import { createBrowserClient } from '@supabase/ssr'
 import { appConfig } from '@/lib/config'
 
 export function createInvestingSupabaseBrowserClient() {
@@ -6,4 +6,4 @@ export function createInvestingSupabaseBrowserClient() {
     appConfig.supabaseUrl,
     appConfig.supabaseAnonKey
   )
-}
+} */
