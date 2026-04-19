@@ -213,9 +213,9 @@ function InvestingPortfolioPageContent() {
       setError(null)
 
       const [holdingsRes, sectorTargetsRes, bucketTargetsRes] = await Promise.all([
-        supabase.from('holdings').select('*').order('market_value', { ascending: false }),
-        supabase.from('sector_targets').select('*').order('sector', { ascending: true }),
-        supabase.from('bucket_targets').select('*').order('bucket', { ascending: true }),
+        supabase.from('investing_holdings').select('*').order('market_value', { ascending: false }),
+        supabase.from('investing_sector_targets').select('*').order('sector', { ascending: true }),
+        supabase.from('investing_bucket_targets').select('*').order('bucket', { ascending: true }),
       ])
 
       if (cancelled) return
@@ -413,7 +413,7 @@ function InvestingPortfolioPageContent() {
 
     if (editingHolding && editingHolding.id) {
       const { error: updateError } = await supabase
-        .from('holdings')
+        .from('investing_holdings')
         .update(record)
         .eq('id', editingHolding.id)
 
@@ -448,7 +448,7 @@ function InvestingPortfolioPageContent() {
       setSuccess(`Updated ${payload.ticker} holding.`)
     } else {
       const { data: inserted, error: insertError } = await supabase
-        .from('holdings')
+        .from('investing_holdings')
         .insert(record)
         .select('*')
         .single()
@@ -482,7 +482,7 @@ function InvestingPortfolioPageContent() {
     setSuccess(null)
 
     const { error: deleteError } = await supabase
-      .from('holdings')
+      .from('investing_holdings')
       .delete()
       .eq('id', holding.id)
 
@@ -529,7 +529,7 @@ function InvestingPortfolioPageContent() {
       twelve_month_review: payload.twelve_month_review,
     }
 
-    const { error: insertError } = await supabase.from('decision_journal').insert(record)
+    const { error: insertError } = await supabase.from('investing_decision_journal').insert(record)
 
     if (insertError) {
       setError(insertError.message)

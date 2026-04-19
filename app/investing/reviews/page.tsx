@@ -90,7 +90,7 @@ export default function InvestingReviewsPage() {
       setError(null)
 
       const { data, error: loadError } = await supabase
-        .from('quarterly_reviews')
+        .from('investing_quarterly_reviews')
         .select('*')
         .order('review_date', { ascending: false })
 
@@ -211,7 +211,7 @@ export default function InvestingReviewsPage() {
 
     if (editingReview) {
       const { error: updateError } = await supabase
-        .from('quarterly_reviews')
+        .from('investing_quarterly_reviews')
         .update(record)
         .eq('id', editingReview.id)
 
@@ -237,7 +237,7 @@ export default function InvestingReviewsPage() {
       setSuccess(`Updated ${payload.quarter} review.`)
     } else {
       const { data: inserted, error: insertError } = await supabase
-        .from('quarterly_reviews')
+        .from('investing_quarterly_reviews')
         .insert(record)
         .select('*')
         .single()
@@ -271,7 +271,7 @@ export default function InvestingReviewsPage() {
     setSuccess(null)
 
     const { error: deleteError } = await supabase
-      .from('quarterly_reviews')
+      .from('investing_quarterly_reviews')
       .delete()
       .eq('id', review.id)
 

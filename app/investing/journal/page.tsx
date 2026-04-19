@@ -152,7 +152,7 @@ function InvestingJournalPageContent() {
       setError(null)
 
       const { data, error: loadError } = await supabase
-        .from('decision_journal')
+        .from('investing_decision_journal')
         .select('*')
         .order('entry_date', { ascending: false })
         .order('entry_number', { ascending: false })
@@ -312,7 +312,7 @@ function InvestingJournalPageContent() {
 
     if (editingEntry && editingEntry.id) {
       const { error: updateError } = await supabase
-        .from('decision_journal')
+        .from('investing_decision_journal')
         .update(baseRecord)
         .eq('id', editingEntry.id)
 
@@ -342,7 +342,7 @@ function InvestingJournalPageContent() {
       setSuccess(`Updated journal entry for ${payload.ticker}.`)
     } else {
       const { data: inserted, error: insertError } = await supabase
-        .from('decision_journal')
+        .from('investing_decision_journal')
         .insert({ ...baseRecord, entry_number: nextEntryNumber })
         .select('*')
         .single()
@@ -378,7 +378,7 @@ function InvestingJournalPageContent() {
     setSuccess(null)
 
     const { error: deleteError } = await supabase
-      .from('decision_journal')
+      .from('investing_decision_journal')
       .delete()
       .eq('id', entry.id)
 

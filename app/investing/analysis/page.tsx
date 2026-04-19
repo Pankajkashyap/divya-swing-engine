@@ -198,7 +198,7 @@ function InvestingAnalysisPageContent() {
       setError(null)
 
       const { data, error: loadError } = await supabase
-        .from('stock_analyses')
+        .from('investing_stock_analyses')
         .select('*')
         .order('analysis_date', { ascending: false })
 
@@ -342,7 +342,7 @@ function InvestingAnalysisPageContent() {
 
     if (editingAnalysis && editingAnalysis.id) {
       const { error: updateError } = await supabase
-        .from('stock_analyses')
+        .from('investing_stock_analyses')
         .update(record)
         .eq('id', editingAnalysis.id)
 
@@ -368,7 +368,7 @@ function InvestingAnalysisPageContent() {
       setSuccess(`Updated ${payload.ticker} analysis.`)
     } else {
       const { data: inserted, error: insertError } = await supabase
-        .from('stock_analyses')
+        .from('investing_stock_analyses')
         .insert(record)
         .select('*')
         .single()
@@ -402,7 +402,7 @@ function InvestingAnalysisPageContent() {
     setSuccess(null)
 
     const { error: deleteError } = await supabase
-      .from('stock_analyses')
+      .from('investing_stock_analyses')
       .delete()
       .eq('id', analysis.id)
 
@@ -450,7 +450,7 @@ function InvestingAnalysisPageContent() {
       date_added: payload.date_added,
     }
 
-    const { error: insertError } = await supabase.from('watchlist').insert(record)
+    const { error: insertError } = await supabase.from('investing_watchlist').insert(record)
 
     if (insertError) {
       setError(insertError.message)

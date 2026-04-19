@@ -119,23 +119,23 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
 
   const [holdingsRes, watchlistRes, analysesRes, journalRes] = await Promise.all([
     supabase
-      .from('holdings')
+      .from('investing_holdings')
       .select('*')
       .eq('ticker', normalizedTicker)
       .order('market_value', { ascending: false }),
     supabase
-      .from('watchlist')
+      .from('investing_watchlist')
       .select('*')
       .eq('ticker', normalizedTicker)
       .order('date_added', { ascending: false })
       .limit(1),
     supabase
-      .from('stock_analyses')
+      .from('investing_stock_analyses')
       .select('*')
       .eq('ticker', normalizedTicker)
       .order('analysis_date', { ascending: false }),
     supabase
-      .from('decision_journal')
+      .from('investing_decision_journal')
       .select('*')
       .eq('ticker', normalizedTicker)
       .order('entry_date', { ascending: false })

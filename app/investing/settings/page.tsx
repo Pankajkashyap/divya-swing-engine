@@ -25,8 +25,8 @@ export default function InvestingSettingsPage() {
 
     const load = async () => {
       const [sectorRes, bucketRes] = await Promise.all([
-        supabase.from('sector_targets').select('id', { count: 'exact', head: true }),
-        supabase.from('bucket_targets').select('id', { count: 'exact', head: true }),
+        supabase.from('investing_sector_targets').select('id', { count: 'exact', head: true }),
+        supabase.from('investing_bucket_targets').select('id', { count: 'exact', head: true }),
       ])
 
       if (cancelled) return

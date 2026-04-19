@@ -190,7 +190,7 @@ function InvestingWatchlistPageContent() {
       setError(null)
 
       const { data, error: loadError } = await supabase
-        .from('watchlist')
+        .from('investing_watchlist')
         .select('*')
         .order('date_added', { ascending: false })
 
@@ -324,7 +324,7 @@ function InvestingWatchlistPageContent() {
 
     if (editingItem && editingItem.id) {
       const { error: updateError } = await supabase
-        .from('watchlist')
+        .from('investing_watchlist')
         .update(record)
         .eq('id', editingItem.id)
 
@@ -351,7 +351,7 @@ function InvestingWatchlistPageContent() {
       setSuccess(`Updated ${payload.ticker} watchlist item.`)
     } else {
       const { data: inserted, error: insertError } = await supabase
-        .from('watchlist')
+        .from('investing_watchlist')
         .insert(record)
         .select('*')
         .single()
@@ -385,7 +385,7 @@ function InvestingWatchlistPageContent() {
     setSuccess(null)
 
     const { error: deleteError } = await supabase
-      .from('watchlist')
+      .from('investing_watchlist')
       .delete()
       .eq('id', item.id)
 
@@ -439,7 +439,7 @@ function InvestingWatchlistPageContent() {
       raw_analysis: payload.raw_analysis,
     }
 
-    const { error: insertError } = await supabase.from('stock_analyses').insert(record)
+    const { error: insertError } = await supabase.from('investing_stock_analyses').insert(record)
 
     if (insertError) {
       setError(insertError.message)

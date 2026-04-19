@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { NextRequest, NextResponse } from 'next/server'
+import { appConfig } from '@/lib/config'
 
 type CookieToSet = {
   name: string
@@ -8,29 +9,10 @@ type CookieToSet = {
   options?: CookieOptions
 }
 
-function getInvestingEnv() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_INVESTING_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_INVESTING_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl) {
-    throw new Error('Missing NEXT_PUBLIC_INVESTING_SUPABASE_URL')
-  }
-
-  if (!supabaseAnonKey) {
-    throw new Error('Missing NEXT_PUBLIC_INVESTING_SUPABASE_ANON_KEY')
-  }
-
-  return {
-    supabaseUrl,
-    supabaseAnonKey,
-  }
-}
-
 export async function createInvestingSupabaseServerClient() {
   const cookieStore = await cookies()
-  const { supabaseUrl, supabaseAnonKey } = getInvestingEnv()
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  return createServerClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
@@ -53,9 +35,7 @@ export function createInvestingSupabaseMiddlewareClient(
   request: NextRequest,
   response: NextResponse
 ) {
-  const { supabaseUrl, supabaseAnonKey } = getInvestingEnv()
-
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  return createServerClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll()
