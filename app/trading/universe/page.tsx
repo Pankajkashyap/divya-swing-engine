@@ -469,7 +469,7 @@ export default function UniversePage() {
     setSyncCount(null)
 
     try {
-      const response = await fetch('/api/ticker-universe/fetch-github')
+      const response = await fetch('/trading/api/ticker-universe/fetch-github')
       const result = (await response.json()) as {
         tickers?: UniverseImportRow[]
         count?: number
@@ -486,7 +486,7 @@ export default function UniversePage() {
         return
       }
 
-      const applyResponse = await fetch('/api/ticker-universe/bulk-update', {
+      const applyResponse = await fetch('/trading/api/ticker-universe/bulk-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(result.tickers),
@@ -523,7 +523,7 @@ export default function UniversePage() {
     setAuditError(null)
 
     try {
-      const response = await fetch('/api/ticker-universe/apply-audit', {
+      const response = await fetch('/trading/api/ticker-universe/apply-audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsedAudit),
@@ -569,7 +569,7 @@ export default function UniversePage() {
     setApplyError(null)
 
     try {
-      const response = await fetch('/api/ticker-universe/bulk-update', {
+      const response = await fetch('/trading/api/ticker-universe/bulk-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsedImport),

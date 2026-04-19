@@ -431,7 +431,7 @@ export default function CandidatesPage() {
     setImportError(null)
 
     try {
-      const response = await fetch('/api/watchlist/bulk-update', {
+      const response = await fetch('/trading/api/watchlist/bulk-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsedImport),

@@ -173,7 +173,7 @@ export function MarketSnapshotChatGPTWorkflow({
     setImportError(null)
 
     try {
-      const response = await fetch('/api/market-snapshot/apply', {
+      const response = await fetch('/trading/api/market-snapshot/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(parsedImport),
