@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navItems = [
@@ -27,7 +28,7 @@ export function DesktopNav() {
               : pathname === item.href || pathname.startsWith(`${item.href}/`)
 
           return (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className={
@@ -37,7 +38,7 @@ export function DesktopNav() {
               }
             >
               {item.label}
-            </a>
+            </Link>
           )
         })}
       </nav>

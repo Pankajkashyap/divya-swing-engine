@@ -37,16 +37,12 @@ export function TopBar() {
     <header className="fixed inset-x-0 top-0 z-50 border-b border-neutral-200 bg-white/90 pt-[env(safe-area-inset-top)] backdrop-blur supports-backdrop-filter:bg-white/80 dark:border-neutral-800 dark:bg-[#111418]/90 dark:supports-backdrop-filter:bg-[#111418]/80">
       <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between gap-3 px-4 sm:px-6">
         <div className="min-w-0">
-          <Link
-            href="/"
-            onClick={(e) => {
-              e.preventDefault()
-              window.location.href = '/'
-            }}
-            className="block truncate text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]"
-          >
-            Vyana
-          </Link>
+        <Link
+          href="/"
+          className="block truncate text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]"
+        >
+          Vyana
+        </Link>
           <div className="text-xs text-neutral-500 dark:text-[#a8b2bf]">
             {moduleLabel}
           </div>

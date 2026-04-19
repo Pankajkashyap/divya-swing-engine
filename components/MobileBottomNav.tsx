@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const navItems = [
@@ -66,7 +67,7 @@ export function MobileBottomNav() {
               : pathname === item.href || pathname.startsWith(`${item.href}/`)
 
           return (
-            <a
+            <Link
               key={item.href}
               href={item.href}
               className={`flex min-h-14 flex-col items-center justify-center rounded-2xl px-2 py-2 text-center transition-all duration-150 ${
@@ -79,7 +80,7 @@ export function MobileBottomNav() {
               <span className="text-[12px] font-medium leading-none">
                 {item.label}
               </span>
-            </a>
+            </Link>
           )
         })}
       </div>
