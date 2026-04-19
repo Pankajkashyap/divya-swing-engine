@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
 import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
@@ -16,7 +16,6 @@ function getModuleLabel(pathname: string) {
 
 export function TopBar() {
   const pathname = usePathname()
-  const router = useRouter()
   const [loggingOut, setLoggingOut] = useState(false)
 
   const tradingSupabase = useMemo(() => createSupabaseBrowserClient(), [])
@@ -32,8 +31,6 @@ export function TopBar() {
       investingSupabase.auth.signOut(),
     ])
 
-    router.push('/login')
-    router.refresh()
     window.location.href = '/login'
   }
 
@@ -43,6 +40,10 @@ export function TopBar() {
         <div className="min-w-0">
           <Link
             href="/"
+            onClick={(e) => {
+              e.preventDefault()
+              window.location.href = '/'
+            }}
             className="block truncate text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-[#e6eaf0]"
           >
             Vyana
