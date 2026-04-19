@@ -15,8 +15,7 @@ export default function InvestingLoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const redirectTo = `${INVESTING_APP_URL}/auth/callback`
-
+  const redirectTo = `${INVESTING_APP_URL}/investing/auth/callback`
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setErrorMessage(null)
