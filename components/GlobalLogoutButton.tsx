@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/app/trading/lib/supabase'
-import { createInvestingSupabaseBrowserClient } from '@/app/investing/lib/supabase'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 export function GlobalLogoutButton() {
   const pathname = usePathname()
@@ -11,7 +10,7 @@ export function GlobalLogoutButton() {
 
   const supabase = useMemo(() => {
     if (pathname.startsWith('/investing')) {
-      return createInvestingSupabaseBrowserClient()
+      return createSupabaseBrowserClient()
     }
     return createSupabaseBrowserClient()
   }, [pathname])
