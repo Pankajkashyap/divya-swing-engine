@@ -1,5 +1,4 @@
-const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3'
-
+const FMP_BASE_URL = 'https://financialmodelingprep.com/stable'
 function getFmpApiKey() {
   const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || process.env.FMP_API_KEY
 
