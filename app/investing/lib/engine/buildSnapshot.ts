@@ -103,7 +103,7 @@ function percentOrNull(value: number | null | undefined): number | null {
 function ratioOrNull(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null
   return value
-}
+} 
 
 function safeDivide(numerator: number | null | undefined, denominator: number | null | undefined) {
   if (
