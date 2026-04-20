@@ -38,6 +38,7 @@ type FmpRatiosTtm = {
 }
 
 type FmpIncomeStatement = {
+  date?: string
   calendarYear?: string
   revenue?: number
   operatingIncome?: number
@@ -47,6 +48,7 @@ type FmpIncomeStatement = {
 }
 
 type FmpBalanceSheet = {
+  date?: string
   calendarYear?: string
   totalDebt?: number
   cashAndCashEquivalents?: number
@@ -58,6 +60,7 @@ type FmpBalanceSheet = {
 }
 
 type FmpCashFlowStatement = {
+  date?: string
   calendarYear?: string
   freeCashFlow?: number
   operatingCashFlow?: number
@@ -180,18 +183,18 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
   const ratiosTtm = ratiosTtmData[0]
 
   const sortedIncome = [...incomeStatements].sort(
-    (a, b) => Number(a.calendarYear ?? 0) - Number(b.calendarYear ?? 0)
+    (a, b) => new Date(a.date ?? '').getTime() - new Date(b.date ?? '').getTime()
   )
   const sortedBalance = [...balanceSheets].sort(
-    (a, b) => Number(a.calendarYear ?? 0) - Number(b.calendarYear ?? 0)
+    (a, b) => new Date(a.date ?? '').getTime() - new Date(b.date ?? '').getTime()
   )
   const sortedCashFlows = [...cashFlows].sort(
-    (a, b) => Number(a.calendarYear ?? 0) - Number(b.calendarYear ?? 0)
+    (a, b) => new Date(a.date ?? '').getTime() - new Date(b.date ?? '').getTime()
   )
 
-  const latestIncome = sortedIncome[sortedIncome.length - 1]
-  const latestBalance = sortedBalance[sortedBalance.length - 1]
-  const latestCashFlow = sortedCashFlows[sortedCashFlows.length - 1]
+const latestIncome = sortedIncome.at(-1)
+const latestBalance = sortedBalance.at(-1)
+const latestCashFlow = sortedCashFlows.at(-1)
 
   const revenueSeries = sortedIncome.map((item) => ratioOrNull(item.revenue))
   const epsSeries = sortedIncome.map((item) => ratioOrNull(item.eps))
