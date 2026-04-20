@@ -10,16 +10,24 @@ export function buildMoatManagementPrompt(input: PromptInputs) {
     input.sector ? ` in the ${input.sector} sector` : ''
   }.
 
-Return ONLY valid JSON. No markdown. No explanation outside JSON.
+Return ONLY valid JSON.
+Do NOT use markdown.
+Do NOT wrap the response in backticks.
+Do NOT include citations, footnotes, links, source lists, or reference markers.
+Do NOT include any text before or after the JSON.
+Do NOT include bracketed references like [1], [Source], or URLs inside evidence fields.
+Evidence must be plain text only.
 
 Scoring rules:
 - Each moat and management dimension must have:
   - "score": number from 0 to 2
-  - "evidence": concise evidence-based explanation
-- confidence must be one of: "High", "Medium", "Low"
+  - "evidence": concise plain-text evidence
+- confidence must be exactly one of: "High", "Medium", "Low"
 - key_risks and red_flags must be arrays of strings
+- summary fields must be plain strings
+- If uncertain, still return valid JSON and use a lower score or lower confidence instead of adding commentary
 
-Use this exact JSON shape:
+Use this exact JSON shape and field names:
 
 {
   "moat": {
@@ -45,10 +53,21 @@ Use this exact JSON shape:
   "confidence": "Medium"
 }
 
-Focus on durable advantage, management quality, and evidence. Keep evidence concise but specific.${
-    input.thesisNotes ? `
+Additional constraints:
+- Return a single JSON object only.
+- No trailing commas.
+- No comments.
+- No markdown bullets.
+- No explanatory notes.
+- No citations or source attributions anywhere in the output.
+- All evidence must be plain English sentences.
 
-Context notes:
-${input.thesisNotes}` : ''
+Focus on durable competitive advantage, management quality, governance, and execution discipline.${
+    input.thesisNotes
+      ? `
+
+Optional context notes:
+${input.thesisNotes}`
+      : ''
   }`
 }
