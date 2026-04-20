@@ -1,0 +1,31 @@
+import { buildInvestingSnapshot } from './buildSnapshot'
+import { runRedFlags } from './runRedFlags'
+import { runScreener } from './runScreener'
+import type { ScreenerEngineResult } from './types'
+
+export async function evaluateTicker(ticker: string): Promise<ScreenerEngineResult> {
+  const snapshot = await buildInvestingSnapshot(ticker)
+  const { thresholds, rules } = runScreener(snapshot)
+  const redFlags = runRedFlags(snapshot)
+
+  const passedRules = rules.filter((rule) => rule.status === 'pass').length
+  const failedRules = rules.filter((rule) => rule.status === 'fail').length
+  const inconclusiveRules = rules.filter((rule) => rule.status === 'inconclusive').length
+  const criticalRedFlags = redFlags.filter(
+    (flag) => flag.triggered && flag.severity === 'critical'
+  ).length
+
+  const passedInitialScreen = failedRules === 0 && criticalRedFlags === 0
+
+  return {
+    snapshot,
+    thresholds,
+    rules,
+    redFlags,
+    passedRules,
+    failedRules,
+    inconclusiveRules,
+    criticalRedFlags,
+    passedInitialScreen,
+  }
+}
