@@ -119,6 +119,7 @@ export type ScreenerEngineResult = {
   criticalRedFlags: number
   passedInitialScreen: boolean
   scorecard?: QuantitativeScorecardResult
+  verdict?: VerdictResult
 }
 
 export type ScorecardCategoryScore = {
@@ -136,4 +137,14 @@ export type QuantitativeScorecardResult = {
   categories: ScorecardCategoryScore[]
   overallScore: number
   maxScore: number
+}
+
+export type VerdictLabel = 'Strong Buy' | 'Buy' | 'Hold' | 'Avoid' | 'Red Flag'
+
+export type VerdictResult = {
+  label: VerdictLabel
+  explanation: string
+  overallScore: number
+  criticalRedFlags: number
+  warningRedFlags: number
 }

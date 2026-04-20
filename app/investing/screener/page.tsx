@@ -57,7 +57,9 @@ type ScreenerEngineResult = {
     overallScore: number
     maxScore: number
   }
+  verdict?: VerdictResult
 }
+
 type ScorecardCategoryScore = {
   id: 'valuation' | 'quality' | 'financialHealth' | 'growth'
   label: string
@@ -67,6 +69,14 @@ type ScorecardCategoryScore = {
   failed: number
   inconclusive: number
   explanation: string
+}
+
+type VerdictResult = {
+  label: 'Strong Buy' | 'Buy' | 'Hold' | 'Avoid' | 'Red Flag'
+  explanation: string
+  overallScore: number
+  criticalRedFlags: number
+  warningRedFlags: number
 }
 
 function formatMaybeNumber(value: number | null) {
@@ -137,8 +147,8 @@ export default function InvestingScreenerPage() {
 
       {result ? (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="ui-card p-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="ui-card p-4">
               <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Company</div>
               <div className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                 {result.snapshot.company}
@@ -162,6 +172,16 @@ export default function InvestingScreenerPage() {
               <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Initial screen</div>
               <div className="mt-2 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                 {result.passedInitialScreen ? 'PASS' : 'FAIL'}
+              </div>
+            </div>
+
+            <div className="ui-card p-4">
+              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Verdict</div>
+              <div className="mt-2 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                {result.verdict?.label ?? '--'}
+              </div>
+              <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                {result.verdict?.explanation ?? 'No verdict yet.'}
               </div>
             </div>
           </div>
