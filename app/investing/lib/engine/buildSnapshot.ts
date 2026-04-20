@@ -7,34 +7,34 @@ type FmpProfile = {
   sector?: string
   country?: string
   price?: number
-  mktCap?: number
+  marketCap?: number
 }
 
 type FmpKeyMetricsTtm = {
-  roicTTM?: number
-  roeTTM?: number
+  symbol?: string
+  marketCap?: number
   enterpriseValueTTM?: number
-  evToOperatingCashFlowTTM?: number
-  evToFreeCashFlowTTM?: number
-  bookValuePerShareTTM?: number
-  tangibleBookValuePerShareTTM?: number
   netDebtToEBITDATTM?: number
   currentRatioTTM?: number
-  interestCoverageTTM?: number
+  interestCoverageRatioTTM?: number
+  returnOnEquityTTM?: number
+  returnOnInvestedCapitalTTM?: number
+  earningsYieldTTM?: number
 }
 
 type FmpRatiosTtm = {
+  symbol?: string
   grossProfitMarginTTM?: number
   operatingProfitMarginTTM?: number
-  priceEarningsRatioTTM?: number
+  priceToEarningsRatioTTM?: number
   priceToBookRatioTTM?: number
-  priceToFreeCashFlowsRatioTTM?: number
-  dividendYieldTTM?: number
-  debtEquityRatioTTM?: number
-  pegRatioTTM?: number
+  priceToFreeCashFlowRatioTTM?: number
+  debtToEquityRatioTTM?: number
   currentRatioTTM?: number
   returnOnEquityTTM?: number
   returnOnCapitalEmployedTTM?: number
+  priceToEarningsGrowthRatioTTM?: number
+  interestCoverageRatioTTM?: number
 }
 
 type FmpIncomeStatement = {
@@ -124,13 +124,13 @@ function cagrFromSeries(values: Array<number | null | undefined>): number | null
 
   if (clean.length < 2) return null
 
-  const first = clean[0]
-  const last = clean[clean.length - 1]
+  const oldest = clean[0]
+  const newest = clean[clean.length - 1]
   const periods = clean.length - 1
 
-  if (first <= 0 || last <= 0 || periods <= 0) return null
+  if (oldest <= 0 || newest <= 0 || periods <= 0) return null
 
-  return (Math.pow(last / first, 1 / periods) - 1) * 100
+  return (Math.pow(newest / oldest, 1 / periods) - 1) * 100
 }
 
 function average(values: Array<number | null | undefined>): number | null {
@@ -225,7 +225,7 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
   const enterpriseValue =
     ratioOrNull(keyMetricsTtm?.enterpriseValueTTM) ??
     (() => {
-      const marketCap = ratioOrNull(profile?.mktCap)
+      const marketCap = ratioOrNull(profile?.marketCap)
       const debt = ratioOrNull(latestBalance?.totalDebt)
       const cash = ratioOrNull(latestBalance?.cashAndCashEquivalents)
       if (marketCap == null || debt == null || cash == null) return null
@@ -304,15 +304,15 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
     company: profile?.companyName?.trim() || ticker,
     sector: mapSector(profile?.sector),
     currentPrice: ratioOrNull(profile?.price),
-    marketCap: ratioOrNull(profile?.mktCap),
+    marketCap: ratioOrNull(profile?.marketCap),
     isUsListed: profile?.country === 'US' ? true : profile?.country ? false : null,
 
     roicTtm:
-      percentOrNull(keyMetricsTtm?.roicTTM) ??
+      percentOrNull(keyMetricsTtm?.returnOnInvestedCapitalTTM) ??
       percentOrNull(ratiosTtm?.returnOnCapitalEmployedTTM),
     roic5yAvg,
     roeTtm:
-      percentOrNull(keyMetricsTtm?.roeTTM) ??
+      percentOrNull(keyMetricsTtm?.returnOnEquityTTM) ??
       percentOrNull(ratiosTtm?.returnOnEquityTTM),
 
     grossMarginTtm,
@@ -321,15 +321,16 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
 
     evToEbitTtm,
     earningsYieldTtm,
-    forwardPe: ratioOrNull(ratiosTtm?.priceEarningsRatioTTM),
-    pegRatio: ratioOrNull(ratiosTtm?.pegRatioTTM),
-    priceToFcfTtm: ratioOrNull(ratiosTtm?.priceToFreeCashFlowsRatioTTM),
+    forwardPe: ratioOrNull(ratiosTtm?.priceToEarningsRatioTTM),
+    pegRatio: ratioOrNull(ratiosTtm?.priceToEarningsGrowthRatioTTM),
+    priceToFcfTtm: ratioOrNull(ratiosTtm?.priceToFreeCashFlowRatioTTM),
     priceToBook: ratioOrNull(ratiosTtm?.priceToBookRatioTTM),
 
-    debtToEquity: ratioOrNull(ratiosTtm?.debtEquityRatioTTM),
-    netDebtToEbitda:
-      ratioOrNull(keyMetricsTtm?.netDebtToEBITDATTM),
-    interestCoverage: ratioOrNull(keyMetricsTtm?.interestCoverageTTM),
+    debtToEquity: ratioOrNull(ratiosTtm?.debtToEquityRatioTTM),
+    netDebtToEbitda: ratioOrNull(keyMetricsTtm?.netDebtToEBITDATTM),
+    interestCoverage:
+      ratioOrNull(keyMetricsTtm?.interestCoverageRatioTTM) ??
+      ratioOrNull(ratiosTtm?.interestCoverageRatioTTM),
     currentRatio:
       ratioOrNull(keyMetricsTtm?.currentRatioTTM) ??
       ratioOrNull(ratiosTtm?.currentRatioTTM),
