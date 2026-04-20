@@ -52,6 +52,21 @@ type ScreenerEngineResult = {
   inconclusiveRules: number
   criticalRedFlags: number
   passedInitialScreen: boolean
+    scorecard?: {
+    categories: ScorecardCategoryScore[]
+    overallScore: number
+    maxScore: number
+  }
+}
+type ScorecardCategoryScore = {
+  id: 'valuation' | 'quality' | 'financialHealth' | 'growth'
+  label: string
+  score: number
+  maxScore: number
+  passed: number
+  failed: number
+  inconclusive: number
+  explanation: string
 }
 
 function formatMaybeNumber(value: number | null) {
@@ -150,6 +165,36 @@ export default function InvestingScreenerPage() {
               </div>
             </div>
           </div>
+
+        {result?.scorecard ? (
+            <div className="ui-card p-4">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                Quantitative Scorecard
+                </h2>
+                <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                Overall quantitative score: {result.scorecard.overallScore.toFixed(1)} / {result.scorecard.maxScore}
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {result.scorecard.categories.map((category) => (
+                    <div key={category.id} className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {category.label}
+                    </div>
+                    <div className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {category.score.toFixed(1)} / {category.maxScore}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                        Pass {category.passed} · Fail {category.failed} · Inconclusive {category.inconclusive}
+                    </div>
+                    <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        {category.explanation}
+                    </div>
+                    </div>
+                ))}
+                </div>
+            </div>
+            ) : null}
 
           <div className="ui-card p-4">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">

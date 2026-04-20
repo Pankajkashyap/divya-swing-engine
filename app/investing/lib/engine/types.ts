@@ -118,4 +118,22 @@ export type ScreenerEngineResult = {
   inconclusiveRules: number
   criticalRedFlags: number
   passedInitialScreen: boolean
+  scorecard?: QuantitativeScorecardResult
+}
+
+export type ScorecardCategoryScore = {
+  id: 'valuation' | 'quality' | 'financialHealth' | 'growth'
+  label: string
+  score: number
+  maxScore: number
+  passed: number
+  failed: number
+  inconclusive: number
+  explanation: string
+}
+
+export type QuantitativeScorecardResult = {
+  categories: ScorecardCategoryScore[]
+  overallScore: number
+  maxScore: number
 }

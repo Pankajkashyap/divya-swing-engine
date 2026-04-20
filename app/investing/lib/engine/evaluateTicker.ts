@@ -1,5 +1,6 @@
 import { buildInvestingSnapshot } from './buildSnapshot'
 import { runRedFlags } from './runRedFlags'
+import { runQuantitativeScorecard } from './runScorecard'
 import { runScreener } from './runScreener'
 import type { ScreenerEngineResult } from './types'
 
@@ -7,6 +8,7 @@ export async function evaluateTicker(ticker: string): Promise<ScreenerEngineResu
   const snapshot = await buildInvestingSnapshot(ticker)
   const { thresholds, rules } = runScreener(snapshot)
   const redFlags = runRedFlags(snapshot)
+  const scorecard = runQuantitativeScorecard(rules)
 
   const passedRules = rules.filter((rule) => rule.status === 'pass').length
   const failedRules = rules.filter((rule) => rule.status === 'fail').length
@@ -27,5 +29,6 @@ export async function evaluateTicker(ticker: string): Promise<ScreenerEngineResu
     inconclusiveRules,
     criticalRedFlags,
     passedInitialScreen,
+    scorecard,
   }
 }
