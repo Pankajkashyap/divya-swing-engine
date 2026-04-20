@@ -169,7 +169,7 @@ export default function InvestingScreenerPage() {
             </div>
 
             <div className="ui-card p-4">
-              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Initial screen</div>
+              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Hard filter result</div>
               <div className="mt-2 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                 {result.passedInitialScreen ? 'PASS' : 'FAIL'}
               </div>
