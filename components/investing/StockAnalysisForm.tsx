@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import type { Confidence, Sector, StockAnalysis, Verdict } from '@/app/investing/types'
+import { buildMoatManagementPrompt } from '@/app/investing/lib/qualitative/buildMoatManagementPrompt'
+import { parseQualitativeImport } from '@/app/investing/lib/qualitative/parseQualitativeImport'
+import { scoreQualitativeImport } from '@/app/investing/lib/qualitative/scoreQualitativeImport'
 
 type StockAnalysisFormValues = {
   ticker: string
@@ -23,7 +26,7 @@ type StockAnalysisFormValues = {
   raw_analysis: string
 }
 
-type StockAnalysisFormPayload = {
+export type StockAnalysisFormPayload = {
   ticker: string
   company: string
   analysis_date: string
@@ -41,6 +44,11 @@ type StockAnalysisFormPayload = {
   thesis_breakers: string | null
   confidence: Confidence | null
   raw_analysis: string | null
+  moat_json: Record<string, unknown> | null
+  management_json: Record<string, unknown> | null
+  moat_score_auto: number | null
+  management_score_auto: number | null
+  qualitative_confidence: string | null
 }
 
 type Props = {
@@ -112,18 +120,47 @@ export function StockAnalysisForm({
   const initialValues = useMemo(() => toFormValues(initialAnalysis), [initialAnalysis])
   const [values, setValues] = useState<StockAnalysisFormValues>(initialValues)
   const [error, setError] = useState<string | null>(null)
+  const [promptText, setPromptText] = useState('')
+  const [qualitativeJsonText, setQualitativeJsonText] = useState(
+    initialAnalysis?.raw_analysis ?? ''
+  )
+  const [qualitativeImportSuccess, setQualitativeImportSuccess] = useState<string | null>(null)
+  const [moatJson, setMoatJson] = useState<Record<string, unknown> | null>(
+    initialAnalysis?.moat_json ?? null
+  )
+  const [managementJson, setManagementJson] = useState<Record<string, unknown> | null>(
+    initialAnalysis?.management_json ?? null
+  )
+  const [moatScoreAuto, setMoatScoreAuto] = useState<number | null>(
+    initialAnalysis?.moat_score_auto ?? null
+  )
+  const [managementScoreAuto, setManagementScoreAuto] = useState<number | null>(
+    initialAnalysis?.management_score_auto ?? null
+  )
+  const [qualitativeConfidence, setQualitativeConfidence] = useState<string | null>(
+    initialAnalysis?.qualitative_confidence ?? null
+  )
 
   function update<K extends keyof StockAnalysisFormValues>(
     key: K,
     value: StockAnalysisFormValues[K]
   ) {
     setError(null)
+    setQualitativeImportSuccess(null)
     setValues((prev) => ({ ...prev, [key]: value }))
   }
 
   function handleReset() {
     setValues(initialValues)
+    setPromptText('')
+    setQualitativeJsonText(initialAnalysis?.raw_analysis ?? '')
+    setMoatJson(initialAnalysis?.moat_json ?? null)
+    setManagementJson(initialAnalysis?.management_json ?? null)
+    setMoatScoreAuto(initialAnalysis?.moat_score_auto ?? null)
+    setManagementScoreAuto(initialAnalysis?.management_score_auto ?? null)
+    setQualitativeConfidence(initialAnalysis?.qualitative_confidence ?? null)
     setError(null)
+    setQualitativeImportSuccess(null)
   }
 
   function parseNullableNumber(value: string) {
@@ -138,6 +175,73 @@ export function StockAnalysisForm({
       return `${name} must be between 0 and 10.`
     }
     return null
+  }
+
+  function handleGeneratePrompt() {
+    const ticker = values.ticker.trim().toUpperCase()
+    const company = values.company.trim()
+    const sector = values.sector
+    const thesisNotes = values.thesis.trim() || null
+
+    if (!ticker) {
+      setError('Enter a ticker before generating the prompt.')
+      return
+    }
+
+    if (!company) {
+      setError('Enter a company before generating the prompt.')
+      return
+    }
+
+    const prompt = buildMoatManagementPrompt({
+      ticker,
+      company,
+      sector: sector || null,
+      thesisNotes,
+    })
+
+    setPromptText(prompt)
+    setError(null)
+    setQualitativeImportSuccess('Prompt generated.')
+  }
+
+  async function handleCopyPrompt() {
+    if (!promptText) return
+
+    try {
+      await navigator.clipboard.writeText(promptText)
+      setQualitativeImportSuccess('Prompt copied to clipboard.')
+    } catch {
+      setQualitativeImportSuccess('Prompt generated. Copy manually if needed.')
+    }
+  }
+
+  function handleImportQualitativeJson() {
+    try {
+      const parsed = parseQualitativeImport(qualitativeJsonText)
+      const scored = scoreQualitativeImport(parsed)
+
+      setMoatJson(parsed.moat as unknown as Record<string, unknown>)
+      setManagementJson(parsed.management as unknown as Record<string, unknown>)
+      setMoatScoreAuto(scored.moatScoreAuto)
+      setManagementScoreAuto(scored.managementScoreAuto)
+      setQualitativeConfidence(parsed.confidence)
+
+      setValues((prev) => ({
+        ...prev,
+        moat_score: String(scored.moatScoreAuto),
+        mgmt_score: String(scored.managementScoreAuto),
+        raw_analysis: qualitativeJsonText,
+      }))
+
+      setError(null)
+      setQualitativeImportSuccess(
+        `Imported qualitative analysis. Moat ${scored.moatScoreAuto.toFixed(1)}/10, Management ${scored.managementScoreAuto.toFixed(1)}/10.`
+      )
+    } catch (err) {
+      setQualitativeImportSuccess(null)
+      setError(err instanceof Error ? err.message : 'Failed to import qualitative JSON.')
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -202,11 +306,7 @@ export function StockAnalysisForm({
       return
     }
 
-    if (
-      fairValueLow != null &&
-      fairValueHigh != null &&
-      fairValueLow > fairValueHigh
-    ) {
+    if (fairValueLow != null && fairValueHigh != null && fairValueLow > fairValueHigh) {
       setError('Fair value low cannot be greater than fair value high.')
       return
     }
@@ -229,6 +329,11 @@ export function StockAnalysisForm({
       thesis_breakers: values.thesis_breakers.trim() || null,
       confidence: values.confidence || null,
       raw_analysis: values.raw_analysis.trim() || null,
+      moat_json: moatJson,
+      management_json: managementJson,
+      moat_score_auto: moatScoreAuto,
+      management_score_auto: managementScoreAuto,
+      qualitative_confidence: qualitativeConfidence,
     })
   }
 
@@ -475,6 +580,99 @@ export function StockAnalysisForm({
           placeholder="What would invalidate the thesis?"
         />
       </label>
+
+      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Qualitative bridge
+            </div>
+            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+              Generate a prompt, run it in ChatGPT, then paste the JSON back here.
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleGeneratePrompt}
+              className="ui-btn-secondary"
+              disabled={busy}
+            >
+              Generate Moat/Management Prompt
+            </button>
+
+            {promptText ? (
+              <button
+                type="button"
+                onClick={handleCopyPrompt}
+                className="ui-btn-secondary"
+                disabled={busy}
+              >
+                Copy Prompt
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {promptText ? (
+          <div className="mt-4">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                Generated prompt
+              </span>
+              <textarea
+                value={promptText}
+                readOnly
+                className="ui-textarea min-h-40"
+              />
+            </label>
+          </div>
+        ) : null}
+
+        <div className="mt-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Paste ChatGPT JSON
+            </span>
+            <textarea
+              value={qualitativeJsonText}
+              onChange={(e) => {
+                setQualitativeJsonText(e.target.value)
+                setError(null)
+                setQualitativeImportSuccess(null)
+              }}
+              className="ui-textarea min-h-40"
+              placeholder='Paste JSON like { "moat": { ... }, "management": { ... }, "confidence": "High" }'
+            />
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleImportQualitativeJson}
+            className="ui-btn-secondary"
+            disabled={busy}
+          >
+            Import Qualitative Analysis
+          </button>
+
+          {moatScoreAuto != null || managementScoreAuto != null ? (
+            <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
+              Imported scores: Moat {moatScoreAuto?.toFixed(1) ?? '--'} / 10 · Management{' '}
+              {managementScoreAuto?.toFixed(1) ?? '--'} / 10
+              {qualitativeConfidence ? ` · Confidence ${qualitativeConfidence}` : ''}
+            </div>
+          ) : null}
+        </div>
+
+        {qualitativeImportSuccess ? (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+            {qualitativeImportSuccess}
+          </div>
+        ) : null}
+      </div>
 
       <label className="block">
         <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">

@@ -121,6 +121,12 @@ export type StockAnalysis = {
   raw_analysis: string | null
   created_at: string
   updated_at: string
+  moat_json?: Record<string, unknown> | null
+  management_json?: Record<string, unknown> | null
+  moat_score_auto?: number | null
+  management_score_auto?: number | null
+  qualitative_confidence?: string | null
+  qualitative_imported_at?: string | null
 }
 
 export type DecisionJournalEntry = {

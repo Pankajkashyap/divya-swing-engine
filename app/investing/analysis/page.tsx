@@ -34,6 +34,11 @@ type StockAnalysisFormPayload = {
   thesis_breakers: string | null
   confidence: StockAnalysis['confidence']
   raw_analysis: string | null
+  moat_json: Record<string, unknown> | null
+  management_json: Record<string, unknown> | null
+  moat_score_auto: number | null
+  management_score_auto: number | null
+  qualitative_confidence: string | null
 }
 
 type WatchlistFormPayload = {
@@ -338,6 +343,12 @@ function InvestingAnalysisPageContent() {
       thesis_breakers: payload.thesis_breakers,
       confidence: payload.confidence,
       raw_analysis: payload.raw_analysis,
+      moat_json: payload.moat_json,
+      management_json: payload.management_json,
+      moat_score_auto: payload.moat_score_auto,
+      management_score_auto: payload.management_score_auto,
+      qualitative_confidence: payload.qualitative_confidence,
+      qualitative_imported_at: payload.moat_json || payload.management_json ? new Date().toISOString() : null,
     }
 
     if (editingAnalysis && editingAnalysis.id) {
