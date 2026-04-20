@@ -20,6 +20,25 @@ type RedFlagResult = {
   explanation: string
 }
 
+type ScorecardCategoryScore = {
+  id: 'valuation' | 'quality' | 'financialHealth' | 'growth'
+  label: string
+  score: number
+  maxScore: number
+  passed: number
+  failed: number
+  inconclusive: number
+  explanation: string
+}
+
+type VerdictResult = {
+  label: 'Strong Buy' | 'Buy' | 'Hold' | 'Avoid' | 'Red Flag'
+  explanation: string
+  overallScore: number
+  criticalRedFlags: number
+  warningRedFlags: number
+}
+
 type ScreenerEngineResult = {
   snapshot: {
     ticker: string
@@ -52,7 +71,7 @@ type ScreenerEngineResult = {
   inconclusiveRules: number
   criticalRedFlags: number
   passedInitialScreen: boolean
-    scorecard?: {
+  scorecard?: {
     categories: ScorecardCategoryScore[]
     overallScore: number
     maxScore: number
@@ -60,28 +79,49 @@ type ScreenerEngineResult = {
   verdict?: VerdictResult
 }
 
-type ScorecardCategoryScore = {
-  id: 'valuation' | 'quality' | 'financialHealth' | 'growth'
-  label: string
-  score: number
-  maxScore: number
-  passed: number
-  failed: number
-  inconclusive: number
-  explanation: string
-}
-
-type VerdictResult = {
-  label: 'Strong Buy' | 'Buy' | 'Hold' | 'Avoid' | 'Red Flag'
-  explanation: string
-  overallScore: number
-  criticalRedFlags: number
-  warningRedFlags: number
-}
-
-function formatMaybeNumber(value: number | null) {
+function formatPrice(value: number | null) {
   if (value == null || Number.isNaN(value)) return '--'
-  return String(value)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+function formatMarketCap(value: number | null) {
+  if (value == null || Number.isNaN(value)) return '--'
+
+  const abs = Math.abs(value)
+
+  if (abs >= 1_000_000_000_000) {
+    return `$${(value / 1_000_000_000_000).toFixed(2)}T`
+  }
+
+  if (abs >= 1_000_000_000) {
+    return `$${(value / 1_000_000_000).toFixed(2)}B`
+  }
+
+  if (abs >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(2)}M`
+  }
+
+  return `$${value.toFixed(0)}`
+}
+
+function formatPercent(value: number | null) {
+  if (value == null || Number.isNaN(value)) return '--'
+  return `${value.toFixed(1)}%`
+}
+
+function formatMultiple(value: number | null) {
+  if (value == null || Number.isNaN(value)) return '--'
+  return `${value.toFixed(2)}x`
+}
+
+function formatRatio(value: number | null) {
+  if (value == null || Number.isNaN(value)) return '--'
+  return value.toFixed(2)
 }
 
 export default function InvestingScreenerPage() {
@@ -147,8 +187,8 @@ export default function InvestingScreenerPage() {
 
       {result ? (
         <>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <div className="ui-card p-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="ui-card p-4">
               <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Company</div>
               <div className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                 {result.snapshot.company}
@@ -169,7 +209,9 @@ export default function InvestingScreenerPage() {
             </div>
 
             <div className="ui-card p-4">
-              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">Hard filter result</div>
+              <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                Hard filter result
+              </div>
               <div className="mt-2 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                 {result.passedInitialScreen ? 'PASS' : 'FAIL'}
               </div>
@@ -186,60 +228,65 @@ export default function InvestingScreenerPage() {
             </div>
           </div>
 
-        {result?.scorecard ? (
+          {result.scorecard ? (
             <div className="ui-card p-4">
-                <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                 Quantitative Scorecard
-                </h2>
-                <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                Overall quantitative score: {result.scorecard.overallScore.toFixed(1)} / {result.scorecard.maxScore}
-                </div>
+              </h2>
+              <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                Overall quantitative score: {result.scorecard.overallScore.toFixed(1)} /{' '}
+                {result.scorecard.maxScore}
+              </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {result.scorecard.categories.map((category) => (
-                    <div key={category.id} className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                  <div
+                    key={category.id}
+                    className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
+                  >
                     <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                        {category.label}
+                      {category.label}
                     </div>
                     <div className="mt-1 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                        {category.score.toFixed(1)} / {category.maxScore}
+                      {category.score.toFixed(1)} / {category.maxScore}
                     </div>
                     <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
-                        Pass {category.passed} · Fail {category.failed} · Inconclusive {category.inconclusive}
+                      Pass {category.passed} · Fail {category.failed} · Inconclusive{' '}
+                      {category.inconclusive}
                     </div>
                     <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                        {category.explanation}
+                      {category.explanation}
                     </div>
-                    </div>
+                  </div>
                 ))}
-                </div>
+              </div>
             </div>
-            ) : null}
+          ) : null}
 
           <div className="ui-card p-4">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               Snapshot
             </h2>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-              <div>Price: {formatMaybeNumber(result.snapshot.currentPrice)}</div>
-              <div>Market cap: {formatMaybeNumber(result.snapshot.marketCap)}</div>
-              <div>ROIC: {formatMaybeNumber(result.snapshot.roicTtm)}</div>
-              <div>ROE: {formatMaybeNumber(result.snapshot.roeTtm)}</div>
-              <div>Gross margin: {formatMaybeNumber(result.snapshot.grossMarginTtm)}</div>
-              <div>Operating margin: {formatMaybeNumber(result.snapshot.operatingMarginTtm)}</div>
-              <div>FCF margin: {formatMaybeNumber(result.snapshot.fcfMarginTtm)}</div>
-              <div>EV/EBIT: {formatMaybeNumber(result.snapshot.evToEbitTtm)}</div>
-              <div>Earnings yield: {formatMaybeNumber(result.snapshot.earningsYieldTtm)}</div>
-              <div>Forward PE: {formatMaybeNumber(result.snapshot.forwardPe)}</div>
-              <div>PEG: {formatMaybeNumber(result.snapshot.pegRatio)}</div>
-              <div>Price/FCF: {formatMaybeNumber(result.snapshot.priceToFcfTtm)}</div>
-              <div>Debt/Equity: {formatMaybeNumber(result.snapshot.debtToEquity)}</div>
-              <div>Net Debt/EBITDA: {formatMaybeNumber(result.snapshot.netDebtToEbitda)}</div>
-              <div>Interest coverage: {formatMaybeNumber(result.snapshot.interestCoverage)}</div>
-              <div>Current ratio: {formatMaybeNumber(result.snapshot.currentRatio)}</div>
-              <div>Revenue CAGR: {formatMaybeNumber(result.snapshot.revenueGrowth3yCagr)}</div>
-              <div>EPS CAGR: {formatMaybeNumber(result.snapshot.epsGrowth3yCagr)}</div>
-              <div>FCF CAGR: {formatMaybeNumber(result.snapshot.fcfGrowth3yCagr)}</div>
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              <div>Price: {formatPrice(result.snapshot.currentPrice)}</div>
+              <div>Market cap: {formatMarketCap(result.snapshot.marketCap)}</div>
+              <div>ROIC: {formatPercent(result.snapshot.roicTtm)}</div>
+              <div>ROE: {formatPercent(result.snapshot.roeTtm)}</div>
+              <div>Gross margin: {formatPercent(result.snapshot.grossMarginTtm)}</div>
+              <div>Operating margin: {formatPercent(result.snapshot.operatingMarginTtm)}</div>
+              <div>FCF margin: {formatPercent(result.snapshot.fcfMarginTtm)}</div>
+              <div>EV/EBIT: {formatMultiple(result.snapshot.evToEbitTtm)}</div>
+              <div>Earnings yield: {formatPercent(result.snapshot.earningsYieldTtm)}</div>
+              <div>Forward PE: {formatMultiple(result.snapshot.forwardPe)}</div>
+              <div>PEG: {formatRatio(result.snapshot.pegRatio)}</div>
+              <div>Price/FCF: {formatMultiple(result.snapshot.priceToFcfTtm)}</div>
+              <div>Debt/Equity: {formatRatio(result.snapshot.debtToEquity)}</div>
+              <div>Net Debt/EBITDA: {formatMultiple(result.snapshot.netDebtToEbitda)}</div>
+              <div>Interest coverage: {formatMultiple(result.snapshot.interestCoverage)}</div>
+              <div>Current ratio: {formatRatio(result.snapshot.currentRatio)}</div>
+              <div>Revenue CAGR: {formatPercent(result.snapshot.revenueGrowth3yCagr)}</div>
+              <div>EPS CAGR: {formatPercent(result.snapshot.epsGrowth3yCagr)}</div>
+              <div>FCF CAGR: {formatPercent(result.snapshot.fcfGrowth3yCagr)}</div>
             </div>
           </div>
 
@@ -249,7 +296,10 @@ export default function InvestingScreenerPage() {
             </h2>
             <div className="mt-3 space-y-3">
               {result.rules.map((rule) => (
-                <div key={rule.id} className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                <div
+                  key={rule.id}
+                  className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
@@ -277,7 +327,10 @@ export default function InvestingScreenerPage() {
             </h2>
             <div className="mt-3 space-y-3">
               {result.redFlags.map((flag) => (
-                <div key={flag.id} className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                <div
+                  key={flag.id}
+                  className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
