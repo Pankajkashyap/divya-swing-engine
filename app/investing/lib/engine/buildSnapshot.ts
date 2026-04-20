@@ -167,12 +167,12 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
     balanceSheets,
     cashFlows,
   ] = await Promise.all([
-    fmpFetch<FmpProfile[]>(`/profile/${ticker}`),
-    fmpFetch<FmpKeyMetricsTtm[]>(`/key-metrics-ttm/${ticker}`),
-    fmpFetch<FmpRatiosTtm[]>(`/ratios-ttm/${ticker}`),
-    fmpFetch<FmpIncomeStatement[]>(`/income-statement/${ticker}`, { limit: 5 }),
-    fmpFetch<FmpBalanceSheet[]>(`/balance-sheet-statement/${ticker}`, { limit: 5 }),
-    fmpFetch<FmpCashFlowStatement[]>(`/cash-flow-statement/${ticker}`, { limit: 5 }),
+    fmpFetch<FmpProfile[]>('/profile', { symbol: ticker }),
+    fmpFetch<FmpKeyMetricsTtm[]>('/key-metrics-ttm', { symbol: ticker }),
+    fmpFetch<FmpRatiosTtm[]>('/ratios-ttm', { symbol: ticker }),
+    fmpFetch<FmpIncomeStatement[]>('/income-statement', { symbol: ticker, limit: 5 }),
+    fmpFetch<FmpBalanceSheet[]>('/balance-sheet-statement', { symbol: ticker, limit: 5 }),
+    fmpFetch<FmpCashFlowStatement[]>('/cash-flow-statement', { symbol: ticker, limit: 5 }),
   ])
 
   const profile = profileData[0]
