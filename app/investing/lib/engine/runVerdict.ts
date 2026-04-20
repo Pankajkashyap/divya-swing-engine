@@ -1,10 +1,16 @@
-import type { QuantitativeScorecardResult, RedFlagResult, VerdictResult } from './types'
+import type {
+  QuantitativeScorecardResult,
+  RedFlagResult,
+  VerdictResult,
+} from './types'
+import type { VerdictConfig } from './loadVerdictConfig'
 
 export function runVerdict(args: {
   scorecard: QuantitativeScorecardResult
   redFlags: RedFlagResult[]
+  config: VerdictConfig
 }): VerdictResult {
-  const { scorecard, redFlags } = args
+  const { scorecard, redFlags, config } = args
 
   const overallScore = scorecard.overallScore
   const criticalRedFlags = redFlags.filter(
@@ -24,7 +30,10 @@ export function runVerdict(args: {
     }
   }
 
-  if (overallScore >= 8.5) {
+  if (
+    overallScore >= config.strongBuyMinScore &&
+    (config.allowStrongBuyWithWarnings || warningRedFlags === 0)
+  ) {
     return {
       label: 'Strong Buy',
       explanation: `Verdict is Strong Buy because the quantitative score is ${overallScore.toFixed(1)}/10 with no critical red flags.`,
@@ -34,7 +43,7 @@ export function runVerdict(args: {
     }
   }
 
-  if (overallScore >= 7.0) {
+  if (overallScore >= config.buyMinScore) {
     return {
       label: 'Buy',
       explanation: `Verdict is Buy because the quantitative score is ${overallScore.toFixed(1)}/10 with no critical red flags.`,
@@ -44,7 +53,7 @@ export function runVerdict(args: {
     }
   }
 
-  if (overallScore >= 5.0) {
+  if (overallScore >= config.holdMinScore) {
     return {
       label: 'Hold',
       explanation: `Verdict is Hold because the quantitative score is ${overallScore.toFixed(1)}/10. The business may be acceptable, but it does not clear the stronger conviction thresholds yet.`,

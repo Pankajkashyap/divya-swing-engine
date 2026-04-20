@@ -1,4 +1,5 @@
 import { buildInvestingSnapshot } from './buildSnapshot'
+import { loadVerdictConfig } from './loadVerdictConfig'
 import { runRedFlags } from './runRedFlags'
 import { runQuantitativeScorecard } from './runScorecard'
 import { runScreener } from './runScreener'
@@ -10,7 +11,8 @@ export async function evaluateTicker(ticker: string): Promise<ScreenerEngineResu
   const { thresholds, rules } = runScreener(snapshot)
   const redFlags = runRedFlags(snapshot)
   const scorecard = runQuantitativeScorecard(rules)
-  const verdict = runVerdict({ scorecard, redFlags })
+  const verdictConfig = await loadVerdictConfig()
+  const verdict = runVerdict({ scorecard, redFlags, config: verdictConfig })
 
   const passedRules = rules.filter((rule) => rule.status === 'pass').length
   const failedRules = rules.filter((rule) => rule.status === 'fail').length
