@@ -6,17 +6,17 @@ import type {
 } from './types'
 
 function formatPercent(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return '—'
+  if (value == null || !Number.isFinite(value)) return '--'
   return `${value.toFixed(1)}%`
 }
 
 function formatRatio(value: number | null | undefined, suffix = '') {
-  if (value == null || !Number.isFinite(value)) return '—'
+  if (value == null || !Number.isFinite(value)) return '--'
   return `${value.toFixed(2)}${suffix}`
 }
 
 function formatCurrency(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return '—'
+  if (value == null || !Number.isFinite(value)) return '--'
   if (Math.abs(value) >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`
   if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`
   return `$${value.toFixed(0)}`
@@ -58,8 +58,8 @@ function evaluateMinRule(args: {
       id,
       label,
       metric,
-      thresholdText: `≥ ${thresholdFormatter(threshold)}`,
-      actualValueText: '—',
+      thresholdText: `>= ${thresholdFormatter(threshold)}`,
+      actualValueText: '--',
       status: 'inconclusive',
       explanation: `${label} could not be evaluated because data is missing.`,
     }
@@ -71,7 +71,7 @@ function evaluateMinRule(args: {
     id,
     label,
     metric,
-    thresholdText: `≥ ${thresholdFormatter(threshold)}`,
+    thresholdText: `>= ${thresholdFormatter(threshold)}`,
     actualValueText: actualFormatter(actual),
     status: passed ? 'pass' : 'fail',
     explanation: passed
@@ -116,8 +116,8 @@ function evaluateMaxRule(args: {
       id,
       label,
       metric,
-      thresholdText: `≤ ${thresholdFormatter(threshold)}`,
-      actualValueText: '—',
+      thresholdText: `<= ${thresholdFormatter(threshold)}`,
+      actualValueText: '--',
       status: 'inconclusive',
       explanation: `${label} could not be evaluated because data is missing.`,
     }
@@ -129,7 +129,7 @@ function evaluateMaxRule(args: {
     id,
     label,
     metric,
-    thresholdText: `≤ ${thresholdFormatter(threshold)}`,
+    thresholdText: `<= ${thresholdFormatter(threshold)}`,
     actualValueText: actualFormatter(actual),
     status: passed ? 'pass' : 'fail',
     explanation: passed
@@ -156,7 +156,7 @@ function evaluateBooleanRequiredRule(args: {
       label,
       metric,
       thresholdText: required ? 'Required' : 'Optional',
-      actualValueText: '—',
+      actualValueText: '--',
       status: 'inconclusive',
       explanation: explanationWhenMissing,
     }
@@ -198,8 +198,8 @@ export function runScreener(snapshot: InvestingSnapshot): {
       metric: 'yearsPositiveEarnings',
       actual: snapshot.yearsPositiveEarnings,
       threshold: thresholds.yearsPositiveEarningsMin,
-      actualFormatter: (value) => (value == null ? '—' : `${value.toFixed(0)} years`),
-      thresholdFormatter: (value) => (value == null ? '—' : `${value.toFixed(0)} years`),
+      actualFormatter: (value) => (value == null ? '--' : `${value.toFixed(0)} years`),
+      thresholdFormatter: (value) => (value == null ? '--' : `${value.toFixed(0)} years`),
     }),
 
     evaluateBooleanRequiredRule({
@@ -370,8 +370,7 @@ export function runScreener(snapshot: InvestingSnapshot): {
       id: 'SCR-FH-05',
       label: 'Positive free cash flow',
       metric: 'freeCashFlowTtm',
-      actual:
-        snapshot.freeCashFlowTtm == null ? null : snapshot.freeCashFlowTtm > 0,
+      actual: snapshot.freeCashFlowTtm == null ? null : snapshot.freeCashFlowTtm > 0,
       required: thresholds.freeCashFlowPositiveRequired,
       explanationWhenMissing: 'Free cash flow could not be evaluated.',
       explanationWhenFailed: 'Company failed because trailing free cash flow is not positive.',

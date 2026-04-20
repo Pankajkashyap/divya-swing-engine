@@ -11,6 +11,7 @@ const investingTabs = [
   { label: 'Analysis', href: '/investing/analysis' },
   { label: 'Journal', href: '/investing/journal' },
   { label: 'Reviews', href: '/investing/reviews' },
+  { label: 'Screener', href: '/investing/screener' },
   { label: 'Settings', href: '/investing/settings' },
 ] as const
 
