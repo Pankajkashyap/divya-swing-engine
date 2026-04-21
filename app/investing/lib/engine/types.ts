@@ -125,6 +125,29 @@ export type ScreenerEngineResult = {
   passedInitialScreen: boolean
   scorecard?: QuantitativeScorecardResult
   verdict?: VerdictResult
+    valuationDebug?: {
+    dcf: {
+      low: number | null
+      base: number | null
+      high: number | null
+    }
+    ownerEarnings: {
+      low: number | null
+      base: number | null
+      high: number | null
+    }
+    comparables: {
+      low: number | null
+      base: number | null
+      high: number | null
+    }
+    range: {
+      fairValueLow: number | null
+      fairValueBase: number | null
+      fairValueHigh: number | null
+      validMethodCount: number
+    }
+  }
 }
 
 export type ScorecardCategoryScore = {

@@ -4,10 +4,29 @@ import { runRedFlags } from './runRedFlags'
 import { runQuantitativeScorecard } from './runScorecard'
 import { runScreener } from './runScreener'
 import { runVerdict } from './runVerdict'
+import { runFairValueEngine } from '@/app/investing/lib/valuation/runFairValueEngine'
+import type { FairValueSnapshot } from '@/app/investing/lib/valuation/types'
 import type { ScreenerEngineResult } from './types'
 
 export async function evaluateTicker(ticker: string): Promise<ScreenerEngineResult> {
   const snapshot = await buildInvestingSnapshot(ticker)
+
+  const fairValueSnapshot: FairValueSnapshot = {
+    ticker: snapshot.ticker,
+    sector: snapshot.sector,
+    currentPrice: snapshot.currentPrice,
+    freeCashFlowTtm: snapshot.freeCashFlowTtm,
+    operatingCashFlowTtm: null,
+    ebitTtm: snapshot.ebitTtm,
+    epsTtm: null,
+    bookValuePerShareTtm: null,
+    dilutedSharesOutstanding: null,
+    netDebt: null,
+    historicalFcfCagr3y: snapshot.fcfGrowth3yCagr,
+  }
+
+  const valuationDebug = runFairValueEngine(fairValueSnapshot)
+
   const { thresholds, rules } = runScreener(snapshot)
   const redFlags = runRedFlags(snapshot)
   const scorecard = runQuantitativeScorecard(rules)
@@ -35,5 +54,6 @@ export async function evaluateTicker(ticker: string): Promise<ScreenerEngineResu
     passedInitialScreen,
     scorecard,
     verdict,
+    valuationDebug,
   }
 }
