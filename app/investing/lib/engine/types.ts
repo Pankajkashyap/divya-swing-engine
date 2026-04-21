@@ -57,6 +57,11 @@ export type InvestingSnapshot = {
   fcfConversion3yAvg: number | null
   goodwillToAssets: number | null
   marginDeterioration3y: boolean | null
+
+  fairValueLow: number | null
+  fairValueBase: number | null
+  fairValueHigh: number | null
+  fairValueValidMethodCount: number | null
 }
 
 export type ScreenerThresholds = {

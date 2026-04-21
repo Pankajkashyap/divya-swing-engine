@@ -1,4 +1,6 @@
 import { fmpFetch } from '@/app/investing/lib/fmp'
+import { runFairValueEngine } from '@/app/investing/lib/valuation/runFairValueEngine'
+import type { FairValueSnapshot } from '@/app/investing/lib/valuation/types'
 import type { InvestingSnapshot, SectorKey } from './types'
 
 type FmpProfile = {
@@ -45,6 +47,8 @@ type FmpIncomeStatement = {
   netIncome?: number
   eps?: number
   grossProfit?: number
+  weightedAverageShsOut?: number
+  weightedAverageShsOutDil?: number
 }
 
 type FmpBalanceSheet = {
@@ -106,9 +110,12 @@ function percentOrNull(value: number | null | undefined): number | null {
 function ratioOrNull(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null
   return value
-} 
+}
 
-function safeDivide(numerator: number | null | undefined, denominator: number | null | undefined) {
+function safeDivide(
+  numerator: number | null | undefined,
+  denominator: number | null | undefined
+) {
   if (
     numerator == null ||
     denominator == null ||
@@ -192,35 +199,27 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
     (a, b) => new Date(a.date ?? '').getTime() - new Date(b.date ?? '').getTime()
   )
 
-const latestIncome = sortedIncome.at(-1)
-const latestBalance = sortedBalance.at(-1)
-const latestCashFlow = sortedCashFlows.at(-1)
+  const latestIncome = sortedIncome.at(-1)
+  const latestBalance = sortedBalance.at(-1)
+  const latestCashFlow = sortedCashFlows.at(-1)
 
   const revenueSeries = sortedIncome.map((item) => ratioOrNull(item.revenue))
   const epsSeries = sortedIncome.map((item) => ratioOrNull(item.eps))
   const fcfSeries = sortedCashFlows.map((item) => ratioOrNull(item.freeCashFlow))
-
   const netIncomeSeries = sortedIncome.map((item) => ratioOrNull(item.netIncome))
 
   const grossMarginTtm =
     percentOrNull(ratiosTtm?.grossProfitMarginTTM) ??
-    percentOrNull(
-      safeDivide(
-        latestIncome?.grossProfit ?? null,
-        latestIncome?.revenue ?? null
-      )
-    )
+    percentOrNull(safeDivide(latestIncome?.grossProfit ?? null, latestIncome?.revenue ?? null))
 
   const operatingMarginTtm =
     percentOrNull(ratiosTtm?.operatingProfitMarginTTM) ??
     percentOrNull(
-      safeDivide(
-        latestIncome?.operatingIncome ?? null,
-        latestIncome?.revenue ?? null
-      )
+      safeDivide(latestIncome?.operatingIncome ?? null, latestIncome?.revenue ?? null)
     )
 
   const freeCashFlowTtm = ratioOrNull(latestCashFlow?.freeCashFlow)
+  const operatingCashFlowTtm = ratioOrNull(latestCashFlow?.operatingCashFlow)
   const revenueTtm = ratioOrNull(latestIncome?.revenue)
   const ebitTtm = ratioOrNull(latestIncome?.operatingIncome)
   const netIncomeTtm = ratioOrNull(latestIncome?.netIncome)
@@ -235,17 +234,9 @@ const latestCashFlow = sortedCashFlows.at(-1)
       return marketCap + debt - cash
     })()
 
-  const evToEbitTtm = ratioOrNull(
-    safeDivide(enterpriseValue, ebitTtm)
-  )
-
-  const earningsYieldTtm = percentOrNull(
-    safeDivide(ebitTtm, enterpriseValue)
-  )
-
-  const fcfMarginTtm = percentOrNull(
-    safeDivide(freeCashFlowTtm, revenueTtm)
-  )
+  const evToEbitTtm = ratioOrNull(safeDivide(enterpriseValue, ebitTtm))
+  const earningsYieldTtm = percentOrNull(safeDivide(ebitTtm, enterpriseValue))
+  const fcfMarginTtm = percentOrNull(safeDivide(freeCashFlowTtm, revenueTtm))
 
   const positiveEarningsYears = netIncomeSeries.filter(
     (value) => value != null && value > 0
@@ -268,9 +259,9 @@ const latestCashFlow = sortedCashFlows.at(-1)
   const revenueTrend3yDeclining = isStrictlyDeclining(revenueSeries.slice(-3))
 
   const marginDeterioration3y = isStrictlyDeclining(
-    sortedIncome.slice(-3).map((item) =>
-      safeDivide(item.operatingIncome ?? null, item.revenue ?? null)
-    )
+    sortedIncome
+      .slice(-3)
+      .map((item) => safeDivide(item.operatingIncome ?? null, item.revenue ?? null))
   )
 
   const goodwillToAssets = percentOrNull(
@@ -301,6 +292,34 @@ const latestCashFlow = sortedCashFlows.at(-1)
   })
 
   const roic5yAvg = percentOrNull(average(roic5ySeries))
+
+  const dilutedSharesOutstanding =
+    ratioOrNull(latestIncome?.weightedAverageShsOutDil) ??
+    ratioOrNull(latestIncome?.weightedAverageShsOut)
+
+  const bookValuePerShareTtm = ratioOrNull(
+    safeDivide(latestBalance?.totalStockholdersEquity ?? null, dilutedSharesOutstanding)
+  )
+
+  const netDebt = ratioOrNull(
+    (latestBalance?.totalDebt ?? 0) - (latestBalance?.cashAndCashEquivalents ?? 0)
+  )
+
+  const fairValueSnapshot: FairValueSnapshot = {
+    ticker,
+    sector: mapSector(profile?.sector),
+    currentPrice: ratioOrNull(profile?.price),
+    freeCashFlowTtm,
+    operatingCashFlowTtm,
+    ebitTtm,
+    epsTtm: ratioOrNull(latestIncome?.eps),
+    bookValuePerShareTtm,
+    dilutedSharesOutstanding,
+    netDebt,
+    historicalFcfCagr3y: cagrFromSeries(fcfSeries.slice(-4)),
+  }
+
+  const fairValueEngine = runFairValueEngine(fairValueSnapshot)
 
   return {
     ticker,
@@ -345,11 +364,7 @@ const latestCashFlow = sortedCashFlows.at(-1)
     freeCashFlowTtm,
     revenueTtm,
     ebitTtm,
-    ebitdaTtm: ratioOrNull(
-      ebitTtm != null && latestCashFlow?.capitalExpenditure != null
-        ? ebitTtm
-        : null
-    ),
+    ebitdaTtm: ebitTtm,
     netIncomeTtm,
 
     yearsPositiveEarnings: positiveEarningsYears || null,
@@ -359,5 +374,10 @@ const latestCashFlow = sortedCashFlows.at(-1)
     fcfConversion3yAvg,
     goodwillToAssets,
     marginDeterioration3y,
+
+    fairValueLow: fairValueEngine.range.fairValueLow,
+    fairValueBase: fairValueEngine.range.fairValueBase,
+    fairValueHigh: fairValueEngine.range.fairValueHigh,
+    fairValueValidMethodCount: fairValueEngine.range.validMethodCount,
   }
 }
