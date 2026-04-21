@@ -23,4 +23,13 @@ export type FairValueSnapshot = {
   dilutedSharesOutstanding: number | null
   netDebt: number | null
   historicalFcfCagr3y: number | null
+
+  roicTtm?: number | null
+  roic5yAvg?: number | null
+  grossMarginTtm?: number | null
+  operatingMarginTtm?: number | null
+  debtToEquity?: number | null
+  netDebtToEbitda?: number | null
+  revenueGrowth3yCagr?: number | null
+  criticalRedFlags?: number | null
 }

@@ -305,19 +305,30 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
     (latestBalance?.totalDebt ?? 0) - (latestBalance?.cashAndCashEquivalents ?? 0)
   )
 
-  const fairValueSnapshot: FairValueSnapshot = {
-    ticker,
-    sector: mapSector(profile?.sector),
-    currentPrice: ratioOrNull(profile?.price),
-    freeCashFlowTtm,
-    operatingCashFlowTtm,
-    ebitTtm,
-    epsTtm: ratioOrNull(latestIncome?.eps),
-    bookValuePerShareTtm,
-    dilutedSharesOutstanding,
-    netDebt,
-    historicalFcfCagr3y: cagrFromSeries(fcfSeries.slice(-4)),
-  }
+const fairValueSnapshot: FairValueSnapshot = {
+  ticker,
+  sector: mapSector(profile?.sector),
+  currentPrice: ratioOrNull(profile?.price),
+  freeCashFlowTtm,
+  operatingCashFlowTtm,
+  ebitTtm,
+  epsTtm: ratioOrNull(latestIncome?.eps),
+  bookValuePerShareTtm,
+  dilutedSharesOutstanding,
+  netDebt,
+  historicalFcfCagr3y: cagrFromSeries(fcfSeries.slice(-4)),
+
+  roicTtm:
+    percentOrNull(keyMetricsTtm?.returnOnInvestedCapitalTTM) ??
+    percentOrNull(ratiosTtm?.returnOnCapitalEmployedTTM),
+  roic5yAvg,
+  grossMarginTtm,
+  operatingMarginTtm,
+  debtToEquity: ratioOrNull(ratiosTtm?.debtToEquityRatioTTM),
+  netDebtToEbitda: ratioOrNull(keyMetricsTtm?.netDebtToEBITDATTM),
+  revenueGrowth3yCagr: cagrFromSeries(revenueSeries.slice(-4)),
+  criticalRedFlags: 0,
+}
 
   const fairValueEngine = runFairValueEngine(fairValueSnapshot)
 

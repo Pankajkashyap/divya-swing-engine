@@ -1,3 +1,4 @@
+import { getValuationProfile } from './getValuationProfile'
 import type { FairValueSnapshot, RangeValuation } from './types'
 import { isValidPositiveNumber } from './utils'
 
@@ -22,7 +23,48 @@ function runSingleOwnerEarnings(
     : null
 }
 
+function getProfileAssumptions(profile: ReturnType<typeof getValuationProfile>) {
+  switch (profile) {
+    case 'elite_compounder':
+      return {
+        low: { maintenanceCapexRatio: 0.75, multiple: 16 },
+        base: { maintenanceCapexRatio: 0.6, multiple: 20 },
+        high: { maintenanceCapexRatio: 0.5, multiple: 24 },
+      }
+    case 'quality_grower':
+      return {
+        low: { maintenanceCapexRatio: 0.8, multiple: 14 },
+        base: { maintenanceCapexRatio: 0.65, multiple: 18 },
+        high: { maintenanceCapexRatio: 0.55, multiple: 22 },
+      }
+    case 'average_stable':
+      return {
+        low: { maintenanceCapexRatio: 0.85, multiple: 12 },
+        base: { maintenanceCapexRatio: 0.7, multiple: 15 },
+        high: { maintenanceCapexRatio: 0.6, multiple: 18 },
+      }
+    case 'cyclical':
+      return {
+        low: { maintenanceCapexRatio: 0.9, multiple: 8 },
+        base: { maintenanceCapexRatio: 0.8, multiple: 11 },
+        high: { maintenanceCapexRatio: 0.7, multiple: 14 },
+      }
+    case 'financial':
+      return {
+        low: { maintenanceCapexRatio: 1, multiple: 0 },
+        base: { maintenanceCapexRatio: 1, multiple: 0 },
+        high: { maintenanceCapexRatio: 1, multiple: 0 },
+      }
+  }
+}
+
 export function runOwnerEarningsValuation(snapshot: FairValueSnapshot): RangeValuation {
+  const profile = getValuationProfile(snapshot)
+
+  if (profile === 'financial') {
+    return { low: null, base: null, high: null }
+  }
+
   const ocf = snapshot.operatingCashFlowTtm
   const sharesOut = snapshot.dilutedSharesOutstanding
   const netDebt = snapshot.netDebt ?? 0
@@ -32,10 +74,32 @@ export function runOwnerEarningsValuation(snapshot: FairValueSnapshot): RangeVal
   }
 
   const capexProxy = Math.max(ocf - (snapshot.freeCashFlowTtm ?? 0), 0)
+  const assumptions = getProfileAssumptions(profile)
 
-  const low = runSingleOwnerEarnings(ocf, capexProxy, sharesOut, netDebt, 0.85, 12)
-  const base = runSingleOwnerEarnings(ocf, capexProxy, sharesOut, netDebt, 0.7, 16)
-  const high = runSingleOwnerEarnings(ocf, capexProxy, sharesOut, netDebt, 0.55, 20)
-
-  return { low, base, high }
+  return {
+    low: runSingleOwnerEarnings(
+      ocf,
+      capexProxy,
+      sharesOut,
+      netDebt,
+      assumptions.low.maintenanceCapexRatio,
+      assumptions.low.multiple
+    ),
+    base: runSingleOwnerEarnings(
+      ocf,
+      capexProxy,
+      sharesOut,
+      netDebt,
+      assumptions.base.maintenanceCapexRatio,
+      assumptions.base.multiple
+    ),
+    high: runSingleOwnerEarnings(
+      ocf,
+      capexProxy,
+      sharesOut,
+      netDebt,
+      assumptions.high.maintenanceCapexRatio,
+      assumptions.high.multiple
+    ),
+  }
 }
