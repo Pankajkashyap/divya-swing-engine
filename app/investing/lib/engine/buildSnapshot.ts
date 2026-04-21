@@ -379,5 +379,10 @@ export async function buildInvestingSnapshot(tickerInput: string): Promise<Inves
     fairValueBase: fairValueEngine.range.fairValueBase,
     fairValueHigh: fairValueEngine.range.fairValueHigh,
     fairValueValidMethodCount: fairValueEngine.range.validMethodCount,
+    fairValueDebug: {
+    dcf: fairValueEngine.dcf,
+    ownerEarnings: fairValueEngine.ownerEarnings,
+    comparables: fairValueEngine.comparables,
+  },
   }
 }

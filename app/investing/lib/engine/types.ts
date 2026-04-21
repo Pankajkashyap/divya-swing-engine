@@ -62,6 +62,24 @@ export type InvestingSnapshot = {
   fairValueBase: number | null
   fairValueHigh: number | null
   fairValueValidMethodCount: number | null
+
+    fairValueDebug?: {
+    dcf: {
+      low: number | null
+      base: number | null
+      high: number | null
+    }
+    ownerEarnings: {
+      low: number | null
+      base: number | null
+      high: number | null
+    }
+    comparables: {
+      low: number | null
+      base: number | null
+      high: number | null
+    }
+  }
 }
 
 export type ScreenerThresholds = {
