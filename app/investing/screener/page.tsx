@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 
 type ScreenerRuleResult = {
   id: string
@@ -63,6 +63,10 @@ type ScreenerEngineResult = {
     revenueGrowth3yCagr: number | null
     epsGrowth3yCagr: number | null
     fcfGrowth3yCagr: number | null
+    fairValueLow?: number | null
+    fairValueBase?: number | null
+    fairValueHigh?: number | null
+    fairValueValidMethodCount?: number | null
   }
   rules: ScreenerRuleResult[]
   redFlags: RedFlagResult[]
@@ -79,7 +83,7 @@ type ScreenerEngineResult = {
   verdict?: VerdictResult
 }
 
-function formatPrice(value: number | null) {
+function formatPrice(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return '--'
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -109,7 +113,7 @@ function formatMarketCap(value: number | null) {
   return `$${value.toFixed(0)}`
 }
 
-function formatPercent(value: number | null) {
+function formatPercent(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return '--'
   return `${value.toFixed(1)}%`
 }
@@ -129,6 +133,25 @@ export default function InvestingScreenerPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ScreenerEngineResult | null>(null)
+
+  const marginOfSafetyVsBase = useMemo(() => {
+    if (!result) return null
+
+    const price = result.snapshot.currentPrice
+    const fairValueBase = result.snapshot.fairValueBase
+
+    if (
+      price == null ||
+      fairValueBase == null ||
+      Number.isNaN(price) ||
+      Number.isNaN(fairValueBase) ||
+      fairValueBase === 0
+    ) {
+      return null
+    }
+
+    return ((fairValueBase - price) / fairValueBase) * 100
+  }, [result])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -270,6 +293,16 @@ export default function InvestingScreenerPage() {
             <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
               <div>Price: {formatPrice(result.snapshot.currentPrice)}</div>
               <div>Market cap: {formatMarketCap(result.snapshot.marketCap)}</div>
+              <div>Fair value low: {formatPrice(result.snapshot.fairValueLow)}</div>
+              <div>Fair value base: {formatPrice(result.snapshot.fairValueBase)}</div>
+              <div>Fair value high: {formatPrice(result.snapshot.fairValueHigh)}</div>
+              <div>
+                Method count:{' '}
+                {result.snapshot.fairValueValidMethodCount == null
+                  ? '--'
+                  : result.snapshot.fairValueValidMethodCount}
+              </div>
+              <div>Margin of safety vs base: {formatPercent(marginOfSafetyVsBase)}</div>
               <div>ROIC: {formatPercent(result.snapshot.roicTtm)}</div>
               <div>ROE: {formatPercent(result.snapshot.roeTtm)}</div>
               <div>Gross margin: {formatPercent(result.snapshot.grossMarginTtm)}</div>
