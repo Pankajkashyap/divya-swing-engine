@@ -1,8 +1,13 @@
 import type {
+  InvestingSnapshot,
   QuantitativeScorecardResult,
   ScorecardCategoryScore,
   ScreenerRuleResult,
 } from './types'
+
+function clampScore(value: number) {
+  return Math.max(0, Math.min(10, Number(value.toFixed(1))))
+}
 
 function buildCategoryScore(args: {
   id: 'valuation' | 'quality' | 'financialHealth' | 'growth'
@@ -39,20 +44,85 @@ function buildCategoryScore(args: {
   }
 }
 
+function getValuationOverlay(snapshot?: InvestingSnapshot): {
+  adjustedScore: number | null
+  overlayText: string | null
+} {
+  if (!snapshot) {
+    return { adjustedScore: null, overlayText: null }
+  }
+
+  const price = snapshot.currentPrice
+  const fairValueBase = snapshot.fairValueBase
+  const methodCount = snapshot.fairValueValidMethodCount ?? 0
+
+  if (
+    price == null ||
+    fairValueBase == null ||
+    !Number.isFinite(price) ||
+    !Number.isFinite(fairValueBase) ||
+    fairValueBase <= 0 ||
+    methodCount <= 0
+  ) {
+    return { adjustedScore: null, overlayText: null }
+  }
+
+  const discountToFairValue = ((fairValueBase - price) / fairValueBase) * 100
+
+  let overlay = 0
+
+  if (discountToFairValue >= 30) overlay = 2.0
+  else if (discountToFairValue >= 20) overlay = 1.5
+  else if (discountToFairValue >= 10) overlay = 1.0
+  else if (discountToFairValue >= 0) overlay = 0.5
+  else if (discountToFairValue >= -10) overlay = 0
+  else if (discountToFairValue >= -20) overlay = -0.5
+  else if (discountToFairValue >= -30) overlay = -1.0
+  else overlay = -1.5
+
+  return {
+    adjustedScore: overlay,
+    overlayText: `Fair value overlay applied from price vs fair value base (${discountToFairValue.toFixed(
+      1
+    )}%).`,
+  }
+}
+
 export function runQuantitativeScorecard(
-  rules: ScreenerRuleResult[]
+  rules: ScreenerRuleResult[],
+  snapshot?: InvestingSnapshot
 ): QuantitativeScorecardResult {
   const valuationRules = rules.filter((rule) => rule.id.startsWith('SCR-VAL-'))
   const qualityRules = rules.filter((rule) => rule.id.startsWith('SCR-PROF-'))
   const financialHealthRules = rules.filter((rule) => rule.id.startsWith('SCR-FH-'))
   const growthRules = rules.filter((rule) => rule.id.startsWith('SCR-GR-'))
 
+  const valuationCategory = buildCategoryScore({
+    id: 'valuation',
+    label: 'Valuation',
+    rules: valuationRules,
+  })
+
+  const valuationOverlay = getValuationOverlay(snapshot)
+
+  const adjustedValuationScore =
+    valuationOverlay.adjustedScore == null
+      ? valuationCategory.score
+      : clampScore(valuationCategory.score + valuationOverlay.adjustedScore)
+
+  const adjustedValuationExplanation =
+    valuationOverlay.overlayText == null
+      ? valuationCategory.explanation
+      : `${valuationCategory.explanation} ${valuationOverlay.overlayText} Final valuation score is ${adjustedValuationScore.toFixed(
+          1
+        )}/10.`
+
   const categories: ScorecardCategoryScore[] = [
-    buildCategoryScore({
-      id: 'valuation',
-      label: 'Valuation',
-      rules: valuationRules,
-    }),
+    {
+      ...valuationCategory,
+      score: adjustedValuationScore,
+      explanation: adjustedValuationExplanation,
+    },
     buildCategoryScore({
       id: 'quality',
       label: 'ROIC / Quality',

@@ -13,7 +13,7 @@ export async function evaluateTicker(ticker: string): Promise<ScreenerEngineResu
 
   const { thresholds, rules } = runScreener(snapshot)
   const redFlags = runRedFlags(snapshot)
-  const scorecard = runQuantitativeScorecard(rules)
+  const scorecard = runQuantitativeScorecard(rules, snapshot)
   const verdictConfig = await loadVerdictConfig()
   const verdict = runVerdict({ scorecard, redFlags, config: verdictConfig })
 
