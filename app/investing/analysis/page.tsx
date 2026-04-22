@@ -15,6 +15,7 @@ import { StockAnalysisForm } from '@/components/investing/StockAnalysisForm'
 import { AnalysisTable } from '@/components/investing/AnalysisTable'
 import { AnalysisCardList } from '@/components/investing/AnalysisCardList'
 import { WatchlistForm } from '@/components/investing/WatchlistForm'
+import { runRoicScore } from '@/app/investing/lib/scoring/runRoicScore'
 
 type StockAnalysisFormPayload = {
   ticker: string
@@ -323,6 +324,12 @@ function InvestingAnalysisPageContent() {
         ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
         : null
 
+    const roicScoreResult = runRoicScore({
+      sector: payload.sector,
+      roicTtm: null,
+      roic5yAvg: null,
+      roeTtm: null,
+})
     const record = {
       user_id: user?.id ?? null,
       ticker: payload.ticker,
@@ -349,6 +356,8 @@ function InvestingAnalysisPageContent() {
       management_score_auto: payload.management_score_auto,
       qualitative_confidence: payload.qualitative_confidence,
       qualitative_imported_at: payload.moat_json || payload.management_json ? new Date().toISOString() : null,
+      roic_score_auto: roicScoreResult.score,
+      roic_score_explanation: roicScoreResult.explanation,
     }
 
     if (editingAnalysis && editingAnalysis.id) {

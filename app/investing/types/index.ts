@@ -127,6 +127,8 @@ export type StockAnalysis = {
   management_score_auto?: number | null
   qualitative_confidence?: string | null
   qualitative_imported_at?: string | null
+  roic_score_auto?: number | null
+  roic_score_explanation?: string | null
 }
 
 export type DecisionJournalEntry = {
