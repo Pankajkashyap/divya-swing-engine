@@ -26,11 +26,11 @@ function runSingleOwnerEarnings(
 function getProfileAssumptions(profile: ReturnType<typeof getValuationProfile>) {
   switch (profile) {
     case 'elite_compounder':
-      return {
-        low: { maintenanceCapexRatio: 0.75, multiple: 16 },
-        base: { maintenanceCapexRatio: 0.6, multiple: 20 },
-        high: { maintenanceCapexRatio: 0.5, multiple: 24 },
-      }
+    return {
+        low: { maintenanceCapexRatio: 0.72, multiple: 18 },
+        base: { maintenanceCapexRatio: 0.58, multiple: 22 },
+        high: { maintenanceCapexRatio: 0.48, multiple: 26 },
+    }
     case 'quality_grower':
       return {
         low: { maintenanceCapexRatio: 0.8, multiple: 14 },

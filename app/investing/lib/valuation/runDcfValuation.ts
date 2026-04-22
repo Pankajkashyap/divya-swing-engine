@@ -51,11 +51,11 @@ function getProfileAssumptions(profile: ReturnType<typeof getValuationProfile>):
 } {
   switch (profile) {
     case 'elite_compounder':
-      return {
-        low: { r: 0.095, g1: 0.08, g2: 0.05, tg: 0.025 },
-        base: { r: 0.085, g1: 0.1, g2: 0.06, tg: 0.03 },
-        high: { r: 0.075, g1: 0.12, g2: 0.07, tg: 0.03 },
-      }
+    return {
+        low: { r: 0.09, g1: 0.09, g2: 0.055, tg: 0.025 },
+        base: { r: 0.08, g1: 0.11, g2: 0.065, tg: 0.03 },
+        high: { r: 0.07, g1: 0.13, g2: 0.075, tg: 0.03 },
+    }
     case 'quality_grower':
       return {
         low: { r: 0.105, g1: 0.07, g2: 0.04, tg: 0.02 },

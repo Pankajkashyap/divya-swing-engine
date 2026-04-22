@@ -62,9 +62,9 @@ export function runComparableValuation(snapshot: FairValueSnapshot): RangeValuat
 
   switch (profile) {
     case 'elite_compounder': {
-      const ebitResult = runUsingEbit(snapshot, 18, 22, 26)
-      if (ebitResult.base != null) return ebitResult
-      return runUsingFcf(snapshot, 20, 25, 30)
+        const ebitResult = runUsingEbit(snapshot, 20, 24, 28)
+        if (ebitResult.base != null) return ebitResult
+        return runUsingFcf(snapshot, 22, 27, 32)
     }
     case 'quality_grower': {
       const ebitResult = runUsingEbit(snapshot, 15, 19, 23)
