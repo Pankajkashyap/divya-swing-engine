@@ -138,6 +138,8 @@ function buildPrefilledAnalysis(searchParams: URLSearchParams): StockAnalysis | 
     raw_analysis: searchParams.get('raw_analysis')?.trim() || null,
     created_at: '',
     updated_at: '',
+    roic_score_auto: null,
+    roic_score_explanation: null,
   }
 }
 
@@ -170,6 +172,9 @@ function InvestingAnalysisPageContent() {
   const searchParams = useSearchParams()
 
   const queryMode = searchParams.get('mode')
+  const prefilledRoicTtm = toNullableNumber(searchParams.get('roic_ttm'))
+  const prefilledRoic5yAvg = toNullableNumber(searchParams.get('roic_5y_avg'))
+  const prefilledRoeTtm = toNullableNumber(searchParams.get('roe_ttm'))
   const queryPrefillAnalysis = useMemo(
     () => (queryMode === 'new' ? buildPrefilledAnalysis(searchParams) : null),
     [queryMode, searchParams]
@@ -326,10 +331,10 @@ function InvestingAnalysisPageContent() {
 
     const roicScoreResult = runRoicScore({
       sector: payload.sector,
-      roicTtm: null,
-      roic5yAvg: null,
-      roeTtm: null,
-})
+      roicTtm: prefilledRoicTtm,
+      roic5yAvg: prefilledRoic5yAvg,
+      roeTtm: prefilledRoeTtm,
+    })
     const record = {
       user_id: user?.id ?? null,
       ticker: payload.ticker,

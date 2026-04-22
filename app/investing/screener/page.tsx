@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { FormEvent, useMemo, useState } from 'react'
 
 type ScreenerRuleResult = {
@@ -48,6 +49,7 @@ type ScreenerEngineResult = {
     marketCap: number | null
     roicTtm: number | null
     roeTtm: number | null
+    roic5yAvg?: number | null
     grossMarginTtm: number | null
     operatingMarginTtm: number | null
     fcfMarginTtm: number | null
@@ -153,6 +155,33 @@ export default function InvestingScreenerPage() {
     return ((fairValueBase - price) / fairValueBase) * 100
   }, [result])
 
+    const createAnalysisHref = useMemo(() => {
+    if (!result) return null
+
+    const params = new URLSearchParams({
+      mode: 'new',
+      ticker: result.snapshot.ticker,
+      company: result.snapshot.company,
+      sector: result.snapshot.sector,
+      fair_value_low:
+        result.snapshot.fairValueLow != null ? String(result.snapshot.fairValueLow) : '',
+      fair_value_high:
+        result.snapshot.fairValueHigh != null ? String(result.snapshot.fairValueHigh) : '',
+      verdict: result.verdict?.label ?? '',
+      confidence:
+        result.verdict?.label === 'Strong Buy' || result.verdict?.label === 'Buy'
+          ? 'High'
+          : result.verdict?.label === 'Hold'
+            ? 'Medium'
+            : 'Low',
+      roic_ttm: result.snapshot.roicTtm != null ? String(result.snapshot.roicTtm) : '',
+      roic_5y_avg: result.snapshot.roic5yAvg != null ? String(result.snapshot.roic5yAvg) : '',
+      roe_ttm: result.snapshot.roeTtm != null ? String(result.snapshot.roeTtm) : '',
+    })
+
+    return `/investing/analysis?${params.toString()}`
+  }, [result])
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setLoading(true)
@@ -179,13 +208,21 @@ export default function InvestingScreenerPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-          Screener Tester
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-          Test the investing screener engine with a ticker.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Screener Tester
+          </h1>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Test the investing screener engine with a ticker.
+          </p>
+        </div>
+
+        {createAnalysisHref ? (
+          <Link href={createAnalysisHref} className="ui-btn-secondary">
+            Send to Analysis
+          </Link>
+        ) : null}
       </div>
 
       <form onSubmit={handleSubmit} className="ui-card p-4">
