@@ -162,7 +162,7 @@ function evaluateBooleanRequiredRule(args: {
     }
   }
 
-  const passed = actual === required
+  const passed = required ? actual === true : true
 
   return {
     id,
