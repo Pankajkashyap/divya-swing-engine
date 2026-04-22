@@ -16,7 +16,7 @@ import { AnalysisTable } from '@/components/investing/AnalysisTable'
 import { AnalysisCardList } from '@/components/investing/AnalysisCardList'
 import { WatchlistForm } from '@/components/investing/WatchlistForm'
 import { runRoicScore } from '@/app/investing/lib/scoring/runRoicScore'
-
+import { runFinancialHealthScore } from '../lib/scoring/runFinancialHealthScore'
 type StockAnalysisFormPayload = {
   ticker: string
   company: string
@@ -140,6 +140,8 @@ function buildPrefilledAnalysis(searchParams: URLSearchParams): StockAnalysis | 
     updated_at: '',
     roic_score_auto: null,
     roic_score_explanation: null,
+    fin_health_score_auto: null,
+    fin_health_score_explanation: null,
   }
 }
 
@@ -175,6 +177,12 @@ function InvestingAnalysisPageContent() {
   const prefilledRoicTtm = toNullableNumber(searchParams.get('roic_ttm'))
   const prefilledRoic5yAvg = toNullableNumber(searchParams.get('roic_5y_avg'))
   const prefilledRoeTtm = toNullableNumber(searchParams.get('roe_ttm'))
+  const prefilledDebtToEquity = toNullableNumber(searchParams.get('debt_to_equity'))
+  const prefilledNetDebtToEbitda = toNullableNumber(searchParams.get('net_debt_to_ebitda'))
+  const prefilledInterestCoverage = toNullableNumber(searchParams.get('interest_coverage'))
+  const prefilledCurrentRatio = toNullableNumber(searchParams.get('current_ratio'))
+  const prefilledFreeCashFlowTtm = toNullableNumber(searchParams.get('free_cash_flow_ttm'))
+
   const queryPrefillAnalysis = useMemo(
     () => (queryMode === 'new' ? buildPrefilledAnalysis(searchParams) : null),
     [queryMode, searchParams]
@@ -322,14 +330,25 @@ function InvestingAnalysisPageContent() {
       roeTtm: prefilledRoeTtm,
     })
 
+    const financialHealthScoreResult = runFinancialHealthScore({
+      sector: payload.sector,
+      debtToEquity: prefilledDebtToEquity,
+      netDebtToEbitda: prefilledNetDebtToEbitda,
+      interestCoverage: prefilledInterestCoverage,
+      currentRatio: prefilledCurrentRatio,
+      freeCashFlowTtm: prefilledFreeCashFlowTtm,
+    })
+
     const effectiveRoicScore = payload.roic_score ?? roicScoreResult.score
+    const effectiveFinancialHealthScore =
+      payload.fin_health_score ?? financialHealthScoreResult.score
 
     const scoreValues = [
       payload.moat_score,
       payload.valuation_score,
       payload.mgmt_score,
       effectiveRoicScore,
-      payload.fin_health_score,
+      effectiveFinancialHealthScore,
       payload.biz_understanding_score,
     ].filter((value): value is number => value != null)
 
@@ -348,7 +367,7 @@ function InvestingAnalysisPageContent() {
       valuation_score: payload.valuation_score,
       mgmt_score: payload.mgmt_score,
       roic_score: effectiveRoicScore,
-      fin_health_score: payload.fin_health_score,
+      fin_health_score: effectiveFinancialHealthScore,
       biz_understanding_score: payload.biz_understanding_score,
       overall_score: overallScore,
       verdict: payload.verdict,
@@ -363,9 +382,12 @@ function InvestingAnalysisPageContent() {
       moat_score_auto: payload.moat_score_auto,
       management_score_auto: payload.management_score_auto,
       qualitative_confidence: payload.qualitative_confidence,
-      qualitative_imported_at: payload.moat_json || payload.management_json ? new Date().toISOString() : null,
+      qualitative_imported_at:
+        payload.moat_json || payload.management_json ? new Date().toISOString() : null,
       roic_score_auto: roicScoreResult.score,
       roic_score_explanation: roicScoreResult.explanation,
+      fin_health_score_auto: financialHealthScoreResult.score,
+      fin_health_score_explanation: financialHealthScoreResult.explanation,
     }
 
     if (editingAnalysis && editingAnalysis.id) {

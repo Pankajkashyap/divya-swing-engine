@@ -48,8 +48,8 @@ type ScreenerEngineResult = {
     currentPrice: number | null
     marketCap: number | null
     roicTtm: number | null
-    roeTtm: number | null
     roic5yAvg?: number | null
+    roeTtm: number | null
     grossMarginTtm: number | null
     operatingMarginTtm: number | null
     fcfMarginTtm: number | null
@@ -65,6 +65,7 @@ type ScreenerEngineResult = {
     revenueGrowth3yCagr: number | null
     epsGrowth3yCagr: number | null
     fcfGrowth3yCagr: number | null
+    freeCashFlowTtm?: number | null
     fairValueLow?: number | null
     fairValueBase?: number | null
     fairValueHigh?: number | null
@@ -155,7 +156,7 @@ export default function InvestingScreenerPage() {
     return ((fairValueBase - price) / fairValueBase) * 100
   }, [result])
 
-    const createAnalysisHref = useMemo(() => {
+  const createAnalysisHref = useMemo(() => {
     if (!result) return null
 
     const params = new URLSearchParams({
@@ -177,6 +178,16 @@ export default function InvestingScreenerPage() {
       roic_ttm: result.snapshot.roicTtm != null ? String(result.snapshot.roicTtm) : '',
       roic_5y_avg: result.snapshot.roic5yAvg != null ? String(result.snapshot.roic5yAvg) : '',
       roe_ttm: result.snapshot.roeTtm != null ? String(result.snapshot.roeTtm) : '',
+      debt_to_equity:
+        result.snapshot.debtToEquity != null ? String(result.snapshot.debtToEquity) : '',
+      net_debt_to_ebitda:
+        result.snapshot.netDebtToEbitda != null ? String(result.snapshot.netDebtToEbitda) : '',
+      interest_coverage:
+        result.snapshot.interestCoverage != null ? String(result.snapshot.interestCoverage) : '',
+      current_ratio:
+        result.snapshot.currentRatio != null ? String(result.snapshot.currentRatio) : '',
+      free_cash_flow_ttm:
+        result.snapshot.freeCashFlowTtm != null ? String(result.snapshot.freeCashFlowTtm) : '',
     })
 
     return `/investing/analysis?${params.toString()}`

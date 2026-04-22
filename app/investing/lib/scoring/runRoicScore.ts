@@ -47,7 +47,8 @@ export function runRoicScore(input: RoicScoreInput): RoicScoreResult {
     if (!isNumber(roeTtm)) {
       return {
         score: null,
-        explanation: 'ROIC score could not be calculated because ROE is missing for a Financials company.',
+        explanation:
+          'ROIC score could not be calculated because ROE is missing for a Financials company.',
         factors: {
           sector: normalizedSector,
           roicTtm,

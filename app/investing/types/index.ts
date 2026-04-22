@@ -129,6 +129,8 @@ export type StockAnalysis = {
   qualitative_imported_at?: string | null
   roic_score_auto?: number | null
   roic_score_explanation?: string | null
+  fin_health_score_auto?: number | null
+  fin_health_score_explanation?: string | null
 }
 
 export type DecisionJournalEntry = {
