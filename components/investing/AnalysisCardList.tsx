@@ -128,7 +128,7 @@ export function AnalysisCardList({
             />
             <DataCardRow label="Moat score" value={formatScore(analysis.moat_score)} />
             <DataCardRow label="Valuation score" value={formatScore(analysis.valuation_score)} />
-            <DataCardRow label="ROIC score" value={formatScore(analysis.roic_score)} />
+            <DataCardRow label="ROIC score" value={formatScore(analysis.roic_score ?? analysis.roic_score_auto)} />
           </div>
 
           {analysis.thesis ? (

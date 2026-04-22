@@ -315,11 +315,20 @@ function InvestingAnalysisPageContent() {
       return
     }
 
+    const roicScoreResult = runRoicScore({
+      sector: payload.sector,
+      roicTtm: prefilledRoicTtm,
+      roic5yAvg: prefilledRoic5yAvg,
+      roeTtm: prefilledRoeTtm,
+    })
+
+    const effectiveRoicScore = payload.roic_score ?? roicScoreResult.score
+
     const scoreValues = [
       payload.moat_score,
       payload.valuation_score,
       payload.mgmt_score,
-      payload.roic_score,
+      effectiveRoicScore,
       payload.fin_health_score,
       payload.biz_understanding_score,
     ].filter((value): value is number => value != null)
@@ -329,12 +338,6 @@ function InvestingAnalysisPageContent() {
         ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
         : null
 
-    const roicScoreResult = runRoicScore({
-      sector: payload.sector,
-      roicTtm: prefilledRoicTtm,
-      roic5yAvg: prefilledRoic5yAvg,
-      roeTtm: prefilledRoeTtm,
-    })
     const record = {
       user_id: user?.id ?? null,
       ticker: payload.ticker,
@@ -344,7 +347,7 @@ function InvestingAnalysisPageContent() {
       moat_score: payload.moat_score,
       valuation_score: payload.valuation_score,
       mgmt_score: payload.mgmt_score,
-      roic_score: payload.roic_score,
+      roic_score: effectiveRoicScore,
       fin_health_score: payload.fin_health_score,
       biz_understanding_score: payload.biz_understanding_score,
       overall_score: overallScore,
