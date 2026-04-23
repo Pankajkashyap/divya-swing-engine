@@ -134,6 +134,8 @@ export type StockAnalysis = {
   business_understanding_json?: Record<string, unknown> | null
   biz_understanding_score_auto?: number | null
   biz_understanding_score_explanation?: string | null
+  valuation_score_auto?: number | null
+  valuation_score_explanation?: string | null
 }
 
 export type DecisionJournalEntry = {

@@ -166,8 +166,12 @@ export default function InvestingScreenerPage() {
       sector: result.snapshot.sector,
       fair_value_low:
         result.snapshot.fairValueLow != null ? String(result.snapshot.fairValueLow) : '',
+      fair_value_base:
+        result.snapshot.fairValueBase != null ? String(result.snapshot.fairValueBase) : '',
       fair_value_high:
         result.snapshot.fairValueHigh != null ? String(result.snapshot.fairValueHigh) : '',
+      current_price:
+        result.snapshot.currentPrice != null ? String(result.snapshot.currentPrice) : '',
       verdict: result.verdict?.label ?? '',
       confidence:
         result.verdict?.label === 'Strong Buy' || result.verdict?.label === 'Buy'

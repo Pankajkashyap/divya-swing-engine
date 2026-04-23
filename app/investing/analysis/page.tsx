@@ -18,6 +18,7 @@ import { WatchlistForm } from '@/components/investing/WatchlistForm'
 import { runRoicScore } from '@/app/investing/lib/scoring/runRoicScore'
 import { runFinancialHealthScore } from '../lib/scoring/runFinancialHealthScore'
 import { runBusinessUnderstandingScore } from '../lib/scoring/runBusinessUnderstandingScore'
+import { runValuationScore } from '../lib/scoring/runValuationScore'
 type StockAnalysisFormPayload = {
   ticker: string
   company: string
@@ -144,6 +145,8 @@ function buildPrefilledAnalysis(searchParams: URLSearchParams): StockAnalysis | 
     roic_score_explanation: null,
     fin_health_score_auto: null,
     fin_health_score_explanation: null,
+    valuation_score_auto: null,
+    valuation_score_explanation: null,
   }
 }
 
@@ -179,6 +182,10 @@ function InvestingAnalysisPageContent() {
   const prefilledRoicTtm = toNullableNumber(searchParams.get('roic_ttm'))
   const prefilledRoic5yAvg = toNullableNumber(searchParams.get('roic_5y_avg'))
   const prefilledRoeTtm = toNullableNumber(searchParams.get('roe_ttm'))
+  const prefilledCurrentPrice = toNullableNumber(searchParams.get('current_price'))
+  const prefilledFairValueLow = toNullableNumber(searchParams.get('fair_value_low'))
+  const prefilledFairValueBase = toNullableNumber(searchParams.get('fair_value_base'))
+  const prefilledFairValueHigh = toNullableNumber(searchParams.get('fair_value_high'))
   const prefilledDebtToEquity = toNullableNumber(searchParams.get('debt_to_equity'))
   const prefilledNetDebtToEbitda = toNullableNumber(searchParams.get('net_debt_to_ebitda'))
   const prefilledInterestCoverage = toNullableNumber(searchParams.get('interest_coverage'))
@@ -341,10 +348,18 @@ function InvestingAnalysisPageContent() {
       freeCashFlowTtm: prefilledFreeCashFlowTtm,
     })
 
+    const valuationScoreResult = runValuationScore({
+      currentPrice: prefilledCurrentPrice,
+      fairValueLow: prefilledFairValueLow,
+      fairValueBase: prefilledFairValueBase,
+      fairValueHigh: prefilledFairValueHigh,
+    })
+
     const businessUnderstandingScoreResult = runBusinessUnderstandingScore(
       payload.business_understanding_json
     )
 
+    const effectiveValuationScore = payload.valuation_score ?? valuationScoreResult.score
     const effectiveRoicScore = payload.roic_score ?? roicScoreResult.score
     const effectiveFinancialHealthScore =
       payload.fin_health_score ?? financialHealthScoreResult.score
@@ -353,7 +368,7 @@ function InvestingAnalysisPageContent() {
 
     const scoreValues = [
       payload.moat_score,
-      payload.valuation_score,
+      effectiveValuationScore,
       payload.mgmt_score,
       effectiveRoicScore,
       effectiveFinancialHealthScore,
@@ -372,7 +387,7 @@ function InvestingAnalysisPageContent() {
       analysis_date: payload.analysis_date,
       sector: payload.sector,
       moat_score: payload.moat_score,
-      valuation_score: payload.valuation_score,
+      valuation_score: effectiveValuationScore,
       mgmt_score: payload.mgmt_score,
       roic_score: effectiveRoicScore,
       fin_health_score: effectiveFinancialHealthScore,
@@ -394,6 +409,8 @@ function InvestingAnalysisPageContent() {
         payload.moat_json || payload.management_json ? new Date().toISOString() : null,
       roic_score_auto: roicScoreResult.score,
       roic_score_explanation: roicScoreResult.explanation,
+      valuation_score_auto: valuationScoreResult.score,
+      valuation_score_explanation: valuationScoreResult.explanation,
       fin_health_score_auto: financialHealthScoreResult.score,
       fin_health_score_explanation: financialHealthScoreResult.explanation,
       business_understanding_json: businessUnderstandingScoreResult.normalizedPayload,
