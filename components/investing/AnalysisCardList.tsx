@@ -136,6 +136,10 @@ export function AnalysisCardList({
               label="Financial health score"
               value={formatScore(analysis.fin_health_score ?? analysis.fin_health_score_auto)}
             />
+            <DataCardRow
+              label="Business understanding score"
+              value={formatScore(analysis.biz_understanding_score ?? analysis.biz_understanding_score_auto)}
+            />
           </div>
 
           {analysis.thesis ? (

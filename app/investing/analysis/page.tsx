@@ -17,6 +17,7 @@ import { AnalysisCardList } from '@/components/investing/AnalysisCardList'
 import { WatchlistForm } from '@/components/investing/WatchlistForm'
 import { runRoicScore } from '@/app/investing/lib/scoring/runRoicScore'
 import { runFinancialHealthScore } from '../lib/scoring/runFinancialHealthScore'
+import { runBusinessUnderstandingScore } from '../lib/scoring/runBusinessUnderstandingScore'
 type StockAnalysisFormPayload = {
   ticker: string
   company: string
@@ -40,6 +41,7 @@ type StockAnalysisFormPayload = {
   moat_score_auto: number | null
   management_score_auto: number | null
   qualitative_confidence: string | null
+  business_understanding_json: Record<string, unknown> | null
 }
 
 type WatchlistFormPayload = {
@@ -339,9 +341,15 @@ function InvestingAnalysisPageContent() {
       freeCashFlowTtm: prefilledFreeCashFlowTtm,
     })
 
+    const businessUnderstandingScoreResult = runBusinessUnderstandingScore(
+      payload.business_understanding_json
+    )
+
     const effectiveRoicScore = payload.roic_score ?? roicScoreResult.score
     const effectiveFinancialHealthScore =
       payload.fin_health_score ?? financialHealthScoreResult.score
+    const effectiveBusinessUnderstandingScore =
+      payload.biz_understanding_score ?? businessUnderstandingScoreResult.score
 
     const scoreValues = [
       payload.moat_score,
@@ -349,7 +357,7 @@ function InvestingAnalysisPageContent() {
       payload.mgmt_score,
       effectiveRoicScore,
       effectiveFinancialHealthScore,
-      payload.biz_understanding_score,
+      effectiveBusinessUnderstandingScore,
     ].filter((value): value is number => value != null)
 
     const overallScore =
@@ -368,7 +376,7 @@ function InvestingAnalysisPageContent() {
       mgmt_score: payload.mgmt_score,
       roic_score: effectiveRoicScore,
       fin_health_score: effectiveFinancialHealthScore,
-      biz_understanding_score: payload.biz_understanding_score,
+      biz_understanding_score: effectiveBusinessUnderstandingScore,
       overall_score: overallScore,
       verdict: payload.verdict,
       fair_value_low: payload.fair_value_low,
@@ -388,6 +396,9 @@ function InvestingAnalysisPageContent() {
       roic_score_explanation: roicScoreResult.explanation,
       fin_health_score_auto: financialHealthScoreResult.score,
       fin_health_score_explanation: financialHealthScoreResult.explanation,
+      business_understanding_json: businessUnderstandingScoreResult.normalizedPayload,
+      biz_understanding_score_auto: businessUnderstandingScoreResult.score,
+      biz_understanding_score_explanation: businessUnderstandingScoreResult.explanation,
     }
 
     if (editingAnalysis && editingAnalysis.id) {

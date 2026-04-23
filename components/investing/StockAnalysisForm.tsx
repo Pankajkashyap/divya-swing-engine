@@ -49,6 +49,7 @@ export type StockAnalysisFormPayload = {
   moat_score_auto: number | null
   management_score_auto: number | null
   qualitative_confidence: string | null
+  business_understanding_json: Record<string, unknown> | null
 }
 
 type Props = {
@@ -125,10 +126,10 @@ export function StockAnalysisForm({
     initialAnalysis?.raw_analysis ?? ''
   )
   const [qualitativeImportSuccess, setQualitativeImportSuccess] = useState<string | null>(null)
-  const [moatJson, setMoatJson] = useState<Record<string, unknown> | null>(
+  const [, setMoatJson] = useState<Record<string, unknown> | null>(
     initialAnalysis?.moat_json ?? null
   )
-  const [managementJson, setManagementJson] = useState<Record<string, unknown> | null>(
+  const [, setManagementJson] = useState<Record<string, unknown> | null>(
     initialAnalysis?.management_json ?? null
   )
   const [moatScoreAuto, setMoatScoreAuto] = useState<number | null>(
@@ -311,6 +312,19 @@ export function StockAnalysisForm({
       return
     }
 
+    let businessUnderstandingJson: Record<string, unknown> | null = null
+
+    if (values.raw_analysis.trim()) {
+      try {
+        const parsed = JSON.parse(values.raw_analysis)
+        if (parsed && typeof parsed === 'object') {
+          businessUnderstandingJson = parsed as Record<string, unknown>
+        }
+      } catch {
+        businessUnderstandingJson = null
+      }
+    }
+
     await onSubmit({
       ticker,
       company,
@@ -329,11 +343,12 @@ export function StockAnalysisForm({
       thesis_breakers: values.thesis_breakers.trim() || null,
       confidence: values.confidence || null,
       raw_analysis: values.raw_analysis.trim() || null,
-      moat_json: moatJson,
-      management_json: managementJson,
-      moat_score_auto: moatScoreAuto,
-      management_score_auto: managementScoreAuto,
-      qualitative_confidence: qualitativeConfidence,
+      moat_json: null,
+      management_json: null,
+      moat_score_auto: null,
+      management_score_auto: null,
+      qualitative_confidence: null,
+      business_understanding_json: businessUnderstandingJson,
     })
   }
 
