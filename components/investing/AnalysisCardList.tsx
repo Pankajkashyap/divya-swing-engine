@@ -117,8 +117,8 @@ export function AnalysisCardList({
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             <DataCardRow label="Overall score" value={formatScore(analysis.overall_score)} />
-            <DataCardRow label="Confidence" value={analysis.confidence ?? '—'} />
-            <DataCardRow
+            <DataCardRow label="Confidence" value={analysis.confidence ?? analysis.confidence_auto ?? '—'}/>
+              <DataCardRow
               label="Fair value"
               value={
                 analysis.fair_value_low != null || analysis.fair_value_high != null

@@ -136,6 +136,8 @@ export type StockAnalysis = {
   biz_understanding_score_explanation?: string | null
   valuation_score_auto?: number | null
   valuation_score_explanation?: string | null
+  confidence_auto?: string | null
+  confidence_explanation?: string | null
 }
 
 export type DecisionJournalEntry = {

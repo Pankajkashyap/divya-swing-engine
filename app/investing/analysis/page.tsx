@@ -19,6 +19,7 @@ import { runRoicScore } from '@/app/investing/lib/scoring/runRoicScore'
 import { runFinancialHealthScore } from '../lib/scoring/runFinancialHealthScore'
 import { runBusinessUnderstandingScore } from '../lib/scoring/runBusinessUnderstandingScore'
 import { runValuationScore } from '../lib/scoring/runValuationScore'
+import { runConfidenceScore } from '../lib/scoring/runConfidenceScore'
 type StockAnalysisFormPayload = {
   ticker: string
   company: string
@@ -147,6 +148,8 @@ function buildPrefilledAnalysis(searchParams: URLSearchParams): StockAnalysis | 
     fin_health_score_explanation: null,
     valuation_score_auto: null,
     valuation_score_explanation: null,
+    confidence_auto: null,
+    confidence_explanation: null,
   }
 }
 
@@ -380,6 +383,19 @@ function InvestingAnalysisPageContent() {
         ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
         : null
 
+    const confidenceScoreResult = runConfidenceScore({
+      overallScore,
+      verdict: payload.verdict,
+      fairValueLow: payload.fair_value_low,
+      fairValueHigh: payload.fair_value_high,
+      moatScore: payload.moat_score,
+      valuationScore: effectiveValuationScore,
+      managementScore: payload.mgmt_score,
+      roicScore: effectiveRoicScore,
+      financialHealthScore: effectiveFinancialHealthScore,
+      businessUnderstandingScore: effectiveBusinessUnderstandingScore,
+    })
+
     const record = {
       user_id: user?.id ?? null,
       ticker: payload.ticker,
@@ -398,19 +414,20 @@ function InvestingAnalysisPageContent() {
       fair_value_high: payload.fair_value_high,
       thesis: payload.thesis,
       thesis_breakers: payload.thesis_breakers,
-      confidence: payload.confidence,
+      confidence: payload.confidence ?? confidenceScoreResult.confidence,
       raw_analysis: payload.raw_analysis,
       moat_json: payload.moat_json,
       management_json: payload.management_json,
       moat_score_auto: payload.moat_score_auto,
       management_score_auto: payload.management_score_auto,
       qualitative_confidence: payload.qualitative_confidence,
-      qualitative_imported_at:
-        payload.moat_json || payload.management_json ? new Date().toISOString() : null,
+      qualitative_imported_at: payload.moat_json || payload.management_json ? new Date().toISOString() : null,
       roic_score_auto: roicScoreResult.score,
       roic_score_explanation: roicScoreResult.explanation,
       valuation_score_auto: valuationScoreResult.score,
       valuation_score_explanation: valuationScoreResult.explanation,
+      confidence_auto: confidenceScoreResult.confidence,
+      confidence_explanation: confidenceScoreResult.explanation,
       fin_health_score_auto: financialHealthScoreResult.score,
       fin_health_score_explanation: financialHealthScoreResult.explanation,
       business_understanding_json: businessUnderstandingScoreResult.normalizedPayload,
