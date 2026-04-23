@@ -158,7 +158,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  const today = new Date().toLocaleDateString('en-CA')
+  const today = new Date().toISOString().slice(0, 10)
 
   const { data: technicals, error: technicalsError } = await supabase
     .from('market_snapshots')

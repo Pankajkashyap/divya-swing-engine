@@ -72,7 +72,7 @@ async function safeFinishScanLog(params: {
 }
 
 function getTodayDateString(now: Date = new Date()): string {
-  return now.toLocaleDateString('en-CA')
+return now.toISOString().slice(0, 10)
 }
 
 function getDateDaysAgo(daysAgo: number, now: Date = new Date()): string {
@@ -668,7 +668,7 @@ Deno.serve(async (request: Request) => {
     const technicalsCalculatedAt = new Date().toISOString()
     const payload = {
       user_id: userId,
-      snapshot_date: new Date().toLocaleDateString('en-CA'),
+      snapshot_date: today,
       spy_price,
       spy_change_pct,
       spy_above_50dma,
