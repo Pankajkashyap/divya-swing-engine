@@ -23,6 +23,7 @@ type StockAnalysisFormValues = {
   thesis: string
   thesis_breakers: string
   confidence: Confidence | ''
+  business_understanding_json_text: string
   raw_analysis: string
 }
 
@@ -100,6 +101,9 @@ function toFormValues(item?: StockAnalysis | null): StockAnalysisFormValues {
     thesis: item?.thesis ?? '',
     thesis_breakers: item?.thesis_breakers ?? '',
     confidence: item?.confidence ?? '',
+    business_understanding_json_text: item?.business_understanding_json
+      ? JSON.stringify(item.business_understanding_json, null, 2)
+      : '',
     raw_analysis: item?.raw_analysis ?? '',
   }
 }
@@ -122,7 +126,11 @@ function SectionHeader({
 }
 
 function FieldHint({ children }: { children: React.ReactNode }) {
-  return <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">{children}</span>
+  return (
+    <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
+      {children}
+    </span>
+  )
 }
 
 export function StockAnalysisForm({
@@ -140,7 +148,9 @@ export function StockAnalysisForm({
     initialAnalysis?.raw_analysis ?? ''
   )
   const [qualitativeImportSuccess, setQualitativeImportSuccess] = useState<string | null>(null)
-  const [, setMoatJson] = useState<Record<string, unknown> | null>(initialAnalysis?.moat_json ?? null)
+  const [, setMoatJson] = useState<Record<string, unknown> | null>(
+    initialAnalysis?.moat_json ?? null
+  )
   const [, setManagementJson] = useState<Record<string, unknown> | null>(
     initialAnalysis?.management_json ?? null
   )
@@ -326,9 +336,9 @@ export function StockAnalysisForm({
 
     let businessUnderstandingJson: Record<string, unknown> | null = null
 
-    if (values.raw_analysis.trim()) {
+    if (values.business_understanding_json_text.trim()) {
       try {
-        const parsed = JSON.parse(values.raw_analysis)
+        const parsed = JSON.parse(values.business_understanding_json_text)
         if (parsed && typeof parsed === 'object') {
           businessUnderstandingJson = parsed as Record<string, unknown>
         }
@@ -720,8 +730,27 @@ export function StockAnalysisForm({
 
       <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
         <SectionHeader
-          title="Raw notes / JSON"
-          subtitle="Paste full research notes or business understanding JSON here when needed."
+          title="Business understanding import"
+          subtitle="Paste the structured Business Understanding JSON here. Leave the score blank above if you want the app to calculate it automatically."
+        />
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+            Business Understanding JSON
+          </span>
+          <textarea
+            value={values.business_understanding_json_text}
+            onChange={(e) => update('business_understanding_json_text', e.target.value)}
+            className="ui-textarea min-h-40"
+            placeholder='Paste JSON like { "business_understanding": { ... }, "confidence": "High" }'
+          />
+        </label>
+      </div>
+
+      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <SectionHeader
+          title="Raw notes"
+          subtitle="Use this area for free-form research notes, copied writeups, or anything you want to save that is not structured JSON."
         />
 
         <label className="block">
@@ -732,7 +761,7 @@ export function StockAnalysisForm({
             value={values.raw_analysis}
             onChange={(e) => update('raw_analysis', e.target.value)}
             className="ui-textarea min-h-40"
-            placeholder="Paste the full research output, notes, or business understanding JSON."
+            placeholder="Paste the full research output or your own notes."
           />
         </label>
       </div>
