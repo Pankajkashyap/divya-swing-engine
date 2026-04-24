@@ -74,14 +74,7 @@ const sectorOptions: Sector[] = [
   'Materials',
 ]
 
-const verdictOptions: Verdict[] = [
-  'Strong Buy',
-  'Buy',
-  'Hold',
-  'Avoid',
-  'Red Flag',
-]
-
+const verdictOptions: Verdict[] = ['Strong Buy', 'Buy', 'Hold', 'Avoid', 'Red Flag']
 const confidenceOptions: Confidence[] = ['High', 'Medium', 'Low']
 
 function getTodayDateString() {
@@ -111,6 +104,27 @@ function toFormValues(item?: StockAnalysis | null): StockAnalysisFormValues {
   }
 }
 
+function SectionHeader({
+  title,
+  subtitle,
+}: {
+  title: string
+  subtitle?: string
+}) {
+  return (
+    <div className="mb-4">
+      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">{title}</div>
+      {subtitle ? (
+        <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">{subtitle}</div>
+      ) : null}
+    </div>
+  )
+}
+
+function FieldHint({ children }: { children: React.ReactNode }) {
+  return <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">{children}</span>
+}
+
 export function StockAnalysisForm({
   initialAnalysis,
   onSubmit,
@@ -126,9 +140,7 @@ export function StockAnalysisForm({
     initialAnalysis?.raw_analysis ?? ''
   )
   const [qualitativeImportSuccess, setQualitativeImportSuccess] = useState<string | null>(null)
-  const [, setMoatJson] = useState<Record<string, unknown> | null>(
-    initialAnalysis?.moat_json ?? null
-  )
+  const [, setMoatJson] = useState<Record<string, unknown> | null>(initialAnalysis?.moat_json ?? null)
   const [, setManagementJson] = useState<Record<string, unknown> | null>(
     initialAnalysis?.management_json ?? null
   )
@@ -353,296 +365,302 @@ export function StockAnalysisForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Ticker
-          </span>
-          <input
-            value={values.ticker}
-            onChange={(e) => update('ticker', e.target.value)}
-            className="ui-input"
-            placeholder="META"
-          />
-        </label>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <SectionHeader
+          title="Core analysis details"
+          subtitle="Basic company information, fair value range, verdict, and thesis notes."
+        />
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Company
-          </span>
-          <input
-            value={values.company}
-            onChange={(e) => update('company', e.target.value)}
-            className="ui-input"
-            placeholder="Meta Platforms"
-          />
-        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Ticker
+            </span>
+            <input
+              value={values.ticker}
+              onChange={(e) => update('ticker', e.target.value)}
+              className="ui-input"
+              placeholder="META"
+            />
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Analysis date
-          </span>
-          <input
-            type="date"
-            value={values.analysis_date}
-            onChange={(e) => update('analysis_date', e.target.value)}
-            className="ui-input"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Company
+            </span>
+            <input
+              value={values.company}
+              onChange={(e) => update('company', e.target.value)}
+              className="ui-input"
+              placeholder="Meta Platforms"
+            />
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Sector
-          </span>
-          <select
-            value={values.sector}
-            onChange={(e) => update('sector', e.target.value as Sector | '')}
-            className="ui-select"
-          >
-            <option value="">Select sector</option>
-            {sectorOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Analysis date
+            </span>
+            <input
+              type="date"
+              value={values.analysis_date}
+              onChange={(e) => update('analysis_date', e.target.value)}
+              className="ui-input"
+            />
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Moat score
-          </span>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="10"
-            value={values.moat_score}
-            onChange={(e) => update('moat_score', e.target.value)}
-            className="ui-input"
-            placeholder="8.5"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Sector
+            </span>
+            <select
+              value={values.sector}
+              onChange={(e) => update('sector', e.target.value as Sector | '')}
+              className="ui-select"
+            >
+              <option value="">Select sector</option>
+              {sectorOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Valuation score
-          </span>
-          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
-            Leave blank to use the auto valuation score when available.
-          </span>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="10"
-            value={values.valuation_score}
-            onChange={(e) => update('valuation_score', e.target.value)}
-            className="ui-input"
-            placeholder="7.0"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Verdict
+            </span>
+            <select
+              value={values.verdict}
+              onChange={(e) => update('verdict', e.target.value as Verdict | '')}
+              className="ui-select"
+            >
+              <option value="">Select verdict</option>
+              {verdictOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Management score
-          </span>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="10"
-            value={values.mgmt_score}
-            onChange={(e) => update('mgmt_score', e.target.value)}
-            className="ui-input"
-            placeholder="8.0"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Confidence
+            </span>
+            <FieldHint>Leave blank to use the auto confidence level when available.</FieldHint>
+            <select
+              value={values.confidence}
+              onChange={(e) => update('confidence', e.target.value as Confidence | '')}
+              className="ui-select"
+            >
+              <option value="">Select confidence</option>
+              {confidenceOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            ROIC score
-          </span>
-          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
-            Leave blank to use the auto ROIC score when available.
-          </span>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="10"
-            value={values.roic_score}
-            onChange={(e) => update('roic_score', e.target.value)}
-            className="ui-input"
-            placeholder="9.0"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Fair value low
+            </span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={values.fair_value_low}
+              onChange={(e) => update('fair_value_low', e.target.value)}
+              className="ui-input"
+              placeholder="420.00"
+            />
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Financial health score
-          </span>
-          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
-            Leave blank to use the auto financial health score when available.
-          </span>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="10"
-            value={values.fin_health_score}
-            onChange={(e) => update('fin_health_score', e.target.value)}
-            className="ui-input"
-            placeholder="8.0"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Fair value high
+            </span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={values.fair_value_high}
+              onChange={(e) => update('fair_value_high', e.target.value)}
+              className="ui-input"
+              placeholder="510.00"
+            />
+          </label>
+        </div>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Business understanding score
-          </span>
-          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
-            Leave blank to use the auto business understanding score when available.
-          </span>
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            max="10"
-            value={values.biz_understanding_score}
-            onChange={(e) => update('biz_understanding_score', e.target.value)}
-            className="ui-input"
-            placeholder="7.5"
-          />
-        </label>
+        <div className="mt-4 space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Thesis
+            </span>
+            <textarea
+              value={values.thesis}
+              onChange={(e) => update('thesis', e.target.value)}
+              className="ui-textarea min-h-28"
+              placeholder="Summarize the investment thesis."
+            />
+          </label>
 
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Verdict
-          </span>
-          <select
-            value={values.verdict}
-            onChange={(e) => update('verdict', e.target.value as Verdict | '')}
-            className="ui-select"
-          >
-            <option value="">Select verdict</option>
-            {verdictOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Confidence
-          </span>
-          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
-            Leave blank to use the auto confidence level when available.
-          </span>
-          <select
-            value={values.confidence}
-            onChange={(e) => update('confidence', e.target.value as Confidence | '')}
-            className="ui-select"
-          >
-            <option value="">Select confidence</option>
-            {confidenceOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Fair value low
-          </span>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={values.fair_value_low}
-            onChange={(e) => update('fair_value_low', e.target.value)}
-            className="ui-input"
-            placeholder="420.00"
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Fair value high
-          </span>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={values.fair_value_high}
-            onChange={(e) => update('fair_value_high', e.target.value)}
-            className="ui-input"
-            placeholder="510.00"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Thesis breakers
+            </span>
+            <textarea
+              value={values.thesis_breakers}
+              onChange={(e) => update('thesis_breakers', e.target.value)}
+              className="ui-textarea min-h-24"
+              placeholder="What would invalidate the thesis?"
+            />
+          </label>
+        </div>
       </div>
 
-      <label className="block">
-        <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-          Thesis
-        </span>
-        <textarea
-          value={values.thesis}
-          onChange={(e) => update('thesis', e.target.value)}
-          className="ui-textarea min-h-28"
-          placeholder="Summarize the investment thesis."
+      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <SectionHeader
+          title="Scores"
+          subtitle="Enter manual values if you want to override the app. Otherwise leave auto-capable fields blank."
         />
-      </label>
 
-      <label className="block">
-        <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-          Thesis breakers
-        </span>
-        <textarea
-          value={values.thesis_breakers}
-          onChange={(e) => update('thesis_breakers', e.target.value)}
-          className="ui-textarea min-h-24"
-          placeholder="What would invalidate the thesis?"
-        />
-      </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Moat score
+            </span>
+            <FieldHint>Usually imported from qualitative analysis.</FieldHint>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="10"
+              value={values.moat_score}
+              onChange={(e) => update('moat_score', e.target.value)}
+              className="ui-input"
+              placeholder="8.5"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Valuation score
+            </span>
+            <FieldHint>Leave blank to use the auto valuation score when available.</FieldHint>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="10"
+              value={values.valuation_score}
+              onChange={(e) => update('valuation_score', e.target.value)}
+              className="ui-input"
+              placeholder="7.0"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Management score
+            </span>
+            <FieldHint>Usually imported from qualitative analysis.</FieldHint>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="10"
+              value={values.mgmt_score}
+              onChange={(e) => update('mgmt_score', e.target.value)}
+              className="ui-input"
+              placeholder="8.0"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              ROIC score
+            </span>
+            <FieldHint>Leave blank to use the auto ROIC score when available.</FieldHint>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="10"
+              value={values.roic_score}
+              onChange={(e) => update('roic_score', e.target.value)}
+              className="ui-input"
+              placeholder="9.0"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Financial health score
+            </span>
+            <FieldHint>Leave blank to use the auto financial health score when available.</FieldHint>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="10"
+              value={values.fin_health_score}
+              onChange={(e) => update('fin_health_score', e.target.value)}
+              className="ui-input"
+              placeholder="8.0"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+              Business understanding score
+            </span>
+            <FieldHint>
+              Leave blank to use the auto business understanding score when available.
+            </FieldHint>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="10"
+              value={values.biz_understanding_score}
+              onChange={(e) => update('biz_understanding_score', e.target.value)}
+              className="ui-input"
+              placeholder="7.5"
+            />
+          </label>
+        </div>
+      </div>
 
       <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Qualitative bridge
-            </div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-              Generate a prompt, run it in ChatGPT, then paste the JSON back here.
-            </div>
-          </div>
+        <SectionHeader
+          title="Qualitative import"
+          subtitle="Generate a prompt, run it in ChatGPT, then paste the JSON back here."
+        />
 
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleGeneratePrompt}
+            className="ui-btn-secondary"
+            disabled={busy}
+          >
+            Generate Moat/Management Prompt
+          </button>
+
+          {promptText ? (
             <button
               type="button"
-              onClick={handleGeneratePrompt}
+              onClick={handleCopyPrompt}
               className="ui-btn-secondary"
               disabled={busy}
             >
-              Generate Moat/Management Prompt
+              Copy Prompt
             </button>
-
-            {promptText ? (
-              <button
-                type="button"
-                onClick={handleCopyPrompt}
-                className="ui-btn-secondary"
-                disabled={busy}
-              >
-                Copy Prompt
-              </button>
-            ) : null}
-          </div>
+          ) : null}
         </div>
 
         {promptText ? (
@@ -651,11 +669,7 @@ export function StockAnalysisForm({
               <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                 Generated prompt
               </span>
-              <textarea
-                value={promptText}
-                readOnly
-                className="ui-textarea min-h-40"
-              />
+              <textarea value={promptText} readOnly className="ui-textarea min-h-40" />
             </label>
           </div>
         ) : null}
@@ -704,17 +718,24 @@ export function StockAnalysisForm({
         ) : null}
       </div>
 
-      <label className="block">
-        <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-          Raw analysis
-        </span>
-        <textarea
-          value={values.raw_analysis}
-          onChange={(e) => update('raw_analysis', e.target.value)}
-          className="ui-textarea min-h-40"
-          placeholder="Paste the full research output or notes."
+      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <SectionHeader
+          title="Raw notes / JSON"
+          subtitle="Paste full research notes or business understanding JSON here when needed."
         />
-      </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+            Raw analysis
+          </span>
+          <textarea
+            value={values.raw_analysis}
+            onChange={(e) => update('raw_analysis', e.target.value)}
+            className="ui-textarea min-h-40"
+            placeholder="Paste the full research output, notes, or business understanding JSON."
+          />
+        </label>
+      </div>
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-[#f0a3a3]">
@@ -724,22 +745,12 @@ export function StockAnalysisForm({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
         {onCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="ui-btn-secondary"
-            disabled={busy}
-          >
+          <button type="button" onClick={onCancel} className="ui-btn-secondary" disabled={busy}>
             Cancel
           </button>
         ) : null}
 
-        <button
-          type="button"
-          onClick={handleReset}
-          className="ui-btn-secondary"
-          disabled={busy}
-        >
+        <button type="button" onClick={handleReset} className="ui-btn-secondary" disabled={busy}>
           Reset
         </button>
 
