@@ -429,6 +429,9 @@ export function StockAnalysisForm({
           <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Valuation score
           </span>
+          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
+            Leave blank to use the auto valuation score when available.
+          </span>
           <input
             type="number"
             step="0.1"
@@ -461,6 +464,9 @@ export function StockAnalysisForm({
           <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             ROIC score
           </span>
+          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
+            Leave blank to use the auto ROIC score when available.
+          </span>
           <input
             type="number"
             step="0.1"
@@ -477,6 +483,9 @@ export function StockAnalysisForm({
           <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Financial health score
           </span>
+          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
+            Leave blank to use the auto financial health score when available.
+          </span>
           <input
             type="number"
             step="0.1"
@@ -492,6 +501,9 @@ export function StockAnalysisForm({
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Business understanding score
+          </span>
+          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
+            Leave blank to use the auto business understanding score when available.
           </span>
           <input
             type="number"
@@ -526,6 +538,9 @@ export function StockAnalysisForm({
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
             Confidence
+          </span>
+          <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
+            Leave blank to use the auto confidence level when available.
           </span>
           <select
             value={values.confidence}

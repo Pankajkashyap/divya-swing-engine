@@ -115,10 +115,14 @@ export function AnalysisCardList({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="mt-4 grid gap-x-6 gap-y-2 md:grid-cols-2">
             <DataCardRow label="Overall score" value={formatScore(analysis.overall_score)} />
-            <DataCardRow label="Confidence" value={analysis.confidence ?? analysis.confidence_auto ?? '—'}/>
-              <DataCardRow
+            <DataCardRow
+              label="Confidence"
+              value={analysis.confidence ?? analysis.confidence_auto ?? '—'}
+            />
+
+            <DataCardRow
               label="Fair value"
               value={
                 analysis.fair_value_low != null || analysis.fair_value_high != null
@@ -127,35 +131,38 @@ export function AnalysisCardList({
               }
             />
             <DataCardRow label="Moat score" value={formatScore(analysis.moat_score)} />
-            <DataCardRow label="Valuation score" value={formatScore(analysis.valuation_score ?? analysis.valuation_score_auto)}/>
+
+            <DataCardRow
+              label="Valuation score"
+              value={formatScore(analysis.valuation_score ?? analysis.valuation_score_auto)}
+            />
             <DataCardRow
               label="ROIC score"
               value={formatScore(analysis.roic_score ?? analysis.roic_score_auto)}
             />
+
             <DataCardRow
               label="Financial health score"
               value={formatScore(analysis.fin_health_score ?? analysis.fin_health_score_auto)}
             />
             <DataCardRow
               label="Business understanding score"
-              value={formatScore(analysis.biz_understanding_score ?? analysis.biz_understanding_score_auto)}
+              value={formatScore(
+                analysis.biz_understanding_score ?? analysis.biz_understanding_score_auto
+              )}
             />
           </div>
 
           {analysis.thesis ? (
             <div className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-              <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Thesis:
-              </span>{' '}
+              <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">Thesis:</span>{' '}
               {analysis.thesis}
             </div>
           ) : null}
 
           {analysis.thesis_breakers ? (
             <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-              <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Breakers:
-              </span>{' '}
+              <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">Breakers:</span>{' '}
               {analysis.thesis_breakers}
             </div>
           ) : null}
