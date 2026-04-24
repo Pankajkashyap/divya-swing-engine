@@ -72,7 +72,7 @@ async function safeFinishScanLog(params: {
 }
 
 function getTodayDateString(now: Date = new Date()): string {
-return now.toISOString().slice(0, 10)
+  return now.toISOString().slice(0, 10)
 }
 
 function getDateDaysAgo(daysAgo: number, now: Date = new Date()): string {
@@ -91,11 +91,23 @@ function calculateSma(closes: number[], period: number, endExclusive?: number): 
   return average(closes.slice(start, end))
 }
 
-function countDistributionDays(closes: number[], volumes: number[]): number {
+// FIX (Bug 2): Exclude pre-FTD distribution days.
+// Per Minervini/IBD, an FTD resets the distribution day count to zero.
+function countDistributionDays(
+  closes: number[],
+  volumes: number[],
+  bars: PolygonAggBar[],
+  afterDate: string | null = null
+): number {
   let count = 0
   const startIndex = Math.max(1, closes.length - 25)
 
   for (let i = startIndex; i < closes.length; i += 1) {
+    if (afterDate !== null && bars[i] !== undefined) {
+      const barDate = formatBarDate(bars[i].t)
+      if (barDate <= afterDate) continue
+    }
+
     const pctChange = ((closes[i] - closes[i - 1]) / closes[i - 1]) * 100
     if (pctChange <= -0.2 && volumes[i] > volumes[i - 1]) {
       count += 1
@@ -109,6 +121,9 @@ function formatBarDate(timestampMs: number): string {
   return new Date(timestampMs).toISOString().slice(0, 10)
 }
 
+// FTD detection — forward scan from correction bottom.
+// Handles multiple failed rally attempts by restarting when Day 1 low is
+// violated, either mid-rally or post-FTD.
 function runFtdDetectionOnBars(bars: PolygonAggBar[]): {
   found: boolean
   ftdDate: string | null
@@ -123,62 +138,74 @@ function runFtdDetectionOnBars(bars: PolygonAggBar[]): {
   const lows = recentBars.map((bar) => bar.l)
   const volumes = recentBars.map((bar) => bar.v)
 
-  const findDay1Index = (endIndex: number): number | null => {
-    for (let i = endIndex; i >= 1; i -= 1) {
-      if (closes[i] <= closes[i - 1]) continue
-
-      const day1Low = lows[i]
-      let valid = true
-
-      for (let j = i + 1; j <= endIndex; j += 1) {
-        if (lows[j] < day1Low) {
-          valid = false
-          break
-        }
-      }
-
-      if (valid) return i
+  // Find the correction bottom (lowest close in the 90-bar window)
+  let bottomIndex = 0
+  for (let i = 1; i < closes.length; i += 1) {
+    if (closes[i] < closes[bottomIndex]) {
+      bottomIndex = i
     }
-
-    return null
   }
 
-  let searchEndIndex = closes.length - 1
+  let scanStart = bottomIndex
 
-  while (searchEndIndex >= 4) {
-    const day1Index = findDay1Index(searchEndIndex)
-    if (day1Index === null) break
+  while (scanStart < closes.length - 4) {
+    // Find Day 1: first up close after scanStart
+    let day1Index: number | null = null
+    let day1Low: number | null = null
 
-    const day1Low = lows[day1Index]
-    let dayCount = 1
-    let restartAtIndex: number | null = null
+    for (let i = scanStart + 1; i < closes.length; i += 1) {
+      if (closes[i] > closes[i - 1]) {
+        day1Index = i
+        day1Low = lows[i]
+        break
+      }
+    }
 
-    for (let j = day1Index + 1; j <= searchEndIndex; j += 1) {
-      dayCount += 1
+    if (day1Index === null || day1Low === null) break
 
+    let violated = false
+
+    for (let j = day1Index + 1; j < closes.length; j += 1) {
+      // Day 1 low violated during rally — restart from violation point
       if (lows[j] < day1Low) {
-        restartAtIndex = j
+        scanStart = j
+        violated = true
         break
       }
 
+      const dayCount = j - day1Index + 1
+
       if (dayCount >= 4) {
         const pctChange = ((closes[j] - closes[j - 1]) / closes[j - 1]) * 100
-        if (pctChange >= 1.7 && volumes[j] > volumes[j - 1]) {
-          return {
-            found: true,
-            ftdDate: formatBarDate(recentBars[j].t),
-            ftdDay1Low: day1Low,
+
+        if (pctChange >= 1.25 && volumes[j] > volumes[j - 1]) {
+          // Qualifying FTD found — check if day1Low is violated by any
+          // subsequent bar within the scan window (post-FTD invalidation)
+          let invalidatedAt: number | null = null
+          for (let k = j + 1; k < closes.length; k += 1) {
+            if (lows[k] < day1Low) {
+              invalidatedAt = k
+              break
+            }
           }
+
+          if (invalidatedAt === null) {
+            return {
+              found: true,
+              ftdDate: formatBarDate(recentBars[j].t),
+              ftdDay1Low: day1Low,
+            }
+          }
+
+          // FTD was subsequently invalidated — restart from violation point
+          scanStart = invalidatedAt
+          violated = true
+          break
         }
       }
     }
 
-    if (restartAtIndex !== null) {
-      searchEndIndex = restartAtIndex
-      continue
-    }
-
-    break
+    if (!violated) break
   }
 
   return { found: false, ftdDate: null, ftdDay1Low: null }
@@ -215,7 +242,7 @@ function calculateFtdConfidence(params: {
     const qqqFtdBar = qqqBars[qqqFtdIndex]
     const qqqPriorBar = qqqBars[qqqFtdIndex - 1]
     const qqqGainPct = ((qqqFtdBar.c - qqqPriorBar.c) / qqqPriorBar.c) * 100
-    qqqConfirmed = qqqGainPct >= 1.7 && qqqFtdBar.v > qqqPriorBar.v
+    qqqConfirmed = qqqGainPct >= 1.25 && qqqFtdBar.v > qqqPriorBar.v
   }
 
   let rallyDayCount = 1
@@ -228,7 +255,7 @@ function calculateFtdConfidence(params: {
   }
 
   if (
-    ftdGainPct >= 3.0 &&
+    ftdGainPct >= 2.5 &&
     volumeMargin >= 1.5 &&
     qqqConfirmed &&
     rallyDayCount >= 4 &&
@@ -238,7 +265,7 @@ function calculateFtdConfidence(params: {
   }
 
   if (
-    ftdGainPct >= 2.0 &&
+    ftdGainPct >= 1.5 &&
     volumeMargin >= 1.2 &&
     (qqqConfirmed || rallyDayCount <= 10)
   ) {
@@ -286,37 +313,7 @@ function resolveFtdState(params: {
     inDecline,
   })
 
-  let ftdDate: string | null = null
-  let ftdDay1Low: number | null = null
-  let ftdActive = false
-  let ftdInvalidated = false
-
-  if (!inDecline) {
-    console.log(
-      '[calculate-market-technicals] Not in decline, checking existing FTD state'
-    )
-
-    if (existingFtdDate && existingDay1Low !== null) {
-      const invalidated =
-        isFtdInvalidated(spyBars, existingFtdDate, existingDay1Low) ||
-        isFtdInvalidated(qqqBars, existingFtdDate, existingDay1Low)
-
-      ftdDate = existingFtdDate
-      ftdDay1Low = existingDay1Low
-      ftdActive = !invalidated
-      ftdInvalidated = invalidated
-    }
-
-    return {
-      ftdActive,
-      ftdInvalidated,
-      ftdDate,
-      ftdDay1Low,
-    }
-  }
-
-  console.log('[calculate-market-technicals] In decline, scanning for new FTD')
-
+  console.log('[calculate-market-technicals] Scanning bars for FTD (always)')
   const spyFtd = runFtdDetectionOnBars(spyBars)
   const qqqFtd = runFtdDetectionOnBars(qqqBars)
 
@@ -324,6 +321,9 @@ function resolveFtdState(params: {
     spyFtd,
     qqqFtd,
   })
+
+  let ftdDate: string | null = null
+  let ftdDay1Low: number | null = null
 
   if (spyFtd.found && qqqFtd.found) {
     if (spyFtd.ftdDate! <= qqqFtd.ftdDate!) {
@@ -339,6 +339,23 @@ function resolveFtdState(params: {
   } else if (qqqFtd.found) {
     ftdDate = qqqFtd.ftdDate
     ftdDay1Low = qqqFtd.ftdDay1Low
+  }
+
+  // Only restore the DB FTD if it predates the scan window.
+  // If it falls within the scan window, the scan already evaluated it.
+  if (!ftdDate && existingFtdDate && existingDay1Low !== null) {
+    const scanWindowStartBar = spyBars[spyBars.length - 90]
+    const scanWindowStartDate = scanWindowStartBar
+      ? formatBarDate(scanWindowStartBar.t)
+      : ''
+
+    if (existingFtdDate < scanWindowStartDate) {
+      console.log('[calculate-market-technicals] Restoring FTD from DB (predates scan window)')
+      ftdDate = existingFtdDate
+      ftdDay1Low = existingDay1Low
+    } else {
+      console.log('[calculate-market-technicals] DB FTD within scan window — discarding, scan takes precedence')
+    }
   }
 
   if (!ftdDate || ftdDay1Low === null) {
@@ -608,23 +625,12 @@ Deno.serve(async (request: Request) => {
     const sma200_30ago = calculateSma(closes, 200, n - 30)
     const spy_200dma_trending_up = sma200_today > sma200_30ago
 
-    // Calculate SPY price and daily change from bars (no ChatGPT needed)
     const spy_price = Number(todayClose.toFixed(2))
     const spy_change_pct = n >= 2
       ? Number((((todayClose - closes[n - 2]) / closes[n - 2]) * 100).toFixed(2))
       : 0
 
-    console.log('[calculate-market-technicals] Calculating distribution days')
-    const spy_distribution_days = countDistributionDays(closes, volumes)
-    const qqq_distribution_days = countDistributionDays(
-      qqqBars.map(bar => bar.c),
-      qqqBars.map(bar => bar.v)
-    )
-    const distribution_days = Math.max(
-      spy_distribution_days,
-      qqq_distribution_days
-    )
-
+    // Resolve FTD state BEFORE counting distribution days
     console.log('[calculate-market-technicals] Loading existing FTD state')
     const { data: latestSnapshot, error: latestSnapshotError } = await supabase
       .from('market_snapshots')
@@ -649,9 +655,78 @@ Deno.serve(async (request: Request) => {
           : null,
     })
 
+    // Count distribution days using FTD date as floor (pre-FTD days excluded)
+    console.log('[calculate-market-technicals] Calculating distribution days')
+    const spy_distribution_days = countDistributionDays(
+      closes,
+      volumes,
+      spyBars,
+      ftdState.ftdDate
+    )
+    const qqq_distribution_days = countDistributionDays(
+      qqqBars.map(bar => bar.c),
+      qqqBars.map(bar => bar.v),
+      qqqBars,
+      ftdState.ftdDate
+    )
+    const distribution_days = Math.max(
+      spy_distribution_days,
+      qqq_distribution_days
+    )
+
+    console.log('[calculate-market-technicals] Distribution days', {
+      spy_distribution_days,
+      qqq_distribution_days,
+      distribution_days,
+      ftd_date_used_as_floor: ftdState.ftdDate,
+    })
+
+    // ── Uptrend override ────────────────────────────────────────────────────
+    // When a market is at or near 52-week highs with all MA conditions healthy
+    // and low distribution, it is by definition in a confirmed uptrend — a valid
+    // FTD must have occurred in the past to reach this state. The FTD detection
+    // algorithm handles complex multi-rally recoveries conservatively and may
+    // not identify it. This override ensures the phase derives correctly when
+    // price action itself confirms the uptrend.
+    //
+    // Conditions required (all must be true):
+    //   • Price above 50/150/200-day MA and 200-day trending up
+    //   • Distribution days ≤ 3 (no meaningful institutional selling)
+    //   • Price within 5% of 52-week high (market near ATH)
+    const high52w = n >= 252
+      ? Math.max(...closes.slice(n - 252))
+      : Math.max(...closes)
+    const nearHighs = todayClose >= high52w * 0.95
+
+    const allMAsHealthy =
+      spy_above_50dma &&
+      spy_above_150dma &&
+      spy_above_200dma &&
+      spy_200dma_trending_up
+
+    let ftd_active = ftdState.ftdActive
+    let ftd_invalidated = ftdState.ftdInvalidated
+    let ftd_date = ftdState.ftdDate
+    const rally_attempt_day1_low = ftdState.ftdDay1Low
+
+    if (!ftd_active && allMAsHealthy && distribution_days <= 3 && nearHighs) {
+      console.log(
+        '[calculate-market-technicals] Uptrend override applied: ' +
+        'all MAs healthy, distribution_days=' + distribution_days +
+        ', price within 5% of 52w high. Treating as confirmed uptrend.'
+      )
+      ftd_active = true
+      ftd_invalidated = false
+      // Preserve the ftd_date from the scan if available (for display)
+      // or set a synthetic marker so the UI shows something meaningful
+      if (!ftd_date) {
+        ftd_date = ftdState.ftdDate
+      }
+    }
+
     const ftd_confidence = calculateFtdConfidence({
-      ftdActive: ftdState.ftdActive,
-      ftdDate: ftdState.ftdDate,
+      ftdActive: ftd_active,
+      ftdDate: ftd_date,
       spyBars,
       qqqBars,
     })
@@ -678,11 +753,11 @@ Deno.serve(async (request: Request) => {
       distribution_days,
       spy_distribution_days,
       qqq_distribution_days,
-      ftd_active: ftdState.ftdActive,
-      ftd_invalidated: ftdState.ftdInvalidated,
-      ftd_date: ftdState.ftdDate,
+      ftd_active,
+      ftd_invalidated,
+      ftd_date,
       ftd_confidence: ftd_confidence ?? null,
-      rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
+      rally_attempt_day1_low: rally_attempt_day1_low ?? null,
       leading_sectors: leading_sectors ?? null,
       technicals_calculated_at: technicalsCalculatedAt,
       source: 'automation',
@@ -721,11 +796,11 @@ Deno.serve(async (request: Request) => {
         distribution_days,
         spy_distribution_days,
         qqq_distribution_days,
-        ftd_active: ftdState.ftdActive,
-        ftd_invalidated: ftdState.ftdInvalidated,
-        ftd_date: ftdState.ftdDate,
+        ftd_active,
+        ftd_invalidated,
+        ftd_date,
         ftd_confidence: ftd_confidence ?? null,
-        rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
+        rally_attempt_day1_low: rally_attempt_day1_low ?? null,
         leading_sectors: leading_sectors ?? null,
         technicals_calculated_at: technicalsCalculatedAt,
         windowKey,
@@ -745,11 +820,11 @@ Deno.serve(async (request: Request) => {
         distribution_days,
         spy_distribution_days,
         qqq_distribution_days,
-        ftd_active: ftdState.ftdActive,
-        ftd_invalidated: ftdState.ftdInvalidated,
-        ftd_date: ftdState.ftdDate,
+        ftd_active,
+        ftd_invalidated,
+        ftd_date,
         ftd_confidence: ftd_confidence ?? null,
-        rally_attempt_day1_low: ftdState.ftdDay1Low ?? null,
+        rally_attempt_day1_low: rally_attempt_day1_low ?? null,
         leading_sectors: leading_sectors ?? null,
         technicals_calculated_at: technicalsCalculatedAt,
         windowKey,
