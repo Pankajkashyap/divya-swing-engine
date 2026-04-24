@@ -55,6 +55,13 @@ function getVerdictTone(verdict: StockAnalysis['verdict']) {
   }
 }
 
+function shouldShowAutoNote(value: string | null | undefined) {
+  if (!value) return false
+
+  const normalized = value.toLowerCase()
+  return !normalized.includes('could not be calculated')
+}
+
 export function AnalysisCardList({
   analyses,
   onEdit,
@@ -152,17 +159,18 @@ export function AnalysisCardList({
               )}
             />
           </div>
-          {analysis.valuation_score_explanation ||
-          analysis.roic_score_explanation ||
-          analysis.fin_health_score_explanation ||
-          analysis.biz_understanding_score_explanation ||
-          analysis.confidence_explanation ? (
+
+          {shouldShowAutoNote(analysis.valuation_score_explanation) ||
+          shouldShowAutoNote(analysis.roic_score_explanation) ||
+          shouldShowAutoNote(analysis.fin_health_score_explanation) ||
+          shouldShowAutoNote(analysis.biz_understanding_score_explanation) ||
+          shouldShowAutoNote(analysis.confidence_explanation) ? (
             <div className="mt-4 space-y-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
               <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                 Auto-score notes
               </div>
 
-              {analysis.valuation_score_explanation ? (
+              {shouldShowAutoNote(analysis.valuation_score_explanation) ? (
                 <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                   <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
                     Valuation:
@@ -171,7 +179,7 @@ export function AnalysisCardList({
                 </div>
               ) : null}
 
-              {analysis.roic_score_explanation ? (
+              {shouldShowAutoNote(analysis.roic_score_explanation) ? (
                 <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                   <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
                     ROIC:
@@ -180,7 +188,7 @@ export function AnalysisCardList({
                 </div>
               ) : null}
 
-              {analysis.fin_health_score_explanation ? (
+              {shouldShowAutoNote(analysis.fin_health_score_explanation) ? (
                 <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                   <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
                     Financial health:
@@ -189,7 +197,7 @@ export function AnalysisCardList({
                 </div>
               ) : null}
 
-              {analysis.biz_understanding_score_explanation ? (
+              {shouldShowAutoNote(analysis.biz_understanding_score_explanation) ? (
                 <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                   <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
                     Business understanding:
@@ -198,7 +206,7 @@ export function AnalysisCardList({
                 </div>
               ) : null}
 
-              {analysis.confidence_explanation ? (
+              {shouldShowAutoNote(analysis.confidence_explanation) ? (
                 <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
                   <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
                     Confidence:
@@ -208,7 +216,7 @@ export function AnalysisCardList({
               ) : null}
             </div>
           ) : null}
-          
+
           {analysis.thesis ? (
             <div className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
               <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">Thesis:</span>{' '}
