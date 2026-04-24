@@ -20,6 +20,8 @@ import { runFinancialHealthScore } from '../lib/scoring/runFinancialHealthScore'
 import { runBusinessUnderstandingScore } from '../lib/scoring/runBusinessUnderstandingScore'
 import { runValuationScore } from '../lib/scoring/runValuationScore'
 import { runConfidenceScore } from '../lib/scoring/runConfidenceScore'
+import { runVerdictScore } from '../lib/scoring/runVerdictScore'
+
 type StockAnalysisFormPayload = {
   ticker: string
   company: string
@@ -150,6 +152,8 @@ function buildPrefilledAnalysis(searchParams: URLSearchParams): StockAnalysis | 
     valuation_score_explanation: null,
     confidence_auto: null,
     confidence_explanation: null,
+    verdict_auto: null,
+    verdict_explanation: null,
   }
 }
 
@@ -194,6 +198,8 @@ function InvestingAnalysisPageContent() {
   const prefilledInterestCoverage = toNullableNumber(searchParams.get('interest_coverage'))
   const prefilledCurrentRatio = toNullableNumber(searchParams.get('current_ratio'))
   const prefilledFreeCashFlowTtm = toNullableNumber(searchParams.get('free_cash_flow_ttm'))
+  const prefilledCriticalRedFlags = toNullableNumber(searchParams.get('critical_red_flags')) ?? 0
+  const prefilledWarningRedFlags = toNullableNumber(searchParams.get('warning_red_flags')) ?? 0
 
   const queryPrefillAnalysis = useMemo(
     () => (queryMode === 'new' ? buildPrefilledAnalysis(searchParams) : null),
@@ -396,6 +402,12 @@ function InvestingAnalysisPageContent() {
       businessUnderstandingScore: effectiveBusinessUnderstandingScore,
     })
 
+    const verdictScoreResult = runVerdictScore({
+      overallScore,
+      criticalRedFlags: prefilledCriticalRedFlags,
+      warningRedFlags: prefilledWarningRedFlags,
+    })
+
     const record = {
       user_id: user?.id ?? null,
       ticker: payload.ticker,
@@ -409,7 +421,7 @@ function InvestingAnalysisPageContent() {
       fin_health_score: effectiveFinancialHealthScore,
       biz_understanding_score: effectiveBusinessUnderstandingScore,
       overall_score: overallScore,
-      verdict: payload.verdict,
+      verdict: payload.verdict ?? verdictScoreResult.verdict,
       fair_value_low: payload.fair_value_low,
       fair_value_high: payload.fair_value_high,
       thesis: payload.thesis,
@@ -421,13 +433,16 @@ function InvestingAnalysisPageContent() {
       moat_score_auto: payload.moat_score_auto,
       management_score_auto: payload.management_score_auto,
       qualitative_confidence: payload.qualitative_confidence,
-      qualitative_imported_at: payload.moat_json || payload.management_json ? new Date().toISOString() : null,
+      qualitative_imported_at:
+        payload.moat_json || payload.management_json ? new Date().toISOString() : null,
       roic_score_auto: roicScoreResult.score,
       roic_score_explanation: roicScoreResult.explanation,
       valuation_score_auto: valuationScoreResult.score,
       valuation_score_explanation: valuationScoreResult.explanation,
       confidence_auto: confidenceScoreResult.confidence,
       confidence_explanation: confidenceScoreResult.explanation,
+      verdict_auto: verdictScoreResult.verdict,
+      verdict_explanation: verdictScoreResult.explanation,
       fin_health_score_auto: financialHealthScoreResult.score,
       fin_health_score_explanation: financialHealthScoreResult.explanation,
       business_understanding_json: businessUnderstandingScoreResult.normalizedPayload,
@@ -612,7 +627,10 @@ function InvestingAnalysisPageContent() {
 
             <DataCard title="Latest Analysis">
               <DataCardRow label="Ticker" value={latestAnalysis?.ticker ?? '—'} />
-              <DataCardRow label="Verdict" value={latestAnalysis?.verdict ?? '—'} />
+              <DataCardRow
+                label="Verdict"
+                value={latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? '—'}
+              />
               <DataCardRow
                 label="Overall score"
                 value={formatScore(latestAnalysis?.overall_score)}
@@ -622,7 +640,10 @@ function InvestingAnalysisPageContent() {
             <DataCard title="Fair Value Snapshot">
               <DataCardRow label="Low" value={formatCurrency(latestAnalysis?.fair_value_low)} />
               <DataCardRow label="High" value={formatCurrency(latestAnalysis?.fair_value_high)} />
-              <DataCardRow label="Confidence" value={latestAnalysis?.confidence ?? '—'} />
+              <DataCardRow
+                label="Confidence"
+                value={latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? '—'}
+              />
             </DataCard>
           </>
         )}

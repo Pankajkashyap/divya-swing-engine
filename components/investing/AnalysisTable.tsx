@@ -82,7 +82,7 @@ export function AnalysisTable({
               <td>{analysis.company}</td>
               <td>{formatDate(analysis.analysis_date)}</td>
               <td>{analysis.sector}</td>
-              <td>{analysis.verdict ?? '—'}</td>
+              <td>{analysis.verdict ?? analysis.verdict_auto ?? '—'}</td>
               <td>{formatScore(analysis.overall_score)}</td>
               <td>{analysis.confidence ?? analysis.confidence_auto ?? '—'}</td>
               <td>{formatCurrency(analysis.fair_value_low)}</td>

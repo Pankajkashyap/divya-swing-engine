@@ -138,6 +138,8 @@ export type StockAnalysis = {
   valuation_score_explanation?: string | null
   confidence_auto?: string | null
   confidence_explanation?: string | null
+  verdict_auto?: Verdict | null
+  verdict_explanation?: string | null
 }
 
 export type DecisionJournalEntry = {

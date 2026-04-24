@@ -100,7 +100,7 @@ export function AnalysisCardList({
 
             <div className="flex shrink-0 flex-col items-end gap-2">
               <div className={`text-right text-xs font-medium ${getVerdictTone(analysis.verdict)}`}>
-                {analysis.verdict ?? '—'}
+                {analysis.verdict ?? analysis.verdict_auto ?? '—'}
               </div>
               <div className="flex gap-2">
                 <button
@@ -164,7 +164,8 @@ export function AnalysisCardList({
           shouldShowAutoNote(analysis.roic_score_explanation) ||
           shouldShowAutoNote(analysis.fin_health_score_explanation) ||
           shouldShowAutoNote(analysis.biz_understanding_score_explanation) ||
-          shouldShowAutoNote(analysis.confidence_explanation) ? (
+          shouldShowAutoNote(analysis.confidence_explanation) ||
+          shouldShowAutoNote(analysis.verdict_explanation) ? (
             <div className="mt-4 space-y-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
               <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
                 Auto-score notes
@@ -212,6 +213,15 @@ export function AnalysisCardList({
                     Confidence:
                   </span>{' '}
                   {analysis.confidence_explanation}
+                </div>
+              ) : null}
+
+              {shouldShowAutoNote(analysis.verdict_explanation) ? (
+                <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                    Verdict:
+                  </span>{' '}
+                  {analysis.verdict_explanation}
                 </div>
               ) : null}
             </div>

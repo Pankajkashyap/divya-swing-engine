@@ -77,6 +77,7 @@ type ScreenerEngineResult = {
   failedRules: number
   inconclusiveRules: number
   criticalRedFlags: number
+  warningRedFlags?: number
   passedInitialScreen: boolean
   scorecard?: {
     categories: ScorecardCategoryScore[]
@@ -192,6 +193,8 @@ export default function InvestingScreenerPage() {
         result.snapshot.currentRatio != null ? String(result.snapshot.currentRatio) : '',
       free_cash_flow_ttm:
         result.snapshot.freeCashFlowTtm != null ? String(result.snapshot.freeCashFlowTtm) : '',
+      critical_red_flags: String(result.criticalRedFlags ?? 0),
+      warning_red_flags: String(result.verdict?.warningRedFlags ?? result.warningRedFlags ?? 0),
     })
 
     return `/investing/analysis?${params.toString()}`
