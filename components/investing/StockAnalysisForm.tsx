@@ -23,6 +23,7 @@ type StockAnalysisFormValues = {
   thesis: string
   thesis_breakers: string
   confidence: Confidence | ''
+  qualitative_json_text: string
   business_understanding_json_text: string
   raw_analysis: string
 }
@@ -101,6 +102,18 @@ function toFormValues(item?: StockAnalysis | null): StockAnalysisFormValues {
     thesis: item?.thesis ?? '',
     thesis_breakers: item?.thesis_breakers ?? '',
     confidence: item?.confidence ?? '',
+    qualitative_json_text:
+      item?.moat_json || item?.management_json
+        ? JSON.stringify(
+            {
+              moat: item?.moat_json ?? null,
+              management: item?.management_json ?? null,
+              confidence: item?.qualitative_confidence ?? null,
+            },
+            null,
+            2
+          )
+        : '',
     business_understanding_json_text: item?.business_understanding_json
       ? JSON.stringify(item.business_understanding_json, null, 2)
       : '',
@@ -144,9 +157,6 @@ export function StockAnalysisForm({
   const [values, setValues] = useState<StockAnalysisFormValues>(initialValues)
   const [error, setError] = useState<string | null>(null)
   const [promptText, setPromptText] = useState('')
-  const [qualitativeJsonText, setQualitativeJsonText] = useState(
-    initialAnalysis?.raw_analysis ?? ''
-  )
   const [qualitativeImportSuccess, setQualitativeImportSuccess] = useState<string | null>(null)
   const [, setMoatJson] = useState<Record<string, unknown> | null>(
     initialAnalysis?.moat_json ?? null
@@ -176,7 +186,6 @@ export function StockAnalysisForm({
   function handleReset() {
     setValues(initialValues)
     setPromptText('')
-    setQualitativeJsonText(initialAnalysis?.raw_analysis ?? '')
     setMoatJson(initialAnalysis?.moat_json ?? null)
     setManagementJson(initialAnalysis?.management_json ?? null)
     setMoatScoreAuto(initialAnalysis?.moat_score_auto ?? null)
@@ -241,7 +250,7 @@ export function StockAnalysisForm({
 
   function handleImportQualitativeJson() {
     try {
-      const parsed = parseQualitativeImport(qualitativeJsonText)
+      const parsed = parseQualitativeImport(values.qualitative_json_text)
       const scored = scoreQualitativeImport(parsed)
 
       setMoatJson(parsed.moat as unknown as Record<string, unknown>)
@@ -254,7 +263,6 @@ export function StockAnalysisForm({
         ...prev,
         moat_score: String(scored.moatScoreAuto),
         mgmt_score: String(scored.managementScoreAuto),
-        raw_analysis: qualitativeJsonText,
       }))
 
       setError(null)
@@ -365,11 +373,29 @@ export function StockAnalysisForm({
       thesis_breakers: values.thesis_breakers.trim() || null,
       confidence: values.confidence || null,
       raw_analysis: values.raw_analysis.trim() || null,
-      moat_json: null,
-      management_json: null,
-      moat_score_auto: null,
-      management_score_auto: null,
-      qualitative_confidence: null,
+      moat_json: values.qualitative_json_text.trim()
+        ? (() => {
+            try {
+              const parsed = parseQualitativeImport(values.qualitative_json_text)
+              return parsed.moat as Record<string, unknown>
+            } catch {
+              return null
+            }
+          })()
+        : null,
+      management_json: values.qualitative_json_text.trim()
+        ? (() => {
+            try {
+              const parsed = parseQualitativeImport(values.qualitative_json_text)
+              return parsed.management as Record<string, unknown>
+            } catch {
+              return null
+            }
+          })()
+        : null,
+      moat_score_auto: moatScoreAuto,
+      management_score_auto: managementScoreAuto,
+      qualitative_confidence: qualitativeConfidence,
       business_understanding_json: businessUnderstandingJson,
     })
   }
@@ -648,7 +674,7 @@ export function StockAnalysisForm({
       <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
         <SectionHeader
           title="Qualitative import"
-          subtitle="Generate a prompt, run it in ChatGPT, then paste the JSON back here."
+          subtitle="Generate a prompt, run it in ChatGPT, then paste the Moat / Management JSON here."
         />
 
         <div className="flex flex-wrap gap-2">
@@ -687,12 +713,12 @@ export function StockAnalysisForm({
         <div className="mt-4">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Paste ChatGPT JSON
+              Moat / Management JSON
             </span>
             <textarea
-              value={qualitativeJsonText}
+              value={values.qualitative_json_text}
               onChange={(e) => {
-                setQualitativeJsonText(e.target.value)
+                update('qualitative_json_text', e.target.value)
                 setError(null)
                 setQualitativeImportSuccess(null)
               }}
