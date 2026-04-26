@@ -9,6 +9,7 @@ import type {
   Holding,
   QuarterlyReview,
   SectorTarget,
+  StockAnalysis,
   WatchlistItem,
 } from '@/app/investing/types'
 import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
@@ -34,6 +35,27 @@ type BucketExposureRow = {
   targetMax: number | null
 }
 
+type EnrichedWatchlistItem = WatchlistItem & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+  watchlist_action_hint?: 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null
+}
+
+type EnrichedHolding = Holding & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+  valuation_status?: 'Below fair value' | 'Within range' | 'Above fair value' | null
+  portfolio_action_hint?: 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null
+}
+
 function SkeletonCard() {
   return (
     <div className="ui-card p-4">
@@ -57,6 +79,17 @@ function formatCurrency(value: number | null | undefined) {
   }).format(value)
 }
 
+function formatCurrency2(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
 function formatPercent(value: number | null | undefined, digits = 1) {
   if (value == null || Number.isNaN(value)) return '—'
   return `${value.toFixed(digits)}%`
@@ -75,6 +108,11 @@ function formatDate(value: string | null | undefined) {
   })
 }
 
+function formatScore(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return value.toFixed(1)
+}
+
 function getSectorStatus(pct: number, min: number | null, max: number | null) {
   if (min == null || max == null) return null
   if (pct < min) return 'Underweight'
@@ -82,11 +120,104 @@ function getSectorStatus(pct: number, min: number | null, max: number | null) {
   return 'In range'
 }
 
+function getValuationStatus(args: {
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Below fair value' | 'Within range' | 'Above fair value' | null {
+  const { currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return null
+  }
+
+  if (currentPrice < fairValueLow) return 'Below fair value'
+  if (currentPrice > fairValueHigh) return 'Above fair value'
+  return 'Within range'
+}
+
+function getWatchlistActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null {
+  const { latestVerdict, latestConfidence, currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (!latestVerdict) return 'Needs new analysis'
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return latestVerdict === 'Strong Buy' || latestVerdict === 'Buy'
+      ? 'Keep watching'
+      : 'Needs new analysis'
+  }
+
+  if ((latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') && currentPrice <= fairValueHigh) {
+    return 'Ready to buy'
+  }
+
+  if (currentPrice > fairValueHigh) {
+    return 'Too extended'
+  }
+
+  if (latestConfidence === 'Low') {
+    return 'Needs new analysis'
+  }
+
+  return 'Keep watching'
+}
+
+function getPortfolioActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  valuationStatus: 'Below fair value' | 'Within range' | 'Above fair value' | null | undefined
+  thesisStatus: Holding['thesis_status'] | null | undefined
+}): 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null {
+  const { latestVerdict, latestConfidence, valuationStatus, thesisStatus } = args
+
+  if (thesisStatus === 'Broken' || thesisStatus === 'Weakening') {
+    return 'Review thesis'
+  }
+
+  if (
+    (latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') &&
+    valuationStatus === 'Below fair value' &&
+    latestConfidence !== 'Low'
+  ) {
+    return 'Add candidate'
+  }
+
+  if (
+    valuationStatus === 'Above fair value' &&
+    (latestVerdict === 'Hold' || latestVerdict === 'Avoid' || latestVerdict === 'Red Flag')
+  ) {
+    return 'Trim candidate'
+  }
+
+  return 'Hold'
+}
+
 export default function InvestingDashboardPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
-  const [holdings, setHoldings] = useState<Holding[]>([])
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
+  const [holdings, setHoldings] = useState<EnrichedHolding[]>([])
+  const [watchlist, setWatchlist] = useState<EnrichedWatchlistItem[]>([])
+  const [analyses, setAnalyses] = useState<StockAnalysis[]>([])
   const [journalEntries, setJournalEntries] = useState<DecisionJournalEntry[]>([])
   const [quarterlyReviews, setQuarterlyReviews] = useState<QuarterlyReview[]>([])
   const [sectorTargets, setSectorTargets] = useState<SectorTarget[]>([])
@@ -105,6 +236,7 @@ export default function InvestingDashboardPage() {
       const [
         holdingsRes,
         watchlistRes,
+        analysesRes,
         journalRes,
         reviewsRes,
         sectorTargetsRes,
@@ -117,12 +249,15 @@ export default function InvestingDashboardPage() {
         supabase
           .from('investing_watchlist')
           .select('*')
-          .order('created_at', { ascending: false }),
+          .order('date_added', { ascending: false }),
+        supabase
+          .from('investing_stock_analyses')
+          .select('*')
+          .order('analysis_date', { ascending: false }),
         supabase
           .from('investing_decision_journal')
           .select('*')
-          .order('entry_date', { ascending: false })
-          .limit(5),
+          .order('entry_date', { ascending: false }),
         supabase
           .from('investing_quarterly_reviews')
           .select('*')
@@ -142,16 +277,91 @@ export default function InvestingDashboardPage() {
 
       const errors: string[] = []
 
+      const analysesData = (analysesRes.data ?? []) as StockAnalysis[]
+      if (analysesRes.error) {
+        errors.push(`Analyses: ${analysesRes.error.message}`)
+      } else {
+        setAnalyses(analysesData)
+      }
+
+      const latestAnalysisByTicker = new Map<string, StockAnalysis>()
+      for (const analysis of analysesData) {
+        const ticker = analysis.ticker?.toUpperCase?.() ?? ''
+        if (!ticker) continue
+        if (!latestAnalysisByTicker.has(ticker)) {
+          latestAnalysisByTicker.set(ticker, analysis)
+        }
+      }
+
       if (holdingsRes.error) {
         errors.push(`Holdings: ${holdingsRes.error.message}`)
       } else {
-        setHoldings((holdingsRes.data ?? []) as Holding[])
+        const enrichedHoldings: EnrichedHolding[] = ((holdingsRes.data ?? []) as Holding[]).map(
+          (holding) => {
+            const latestAnalysis = latestAnalysisByTicker.get(holding.ticker.toUpperCase())
+            const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
+            const latestConfidence =
+              latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+            const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
+            const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
+            const valuationStatus = getValuationStatus({
+              currentPrice: holding.current_price,
+              fairValueLow: latestFairValueLow,
+              fairValueHigh: latestFairValueHigh,
+            })
+
+            return {
+              ...holding,
+              latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
+              latest_analysis_verdict: latestVerdict,
+              latest_analysis_confidence: latestConfidence,
+              latest_analysis_fair_value_low: latestFairValueLow,
+              latest_analysis_fair_value_high: latestFairValueHigh,
+              latest_analysis_date: latestAnalysis?.analysis_date ?? null,
+              valuation_status: valuationStatus,
+              portfolio_action_hint: getPortfolioActionHint({
+                latestVerdict,
+                latestConfidence,
+                valuationStatus,
+                thesisStatus: holding.thesis_status,
+              }),
+            }
+          }
+        )
+        setHoldings(enrichedHoldings)
       }
 
       if (watchlistRes.error) {
         errors.push(`Watchlist: ${watchlistRes.error.message}`)
       } else {
-        setWatchlist((watchlistRes.data ?? []) as WatchlistItem[])
+        const enrichedWatchlist: EnrichedWatchlistItem[] = ((watchlistRes.data ?? []) as WatchlistItem[]).map(
+          (item) => {
+            const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
+            const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
+            const latestConfidence =
+              latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+            const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
+            const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
+
+            return {
+              ...item,
+              latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
+              latest_analysis_verdict: latestVerdict,
+              latest_analysis_confidence: latestConfidence,
+              latest_analysis_fair_value_low: latestFairValueLow,
+              latest_analysis_fair_value_high: latestFairValueHigh,
+              latest_analysis_date: latestAnalysis?.analysis_date ?? null,
+              watchlist_action_hint: getWatchlistActionHint({
+                latestVerdict,
+                latestConfidence,
+                currentPrice: item.current_price,
+                fairValueLow: latestFairValueLow,
+                fairValueHigh: latestFairValueHigh,
+              }),
+            }
+          }
+        )
+        setWatchlist(enrichedWatchlist)
       }
 
       if (journalRes.error) {
@@ -286,22 +496,40 @@ export default function InvestingDashboardPage() {
   }, [holdings, bucketTargets, portfolioSummary.totalValue])
 
   const watchlistSummary = useMemo(() => {
-    const readyToBuy = watchlist.filter((item) => item.status === 'Ready to buy')
-    const approachingEntry = watchlist.filter(
-      (item) => item.status === 'Watching — approaching entry'
+    const readyToBuy = watchlist.filter((item) => item.watchlist_action_hint === 'Ready to buy')
+    const keepWatching = watchlist.filter((item) => item.watchlist_action_hint === 'Keep watching')
+    const needsNewAnalysis = watchlist.filter(
+      (item) => item.watchlist_action_hint === 'Needs new analysis'
     )
-    const underResearch = watchlist.filter((item) => item.status === 'Under research')
+
+    const topItems = [...watchlist]
+      .sort((a, b) => {
+        const aRank =
+          a.watchlist_action_hint === 'Ready to buy'
+            ? 0
+            : a.watchlist_action_hint === 'Keep watching'
+              ? 1
+              : a.watchlist_action_hint === 'Needs new analysis'
+                ? 2
+                : 3
+        const bRank =
+          b.watchlist_action_hint === 'Ready to buy'
+            ? 0
+            : b.watchlist_action_hint === 'Keep watching'
+              ? 1
+              : b.watchlist_action_hint === 'Needs new analysis'
+                ? 2
+                : 3
+        if (aRank !== bRank) return aRank - bRank
+        return Number(b.latest_analysis_overall_score ?? -999) - Number(a.latest_analysis_overall_score ?? -999)
+      })
+      .slice(0, 5)
 
     return {
       readyToBuyCount: readyToBuy.length,
-      approachingEntryCount: approachingEntry.length,
-      underResearchCount: underResearch.length,
-      topItems: [...readyToBuy, ...approachingEntry, ...underResearch]
-        .filter(
-          (item, index, array) =>
-            array.findIndex((candidate) => candidate.id === item.id) === index
-        )
-        .slice(0, 5),
+      keepWatchingCount: keepWatching.length,
+      needsNewAnalysisCount: needsNewAnalysis.length,
+      topItems,
     }
   }, [watchlist])
 
@@ -309,25 +537,31 @@ export default function InvestingDashboardPage() {
     const today = new Date().toISOString().slice(0, 10)
 
     const due3m = journalEntries.filter(
-      (entry) => entry.review_due_3m != null && entry.review_due_3m <= today
+      (entry) =>
+        entry.review_due_3m != null &&
+        entry.review_due_3m <= today &&
+        !entry.three_month_review
     )
 
     const due12m = journalEntries.filter(
-      (entry) => entry.review_due_12m != null && entry.review_due_12m <= today
+      (entry) =>
+        entry.review_due_12m != null &&
+        entry.review_due_12m <= today &&
+        !entry.twelve_month_review
     )
 
     const latestQuarterlyReview = quarterlyReviews[0] ?? null
     const latestJournalEntry = journalEntries[0] ?? null
 
     return {
+      due3m,
+      due12m,
       due3mCount: due3m.length,
       due12mCount: due12m.length,
       latestQuarterlyReview,
       latestJournalEntry,
     }
   }, [journalEntries, quarterlyReviews])
-
-  const topHoldings = useMemo(() => holdings.slice(0, 5), [holdings])
 
   const topSector = sectorExposure[0] ?? null
 
@@ -347,11 +581,45 @@ export default function InvestingDashboardPage() {
     return candidates[0] ?? null
   }, [sectorExposure])
 
+  const latestAnalyses = useMemo(() => analyses.slice(0, 5), [analyses])
+
+  const highestConvictionNames = useMemo(() => {
+    return [...analyses]
+      .filter((analysis) => {
+        const verdict = analysis.verdict ?? analysis.verdict_auto ?? null
+        const confidence = analysis.confidence ?? analysis.confidence_auto ?? null
+        return (verdict === 'Strong Buy' || verdict === 'Buy') && confidence === 'High'
+      })
+      .sort(
+        (a, b) => Number(b.overall_score ?? -999) - Number(a.overall_score ?? -999)
+      )
+      .slice(0, 5)
+  }, [analyses])
+
+  const holdingsNeedingReview = useMemo(() => {
+    return holdings
+      .filter(
+        (holding) =>
+          holding.portfolio_action_hint === 'Review thesis' ||
+          holding.portfolio_action_hint === 'Trim candidate'
+      )
+      .slice(0, 5)
+  }, [holdings])
+
+  const thesisRiskAlerts = useMemo(() => {
+    return holdings
+      .filter(
+        (holding) =>
+          holding.thesis_status === 'Broken' || holding.thesis_status === 'Weakening'
+      )
+      .slice(0, 5)
+  }, [holdings])
+
   return (
     <div className="space-y-4">
       <InvestingPageHeader
         title="Shayna — Investment Dashboard"
-        subtitle="High-level snapshot of portfolio health, watchlist readiness, review cadence, and allocation posture."
+        subtitle="Command center for portfolio health, watchlist opportunities, review cadence, and conviction signals."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href="/investing/portfolio" className="ui-btn-secondary">
@@ -360,8 +628,11 @@ export default function InvestingDashboardPage() {
             <Link href="/investing/watchlist" className="ui-btn-secondary">
               Open Watchlist
             </Link>
-            <Link href="/investing/reviews" className="ui-btn-secondary">
-              Open Reviews
+            <Link href="/investing/analysis" className="ui-btn-secondary">
+              Open Analysis
+            </Link>
+            <Link href="/investing/journal" className="ui-btn-secondary">
+              Open Journal
             </Link>
           </div>
         }
@@ -401,6 +672,56 @@ export default function InvestingDashboardPage() {
               />
             </DataCard>
 
+            <DataCard title="Watchlist Signals">
+              <DataCardRow
+                label="Ready to buy"
+                value={String(watchlistSummary.readyToBuyCount)}
+              />
+              <DataCardRow
+                label="Keep watching"
+                value={String(watchlistSummary.keepWatchingCount)}
+              />
+              <DataCardRow
+                label="Needs new analysis"
+                value={String(watchlistSummary.needsNewAnalysisCount)}
+              />
+              <DataCardRow
+                label="Total watchlist"
+                value={String(watchlist.length)}
+              />
+            </DataCard>
+
+            <DataCard title="Review Pressure">
+              <DataCardRow
+                label="3M reviews due"
+                value={String(reviewsSummary.due3mCount)}
+              />
+              <DataCardRow
+                label="12M reviews due"
+                value={String(reviewsSummary.due12mCount)}
+              />
+              <DataCardRow
+                label="Thesis risk alerts"
+                value={String(thesisRiskAlerts.length)}
+              />
+              <DataCardRow
+                label="Holdings needing review"
+                value={String(holdingsNeedingReview.length)}
+              />
+            </DataCard>
+          </>
+        )}
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : (
+          <>
             <DataCard title="Sector Exposure">
               <DataCardRow
                 label="Top sector"
@@ -439,27 +760,21 @@ export default function InvestingDashboardPage() {
             <DataCard title="Allocation Buckets">
               <DataCardRow
                 label="Core compounder"
-                value={
-                  formatPercent(
-                    bucketExposure.find((row) => row.bucket === 'Core compounder')?.pct ?? null
-                  )
-                }
+                value={formatPercent(
+                  bucketExposure.find((row) => row.bucket === 'Core compounder')?.pct ?? null
+                )}
               />
               <DataCardRow
                 label="Quality growth"
-                value={
-                  formatPercent(
-                    bucketExposure.find((row) => row.bucket === 'Quality growth')?.pct ?? null
-                  )
-                }
+                value={formatPercent(
+                  bucketExposure.find((row) => row.bucket === 'Quality growth')?.pct ?? null
+                )}
               />
               <DataCardRow
                 label="Special opportunity"
-                value={
-                  formatPercent(
-                    bucketExposure.find((row) => row.bucket === 'Special opportunity')?.pct ?? null
-                  )
-                }
+                value={formatPercent(
+                  bucketExposure.find((row) => row.bucket === 'Special opportunity')?.pct ?? null
+                )}
               />
               <DataCardRow
                 label="Cash buckets"
@@ -473,89 +788,8 @@ export default function InvestingDashboardPage() {
                 )}
               />
             </DataCard>
-          </>
-        )}
-      </section>
 
-      <CollapsibleSection
-        title="Top holdings"
-        subtitle="Largest positions by current market value."
-        defaultOpen={true}
-      >
-        {loading ? (
-          <SkeletonCard />
-        ) : topHoldings.length === 0 ? (
-          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-            No holdings yet. Add positions in Portfolio to see portfolio summary here.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {topHoldings.map((holding) => (
-              <div key={holding.id} className="ui-card p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                      {holding.ticker} · {holding.company}
-                    </div>
-                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                      {holding.account} · {holding.bucket ?? 'Unassigned'} · {holding.sector || 'Unassigned'}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                      {formatCurrency(holding.market_value)}
-                    </div>
-                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
-                      {formatPercent(holding.gain_loss_pct)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        title="Watchlist and review signals"
-        subtitle="Priority items first, with review timing visible in one place."
-        defaultOpen={true}
-      >
-        {loading ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <DataCard title="Watchlist Alerts">
-              <DataCardRow
-                label="Ready to buy"
-                value={String(watchlistSummary.readyToBuyCount)}
-              />
-              <DataCardRow
-                label="Approaching entry"
-                value={String(watchlistSummary.approachingEntryCount)}
-              />
-              <DataCardRow
-                label="Under research"
-                value={String(watchlistSummary.underResearchCount)}
-              />
-              <DataCardRow
-                label="Total watchlist"
-                value={String(watchlist.length)}
-              />
-            </DataCard>
-
-            <DataCard title="Upcoming Reviews">
-              <DataCardRow
-                label="3M reviews due"
-                value={String(reviewsSummary.due3mCount)}
-              />
-              <DataCardRow
-                label="12M reviews due"
-                value={String(reviewsSummary.due12mCount)}
-              />
+            <DataCard title="Latest Context">
               <DataCardRow
                 label="Latest quarterly review"
                 value={
@@ -576,15 +810,23 @@ export default function InvestingDashboardPage() {
                     : '—'
                 }
               />
+              <DataCardRow
+                label="Latest analysis"
+                value={
+                  latestAnalyses[0]
+                    ? `${latestAnalyses[0].ticker} · ${formatDate(latestAnalyses[0].analysis_date)}`
+                    : '—'
+                }
+              />
             </DataCard>
-          </div>
+          </>
         )}
-      </CollapsibleSection>
+      </section>
 
       <CollapsibleSection
-        title="Priority watchlist"
-        subtitle="Top watchlist names that are closest to action."
-        defaultOpen={false}
+        title="Top watchlist opportunities"
+        subtitle="Most actionable watchlist names based on current hint and latest analysis."
+        defaultOpen={true}
       >
         {loading ? (
           <SkeletonCard />
@@ -595,22 +837,253 @@ export default function InvestingDashboardPage() {
         ) : (
           <div className="space-y-3">
             {watchlistSummary.topItems.map((item) => (
-              <div key={item.id} className="ui-card p-4">
+              <Link
+                key={item.id}
+                href={`/investing/ticker/${encodeURIComponent(item.ticker)}`}
+                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
                       {item.ticker} · {item.company}
                     </div>
                     <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                      {item.status}
+                      {item.watchlist_action_hint ?? item.status}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      Verdict: {item.latest_analysis_verdict ?? '—'} · Confidence:{' '}
+                      {item.latest_analysis_confidence ?? '—'}
                     </div>
                   </div>
                   <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
-                    <div>Current: {formatCurrency(item.current_price)}</div>
-                    <div>Target: {formatCurrency(item.target_entry)}</div>
+                    <div>Current: {formatCurrency2(item.current_price)}</div>
+                    <div>
+                      Fair value:{' '}
+                      {item.latest_analysis_fair_value_low != null ||
+                      item.latest_analysis_fair_value_high != null
+                        ? `${formatCurrency2(item.latest_analysis_fair_value_low)} – ${formatCurrency2(item.latest_analysis_fair_value_high)}`
+                        : '—'}
+                    </div>
+                    <div>Score: {formatScore(item.latest_analysis_overall_score)}</div>
                   </div>
                 </div>
-              </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Holdings needing review"
+        subtitle="Positions flagged for thesis review or trim consideration."
+        defaultOpen={true}
+      >
+        {loading ? (
+          <SkeletonCard />
+        ) : holdingsNeedingReview.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No holdings are currently flagged for review.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {holdingsNeedingReview.map((holding) => (
+              <Link
+                key={holding.id}
+                href={`/investing/ticker/${encodeURIComponent(holding.ticker)}`}
+                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {holding.ticker} · {holding.company}
+                    </div>
+                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      {holding.portfolio_action_hint ?? 'Hold'}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      Thesis: {holding.thesis_status} · Valuation: {holding.valuation_status ?? '—'}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    <div>Value: {formatCurrency(holding.market_value)}</div>
+                    <div>Gain/Loss: {formatPercent(holding.gain_loss_pct)}</div>
+                    <div>Verdict: {holding.latest_analysis_verdict ?? '—'}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Overdue journal reviews"
+        subtitle="3M and 12M reviews that need follow-up."
+        defaultOpen={true}
+      >
+        {loading ? (
+          <SkeletonCard />
+        ) : reviewsSummary.due3mCount + reviewsSummary.due12mCount === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No overdue journal reviews.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {[...reviewsSummary.due3m.slice(0, 3), ...reviewsSummary.due12m.slice(0, 3)].map((entry) => (
+              <Link
+                key={entry.id}
+                href={`/investing/ticker/${encodeURIComponent(entry.ticker)}`}
+                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {entry.ticker} · {entry.action}
+                    </div>
+                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      Entry date: {formatDate(entry.entry_date)}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    <div>3M due: {formatDate(entry.review_due_3m)}</div>
+                    <div>12M due: {formatDate(entry.review_due_12m)}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Latest analyses"
+        subtitle="Most recent completed analysis work."
+        defaultOpen={false}
+      >
+        {loading ? (
+          <SkeletonCard />
+        ) : latestAnalyses.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No analyses yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {latestAnalyses.map((analysis) => {
+              const verdict = analysis.verdict ?? analysis.verdict_auto ?? '—'
+              const confidence = analysis.confidence ?? analysis.confidence_auto ?? '—'
+
+              return (
+                <Link
+                  key={analysis.id}
+                  href={`/investing/ticker/${encodeURIComponent(analysis.ticker)}`}
+                  className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {analysis.ticker} · {analysis.company}
+                      </div>
+                      <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        {verdict} · {confidence}
+                      </div>
+                      <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                        {analysis.sector} · {formatDate(analysis.analysis_date)}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      <div>Score: {formatScore(analysis.overall_score)}</div>
+                      <div>
+                        Fair value:{' '}
+                        {analysis.fair_value_low != null || analysis.fair_value_high != null
+                          ? `${formatCurrency2(analysis.fair_value_low)} – ${formatCurrency2(analysis.fair_value_high)}`
+                          : '—'}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Highest conviction names"
+        subtitle="Strong Buy / Buy names with High confidence."
+        defaultOpen={false}
+      >
+        {loading ? (
+          <SkeletonCard />
+        ) : highestConvictionNames.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No high-conviction names yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {highestConvictionNames.map((analysis) => (
+              <Link
+                key={analysis.id}
+                href={`/investing/ticker/${encodeURIComponent(analysis.ticker)}`}
+                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {analysis.ticker} · {analysis.company}
+                    </div>
+                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      {(analysis.verdict ?? analysis.verdict_auto) ?? '—'} ·{' '}
+                      {(analysis.confidence ?? analysis.confidence_auto) ?? '—'}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    <div>Score: {formatScore(analysis.overall_score)}</div>
+                    <div>Date: {formatDate(analysis.analysis_date)}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Thesis risk alerts"
+        subtitle="Holdings where thesis status has weakened or broken."
+        defaultOpen={false}
+      >
+        {loading ? (
+          <SkeletonCard />
+        ) : thesisRiskAlerts.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No thesis risk alerts.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {thesisRiskAlerts.map((holding) => (
+              <Link
+                key={holding.id}
+                href={`/investing/ticker/${encodeURIComponent(holding.ticker)}`}
+                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {holding.ticker} · {holding.company}
+                    </div>
+                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      {holding.thesis_status}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      {holding.portfolio_action_hint ?? 'Review thesis'}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    <div>Value: {formatCurrency(holding.market_value)}</div>
+                    <div>Verdict: {holding.latest_analysis_verdict ?? '—'}</div>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
         )}
