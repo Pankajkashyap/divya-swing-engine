@@ -29,6 +29,7 @@ type EnrichedHolding = Holding & {
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
   valuation_status?: 'Below fair value' | 'Within range' | 'Above fair value' | null
+  portfolio_action_hint?: 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null
 }
 
 type SectorExposureRow = {
@@ -125,6 +126,36 @@ function getValuationStatus(args: {
   return 'Within range'
 }
 
+function getPortfolioActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  valuationStatus: 'Below fair value' | 'Within range' | 'Above fair value' | null | undefined
+  thesisStatus: Holding['thesis_status'] | null | undefined
+}): 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null {
+  const { latestVerdict, latestConfidence, valuationStatus, thesisStatus } = args
+
+  if (thesisStatus === 'Broken' || thesisStatus === 'Weakening') {
+    return 'Review thesis'
+  }
+
+  if (
+    (latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') &&
+    valuationStatus === 'Below fair value' &&
+    latestConfidence !== 'Low'
+  ) {
+    return 'Add candidate'
+  }
+
+  if (
+    valuationStatus === 'Above fair value' &&
+    (latestVerdict === 'Hold' || latestVerdict === 'Avoid' || latestVerdict === 'Red Flag')
+  ) {
+    return 'Trim candidate'
+  }
+
+  return 'Hold'
+}
+
 function SkeletonCard() {
   return (
     <div className="ui-card p-4">
@@ -188,6 +219,7 @@ function buildPrefilledHolding(searchParams: URLSearchParams): EnrichedHolding |
     latest_analysis_fair_value_high: null,
     latest_analysis_date: null,
     valuation_status: null,
+    portfolio_action_hint: null,
   }
 }
 
@@ -303,21 +335,29 @@ function InvestingPortfolioPageContent() {
             const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
             const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
             const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
+            const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
+            const latestConfidence =
+              latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+            const valuationStatus = getValuationStatus({
+              currentPrice: item.current_price,
+              fairValueLow: latestFairValueLow,
+              fairValueHigh: latestFairValueHigh,
+            })
 
             return {
               ...item,
               latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
-              latest_analysis_verdict:
-                latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null,
-              latest_analysis_confidence:
-                latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null,
+              latest_analysis_verdict: latestVerdict,
+              latest_analysis_confidence: latestConfidence,
               latest_analysis_fair_value_low: latestFairValueLow,
               latest_analysis_fair_value_high: latestFairValueHigh,
               latest_analysis_date: latestAnalysis?.analysis_date ?? null,
-              valuation_status: getValuationStatus({
-                currentPrice: item.current_price,
-                fairValueLow: latestFairValueLow,
-                fairValueHigh: latestFairValueHigh,
+              valuation_status: valuationStatus,
+              portfolio_action_hint: getPortfolioActionHint({
+                latestVerdict,
+                latestConfidence,
+                valuationStatus,
+                thesisStatus: item.thesis_status,
               }),
             }
           }
@@ -511,24 +551,32 @@ function InvestingPortfolioPageContent() {
 
       setHoldings((prev) =>
         prev
-          .map((holding) =>
-            holding.id === editingHolding.id
-              ? {
-                  ...holding,
-                  ...record,
-                  market_value: payload.shares * payload.current_price,
-                  gain_loss_pct:
-                    payload.avg_cost > 0
-                      ? ((payload.current_price - payload.avg_cost) / payload.avg_cost) * 100
-                      : null,
-                  valuation_status: getValuationStatus({
-                    currentPrice: payload.current_price,
-                    fairValueLow: holding.latest_analysis_fair_value_low ?? null,
-                    fairValueHigh: holding.latest_analysis_fair_value_high ?? null,
-                  }),
-                }
-              : holding
-          )
+          .map((holding) => {
+            if (holding.id !== editingHolding.id) return holding
+
+            const valuationStatus = getValuationStatus({
+              currentPrice: payload.current_price,
+              fairValueLow: holding.latest_analysis_fair_value_low ?? null,
+              fairValueHigh: holding.latest_analysis_fair_value_high ?? null,
+            })
+
+            return {
+              ...holding,
+              ...record,
+              market_value: payload.shares * payload.current_price,
+              gain_loss_pct:
+                payload.avg_cost > 0
+                  ? ((payload.current_price - payload.avg_cost) / payload.avg_cost) * 100
+                  : null,
+              valuation_status: valuationStatus,
+              portfolio_action_hint: getPortfolioActionHint({
+                latestVerdict: holding.latest_analysis_verdict ?? null,
+                latestConfidence: holding.latest_analysis_confidence ?? null,
+                valuationStatus,
+                thesisStatus: payload.thesis_status,
+              }),
+            }
+          })
           .sort(
             (a, b) =>
               Number(b.market_value ?? b.shares * b.current_price) -

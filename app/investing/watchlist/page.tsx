@@ -23,6 +23,7 @@ type EnrichedWatchlistItem = WatchlistItem & {
   latest_analysis_fair_value_low?: number | null
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
+  watchlist_action_hint?: 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null
 }
 
 type WatchlistFormPayload = {
@@ -79,6 +80,45 @@ function formatCurrency(value: number | null | undefined) {
 function formatPercent(value: number | null | undefined, digits = 1) {
   if (value == null || Number.isNaN(value)) return '—'
   return `${value.toFixed(digits)}%`
+}
+
+function getWatchlistActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null {
+  const { latestVerdict, latestConfidence, currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (!latestVerdict) return 'Needs new analysis'
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return latestVerdict === 'Strong Buy' || latestVerdict === 'Buy'
+      ? 'Keep watching'
+      : 'Needs new analysis'
+  }
+
+  if ((latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') && currentPrice <= fairValueHigh) {
+    return 'Ready to buy'
+  }
+
+  if (currentPrice > fairValueHigh) {
+    return 'Too extended'
+  }
+
+  if (latestConfidence === 'Low') {
+    return 'Needs new analysis'
+  }
+
+  return 'Keep watching'
 }
 
 function SkeletonCard() {
@@ -144,6 +184,7 @@ function buildPrefilledWatchlistItem(searchParams: URLSearchParams): EnrichedWat
     latest_analysis_fair_value_low: null,
     latest_analysis_fair_value_high: null,
     latest_analysis_date: null,
+    watchlist_action_hint: null,
   }
 }
 
@@ -247,17 +288,27 @@ function InvestingWatchlistPageContent() {
       const enrichedWatchlist: EnrichedWatchlistItem[] = ((watchlistData ?? []) as WatchlistItem[]).map(
         (item) => {
           const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
+          const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
+          const latestConfidence =
+            latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+          const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
+          const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
 
           return {
             ...item,
             latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
-            latest_analysis_verdict:
-              latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null,
-            latest_analysis_confidence:
-              latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null,
-            latest_analysis_fair_value_low: latestAnalysis?.fair_value_low ?? null,
-            latest_analysis_fair_value_high: latestAnalysis?.fair_value_high ?? null,
+            latest_analysis_verdict: latestVerdict,
+            latest_analysis_confidence: latestConfidence,
+            latest_analysis_fair_value_low: latestFairValueLow,
+            latest_analysis_fair_value_high: latestFairValueHigh,
             latest_analysis_date: latestAnalysis?.analysis_date ?? null,
+            watchlist_action_hint: getWatchlistActionHint({
+              latestVerdict,
+              latestConfidence,
+              currentPrice: item.current_price,
+              fairValueLow: latestFairValueLow,
+              fairValueHigh: latestFairValueHigh,
+            }),
           }
         }
       )
@@ -284,7 +335,8 @@ function InvestingWatchlistPageContent() {
         item.sector.toLowerCase().includes(term) ||
         item.status.toLowerCase().includes(term) ||
         (item.latest_analysis_verdict ?? '').toLowerCase().includes(term) ||
-        (item.latest_analysis_confidence ?? '').toLowerCase().includes(term)
+        (item.latest_analysis_confidence ?? '').toLowerCase().includes(term) ||
+        (item.watchlist_action_hint ?? '').toLowerCase().includes(term)
       )
     })
   }, [items, search])
@@ -638,7 +690,7 @@ function InvestingWatchlistPageContent() {
         <InvestingSearchToolbar
           value={search}
           onChange={setSearch}
-          placeholder="Search ticker, company, sector, status, verdict, or confidence"
+          placeholder="Search ticker, company, sector, status, verdict, confidence, or action hint"
         />
       ) : null}
 

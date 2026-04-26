@@ -11,6 +11,7 @@ type EnrichedHolding = Holding & {
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
   valuation_status?: 'Below fair value' | 'Within range' | 'Above fair value' | null
+  portfolio_action_hint?: 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null
 }
 
 type Props = {
@@ -95,6 +96,7 @@ export function HoldingsTable({
             <th>Verdict</th>
             <th>Confidence</th>
             <th>Valuation Status</th>
+            <th>Action Hint</th>
             <th>Analysis Date</th>
             <th>Date Bought</th>
             <th>Actions</th>
@@ -124,6 +126,7 @@ export function HoldingsTable({
               <td>{holding.latest_analysis_verdict ?? '—'}</td>
               <td>{holding.latest_analysis_confidence ?? '—'}</td>
               <td>{holding.valuation_status ?? '—'}</td>
+              <td>{holding.portfolio_action_hint ?? '—'}</td>
               <td>{formatDate(holding.latest_analysis_date)}</td>
               <td>{formatDate(holding.date_bought)}</td>
               <td>

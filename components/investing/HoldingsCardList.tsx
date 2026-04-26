@@ -12,6 +12,7 @@ type EnrichedHolding = Holding & {
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
   valuation_status?: 'Below fair value' | 'Within range' | 'Above fair value' | null
+  portfolio_action_hint?: 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null
 }
 
 type Props = {
@@ -137,6 +138,7 @@ export function HoldingsCardList({
             <DataCardRow label="Verdict" value={holding.latest_analysis_verdict ?? '—'} />
             <DataCardRow label="Confidence" value={holding.latest_analysis_confidence ?? '—'} />
             <DataCardRow label="Valuation status" value={holding.valuation_status ?? '—'} />
+            <DataCardRow label="Action hint" value={holding.portfolio_action_hint ?? '—'} />
             <DataCardRow label="Analysis date" value={formatDate(holding.latest_analysis_date)} />
             <DataCardRow
               label="Analysis fair value"

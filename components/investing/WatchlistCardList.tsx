@@ -11,6 +11,7 @@ type EnrichedWatchlistItem = WatchlistItem & {
   latest_analysis_fair_value_low?: number | null
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
+  watchlist_action_hint?: 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null
 }
 
 type Props = {
@@ -147,6 +148,7 @@ export function WatchlistCardList({
             />
             <DataCardRow label="Verdict" value={item.latest_analysis_verdict ?? '—'} />
             <DataCardRow label="Confidence" value={item.latest_analysis_confidence ?? '—'} />
+            <DataCardRow label="Action hint" value={item.watchlist_action_hint ?? '—'} />
             <DataCardRow label="Analysis date" value={formatDate(item.latest_analysis_date)} />
             <DataCardRow
               label="Analysis fair value"

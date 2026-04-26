@@ -10,6 +10,7 @@ type EnrichedWatchlistItem = WatchlistItem & {
   latest_analysis_fair_value_low?: number | null
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
+  watchlist_action_hint?: 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null
 }
 
 type Props = {
@@ -81,6 +82,7 @@ export function WatchlistTable({
             <th>Analysis Score</th>
             <th>Verdict</th>
             <th>Confidence</th>
+            <th>Action Hint</th>
             <th>Analysis Date</th>
             <th>Date Added</th>
             <th>Actions</th>
@@ -107,6 +109,7 @@ export function WatchlistTable({
               <td>{formatScore(item.latest_analysis_overall_score)}</td>
               <td>{item.latest_analysis_verdict ?? '—'}</td>
               <td>{item.latest_analysis_confidence ?? '—'}</td>
+              <td>{item.watchlist_action_hint ?? '—'}</td>
               <td>{formatDate(item.latest_analysis_date)}</td>
               <td>{formatDate(item.date_added)}</td>
               <td>
