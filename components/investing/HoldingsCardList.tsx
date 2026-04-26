@@ -1,13 +1,23 @@
 'use client'
 
 import Link from 'next/link'
-import type { Holding } from '@/app/investing/types'
+import type { Holding, StockAnalysis } from '@/app/investing/types'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 
+type EnrichedHolding = Holding & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+  valuation_status?: 'Below fair value' | 'Within range' | 'Above fair value' | null
+}
+
 type Props = {
-  holdings: Holding[]
-  onEdit: (holding: Holding) => void
-  onDelete: (holding: Holding) => void
+  holdings: EnrichedHolding[]
+  onEdit: (holding: EnrichedHolding) => void
+  onDelete: (holding: EnrichedHolding) => void
   deletingId?: string | null
 }
 
@@ -46,6 +56,11 @@ function formatDate(value: string | null | undefined) {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+function formatScore(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return value.toFixed(1)
 }
 
 export function HoldingsCardList({
@@ -115,6 +130,23 @@ export function HoldingsCardList({
             <DataCardRow label="Current price" value={formatCurrency(holding.current_price)} />
             <DataCardRow label="Gain/Loss" value={formatPercent(holding.gain_loss_pct)} />
             <DataCardRow label="Date bought" value={formatDate(holding.date_bought)} />
+            <DataCardRow
+              label="Analysis score"
+              value={formatScore(holding.latest_analysis_overall_score)}
+            />
+            <DataCardRow label="Verdict" value={holding.latest_analysis_verdict ?? '—'} />
+            <DataCardRow label="Confidence" value={holding.latest_analysis_confidence ?? '—'} />
+            <DataCardRow label="Valuation status" value={holding.valuation_status ?? '—'} />
+            <DataCardRow label="Analysis date" value={formatDate(holding.latest_analysis_date)} />
+            <DataCardRow
+              label="Analysis fair value"
+              value={
+                holding.latest_analysis_fair_value_low != null ||
+                holding.latest_analysis_fair_value_high != null
+                  ? `${formatCurrency(holding.latest_analysis_fair_value_low)} – ${formatCurrency(holding.latest_analysis_fair_value_high)}`
+                  : '—'
+              }
+            />
           </div>
 
           {holding.thesis ? (

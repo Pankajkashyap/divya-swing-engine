@@ -8,6 +8,7 @@ import type {
   DecisionJournalEntry,
   Holding,
   SectorTarget,
+  StockAnalysis,
 } from '@/app/investing/types'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
@@ -19,6 +20,16 @@ import { HoldingForm } from '@/components/investing/HoldingForm'
 import { HoldingsTable } from '@/components/investing/HoldingsTable'
 import { HoldingsCardList } from '@/components/investing/HoldingsCardList'
 import { DecisionJournalForm } from '@/components/investing/DecisionJournalForm'
+
+type EnrichedHolding = Holding & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+  valuation_status?: 'Below fair value' | 'Within range' | 'Above fair value' | null
+}
 
 type SectorExposureRow = {
   sector: string
@@ -91,6 +102,29 @@ function getSectorStatus(pct: number, min: number | null, max: number | null) {
   return { label: 'In range', color: 'text-emerald-600 dark:text-emerald-400' }
 }
 
+function getValuationStatus(args: {
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Below fair value' | 'Within range' | 'Above fair value' | null {
+  const { currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return null
+  }
+
+  if (currentPrice < fairValueLow) return 'Below fair value'
+  if (currentPrice > fairValueHigh) return 'Above fair value'
+  return 'Within range'
+}
+
 function SkeletonCard() {
   return (
     <div className="ui-card p-4">
@@ -114,7 +148,7 @@ function toNullableNumber(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function buildPrefilledHolding(searchParams: URLSearchParams): Holding | null {
+function buildPrefilledHolding(searchParams: URLSearchParams): EnrichedHolding | null {
   const ticker = searchParams.get('ticker')?.trim().toUpperCase() ?? ''
   if (!ticker) return null
 
@@ -135,8 +169,7 @@ function buildPrefilledHolding(searchParams: URLSearchParams): Holding | null {
     avg_cost: avgCost,
     current_price: currentPrice,
     market_value: shares * currentPrice,
-    gain_loss_pct:
-      avgCost > 0 ? ((currentPrice - avgCost) / avgCost) * 100 : null,
+    gain_loss_pct: avgCost > 0 ? ((currentPrice - avgCost) / avgCost) * 100 : null,
     thesis: searchParams.get('thesis')?.trim() || null,
     thesis_breakers: searchParams.get('thesis_breakers')?.trim() || null,
     thesis_status:
@@ -148,6 +181,13 @@ function buildPrefilledHolding(searchParams: URLSearchParams): Holding | null {
       'Core compounder',
     created_at: '',
     updated_at: '',
+    latest_analysis_overall_score: null,
+    latest_analysis_verdict: null,
+    latest_analysis_confidence: null,
+    latest_analysis_fair_value_low: null,
+    latest_analysis_fair_value_high: null,
+    latest_analysis_date: null,
+    valuation_status: null,
   }
 }
 
@@ -185,7 +225,7 @@ function InvestingPortfolioPageContent() {
     [queryMode, searchParams]
   )
 
-  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [holdings, setHoldings] = useState<EnrichedHolding[]>([])
   const [sectorTargets, setSectorTargets] = useState<SectorTarget[]>([])
   const [bucketTargets, setBucketTargets] = useState<BucketTarget[]>([])
   const [loading, setLoading] = useState(true)
@@ -195,14 +235,14 @@ function InvestingPortfolioPageContent() {
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledHolding(searchParams)
   )
-  const [editingHolding, setEditingHolding] = useState<Holding | null>(
+  const [editingHolding, setEditingHolding] = useState<EnrichedHolding | null>(
     () => (queryMode === 'new' ? buildPrefilledHolding(searchParams) : null)
   )
   const [formBusy, setFormBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [journalSheetOpen, setJournalSheetOpen] = useState(false)
-  const [journalHolding, setJournalHolding] = useState<Holding | null>(null)
+  const [journalHolding, setJournalHolding] = useState<EnrichedHolding | null>(null)
   const [journalBusy, setJournalBusy] = useState(false)
 
   useEffect(() => {
@@ -212,21 +252,19 @@ function InvestingPortfolioPageContent() {
       setLoading(true)
       setError(null)
 
-      const [holdingsRes, sectorTargetsRes, bucketTargetsRes] = await Promise.all([
+      const [holdingsRes, sectorTargetsRes, bucketTargetsRes, analysesRes] = await Promise.all([
         supabase.from('investing_holdings').select('*').order('market_value', { ascending: false }),
         supabase.from('investing_sector_targets').select('*').order('sector', { ascending: true }),
         supabase.from('investing_bucket_targets').select('*').order('bucket', { ascending: true }),
+        supabase
+          .from('investing_stock_analyses')
+          .select('*')
+          .order('analysis_date', { ascending: false }),
       ])
 
       if (cancelled) return
 
       const errors: string[] = []
-
-      if (holdingsRes.error) {
-        errors.push(`Holdings: ${holdingsRes.error.message}`)
-      } else {
-        setHoldings((holdingsRes.data ?? []) as Holding[])
-      }
 
       if (sectorTargetsRes.error) {
         errors.push(`Sector targets: ${sectorTargetsRes.error.message}`)
@@ -238,6 +276,54 @@ function InvestingPortfolioPageContent() {
         errors.push(`Bucket targets: ${bucketTargetsRes.error.message}`)
       } else {
         setBucketTargets((bucketTargetsRes.data ?? []) as BucketTarget[])
+      }
+
+      if (holdingsRes.error) {
+        errors.push(`Holdings: ${holdingsRes.error.message}`)
+      }
+
+      if (analysesRes.error) {
+        errors.push(`Analyses: ${analysesRes.error.message}`)
+      }
+
+      if (!holdingsRes.error && !analysesRes.error) {
+        const latestAnalysisByTicker = new Map<string, StockAnalysis>()
+
+        for (const analysis of (analysesRes.data ?? []) as StockAnalysis[]) {
+          const ticker = analysis.ticker?.toUpperCase?.() ?? ''
+          if (!ticker) continue
+
+          if (!latestAnalysisByTicker.has(ticker)) {
+            latestAnalysisByTicker.set(ticker, analysis)
+          }
+        }
+
+        const enrichedHoldings: EnrichedHolding[] = ((holdingsRes.data ?? []) as Holding[]).map(
+          (item) => {
+            const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
+            const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
+            const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
+
+            return {
+              ...item,
+              latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
+              latest_analysis_verdict:
+                latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null,
+              latest_analysis_confidence:
+                latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null,
+              latest_analysis_fair_value_low: latestFairValueLow,
+              latest_analysis_fair_value_high: latestFairValueHigh,
+              latest_analysis_date: latestAnalysis?.analysis_date ?? null,
+              valuation_status: getValuationStatus({
+                currentPrice: item.current_price,
+                fairValueLow: latestFairValueLow,
+                fairValueHigh: latestFairValueHigh,
+              }),
+            }
+          }
+        )
+
+        setHoldings(enrichedHoldings)
       }
 
       if (errors.length > 0) {
@@ -361,7 +447,7 @@ function InvestingPortfolioPageContent() {
     setSheetOpen(true)
   }
 
-  function openEditSheet(holding: Holding) {
+  function openEditSheet(holding: EnrichedHolding) {
     setSuccess(null)
     setEditingHolding(holding)
     setSheetOpen(true)
@@ -373,7 +459,7 @@ function InvestingPortfolioPageContent() {
     setEditingHolding(null)
   }
 
-  function openJournalSheet(holding: Holding) {
+  function openJournalSheet(holding: EnrichedHolding) {
     setSuccess(null)
     setJournalHolding(holding)
     setJournalSheetOpen(true)
@@ -435,6 +521,11 @@ function InvestingPortfolioPageContent() {
                     payload.avg_cost > 0
                       ? ((payload.current_price - payload.avg_cost) / payload.avg_cost) * 100
                       : null,
+                  valuation_status: getValuationStatus({
+                    currentPrice: payload.current_price,
+                    fairValueLow: holding.latest_analysis_fair_value_low ?? null,
+                    fairValueHigh: holding.latest_analysis_fair_value_high ?? null,
+                  }),
                 }
               : holding
           )
@@ -460,7 +551,7 @@ function InvestingPortfolioPageContent() {
       }
 
       setHoldings((prev) =>
-        [inserted as Holding, ...prev].sort(
+        [inserted as EnrichedHolding, ...prev].sort(
           (a, b) => Number(b.market_value ?? 0) - Number(a.market_value ?? 0)
         )
       )
@@ -473,7 +564,7 @@ function InvestingPortfolioPageContent() {
     setEditingHolding(null)
   }
 
-  async function handleDeleteHolding(holding: Holding) {
+  async function handleDeleteHolding(holding: EnrichedHolding) {
     const confirmed = window.confirm(`Delete ${holding.ticker}?`)
     if (!confirmed) return
 
@@ -511,7 +602,7 @@ function InvestingPortfolioPageContent() {
     const { data: sessionData } = await supabase.auth.getSession()
     console.log('INVESTING SESSION', sessionData.session)
     console.log('INVESTING USER', user)
-    
+
     const record = {
       user_id: user?.id ?? null,
       entry_date: payload.entry_date,

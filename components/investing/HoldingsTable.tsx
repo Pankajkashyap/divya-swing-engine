@@ -1,12 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import type { Holding } from '@/app/investing/types'
+import type { Holding, StockAnalysis } from '@/app/investing/types'
+
+type EnrichedHolding = Holding & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+  valuation_status?: 'Below fair value' | 'Within range' | 'Above fair value' | null
+}
 
 type Props = {
-  holdings: Holding[]
-  onEdit: (holding: Holding) => void
-  onDelete: (holding: Holding) => void
+  holdings: EnrichedHolding[]
+  onEdit: (holding: EnrichedHolding) => void
+  onDelete: (holding: EnrichedHolding) => void
   deletingId?: string | null
 }
 
@@ -47,6 +57,11 @@ function formatDate(value: string | null | undefined) {
   })
 }
 
+function formatScore(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return value.toFixed(1)
+}
+
 export function HoldingsTable({
   holdings,
   onEdit,
@@ -76,6 +91,11 @@ export function HoldingsTable({
             <th>Current Price</th>
             <th>Market Value</th>
             <th>Gain/Loss</th>
+            <th>Analysis Score</th>
+            <th>Verdict</th>
+            <th>Confidence</th>
+            <th>Valuation Status</th>
+            <th>Analysis Date</th>
             <th>Date Bought</th>
             <th>Actions</th>
           </tr>
@@ -100,6 +120,11 @@ export function HoldingsTable({
               <td>{formatCurrency(holding.current_price)}</td>
               <td>{formatCurrencyRounded(holding.market_value)}</td>
               <td>{formatPercent(holding.gain_loss_pct)}</td>
+              <td>{formatScore(holding.latest_analysis_overall_score)}</td>
+              <td>{holding.latest_analysis_verdict ?? '—'}</td>
+              <td>{holding.latest_analysis_confidence ?? '—'}</td>
+              <td>{holding.valuation_status ?? '—'}</td>
+              <td>{formatDate(holding.latest_analysis_date)}</td>
               <td>{formatDate(holding.date_bought)}</td>
               <td>
                 <div className="flex gap-2">
