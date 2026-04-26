@@ -188,6 +188,66 @@ function getManualOrAutoSource(args: {
   return null
 }
 
+function parseNullableNumber(value: string) {
+  if (value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : Number.NaN
+}
+
+function getPreviewNumber(args: {
+  manualText: string
+  autoValue: number | null | undefined
+}): { value: string; source: 'Manual' | 'Auto' | null } {
+  const manualParsed = parseNullableNumber(args.manualText)
+
+  if (manualParsed != null && Number.isFinite(manualParsed)) {
+    return { value: manualParsed.toFixed(1), source: 'Manual' }
+  }
+
+  if (args.autoValue != null && Number.isFinite(args.autoValue)) {
+    return { value: args.autoValue.toFixed(1), source: 'Auto' }
+  }
+
+  return { value: 'Will remain blank', source: null }
+}
+
+function getPreviewText(args: {
+  manualText: string
+  autoValue: string | null | undefined
+}): { value: string; source: 'Manual' | 'Auto' | null } {
+  const manualValue = args.manualText.trim()
+
+  if (manualValue) {
+    return { value: manualValue, source: 'Manual' }
+  }
+
+  if (args.autoValue) {
+    return { value: args.autoValue, source: 'Auto' }
+  }
+
+  return { value: 'Will remain blank', source: null }
+}
+
+function PreviewRow({
+  label,
+  value,
+  source,
+}: {
+  label: string
+  value: string
+  source: 'Manual' | 'Auto' | null
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-neutral-200 py-2 last:border-b-0 dark:border-neutral-800">
+      <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">{label}</div>
+      <div className="flex items-center gap-2 text-right">
+        <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">{value}</div>
+        <SourceBadge source={source} />
+      </div>
+    </div>
+  )
+}
+
 export function StockAnalysisForm({
   initialAnalysis,
   onSubmit,
@@ -249,6 +309,47 @@ export function StockAnalysisForm({
     autoValue: initialAnalysis?.confidence_auto,
   })
 
+  const moatPreview = getPreviewNumber({
+    manualText: values.moat_score,
+    autoValue: moatScoreAuto ?? initialAnalysis?.moat_score_auto ?? null,
+  })
+
+  const managementPreview = getPreviewNumber({
+    manualText: values.mgmt_score,
+    autoValue: managementScoreAuto ?? initialAnalysis?.management_score_auto ?? null,
+  })
+
+  const valuationPreview = getPreviewNumber({
+    manualText: values.valuation_score,
+    autoValue: initialAnalysis?.valuation_score_auto ?? null,
+  })
+
+  const roicPreview = getPreviewNumber({
+    manualText: values.roic_score,
+    autoValue: initialAnalysis?.roic_score_auto ?? null,
+  })
+
+  const finHealthPreview = getPreviewNumber({
+    manualText: values.fin_health_score,
+    autoValue: initialAnalysis?.fin_health_score_auto ?? null,
+  })
+
+  const bizUnderstandingPreview = getPreviewNumber({
+    manualText: values.biz_understanding_score,
+    autoValue: initialAnalysis?.biz_understanding_score_auto ?? null,
+  })
+
+  const confidencePreview = getPreviewText({
+    manualText: values.confidence,
+    autoValue:
+      qualitativeConfidence ?? initialAnalysis?.confidence_auto ?? null,
+  })
+
+  const verdictPreview = getPreviewText({
+    manualText: values.verdict,
+    autoValue: initialAnalysis?.verdict_auto ?? null,
+  })
+
   function update<K extends keyof StockAnalysisFormValues>(
     key: K,
     value: StockAnalysisFormValues[K]
@@ -268,12 +369,6 @@ export function StockAnalysisForm({
     setQualitativeConfidence(initialAnalysis?.qualitative_confidence ?? null)
     setError(null)
     setQualitativeImportSuccess(null)
-  }
-
-  function parseNullableNumber(value: string) {
-    if (value.trim() === '') return null
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : Number.NaN
   }
 
   function validateScore(name: string, value: number | null) {
@@ -711,6 +806,48 @@ export function StockAnalysisForm({
               placeholder="7.5"
             />
           </label>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <SectionHeader
+          title="Live save preview"
+          subtitle="This shows what the app will use if you save right now."
+        />
+
+        <div className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+          <PreviewRow label="Moat score" value={moatPreview.value} source={moatPreview.source} />
+          <PreviewRow
+            label="Management score"
+            value={managementPreview.value}
+            source={managementPreview.source}
+          />
+          <PreviewRow
+            label="Valuation score"
+            value={valuationPreview.value}
+            source={valuationPreview.source}
+          />
+          <PreviewRow label="ROIC score" value={roicPreview.value} source={roicPreview.source} />
+          <PreviewRow
+            label="Financial health score"
+            value={finHealthPreview.value}
+            source={finHealthPreview.source}
+          />
+          <PreviewRow
+            label="Business understanding score"
+            value={bizUnderstandingPreview.value}
+            source={bizUnderstandingPreview.source}
+          />
+          <PreviewRow
+            label="Confidence"
+            value={confidencePreview.value}
+            source={confidencePreview.source}
+          />
+          <PreviewRow
+            label="Verdict"
+            value={verdictPreview.value}
+            source={verdictPreview.source}
+          />
         </div>
       </div>
 
