@@ -17,7 +17,7 @@ const massiveApiKey = Deno.env.get('MASSIVE_API_KEY') ?? ''
 const massiveBaseUrl = 'https://api.polygon.io'
 
 // Tickers scanned per night. At 12.5s delay each, 10 tickers = 125s — safely within the 150s timeout.
-const BATCH_SIZE = 5
+const BATCH_SIZE = 15
 
 type UserSettingsRow = {
   user_id: string
