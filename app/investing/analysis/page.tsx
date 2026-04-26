@@ -112,6 +112,34 @@ function toNullableNumber(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function getAnalysisSavedViews() {
+  return [
+    { key: 'all', label: 'All' },
+    { key: 'high-conviction', label: 'High Conviction' },
+    { key: 'recent-30d', label: 'Last 30 Days' },
+    { key: 'manual-verdict', label: 'Manual Verdicts' },
+    { key: 'auto-verdict', label: 'Auto Verdicts' },
+  ]
+}
+
+function getAnalysisFilters() {
+  return [
+    { key: 'all', label: 'All Filters' },
+    { key: 'high-confidence', label: 'High Confidence' },
+    { key: 'buy-or-strong-buy', label: 'Buy / Strong Buy' },
+    { key: 'hold-or-worse', label: 'Hold or Worse' },
+  ]
+}
+
+function isWithinLast30Days(dateString: string | null | undefined) {
+  if (!dateString) return false
+  const today = new Date()
+  const target = new Date(`${dateString}T00:00:00`)
+  if (Number.isNaN(target.getTime())) return false
+  const diffMs = today.getTime() - target.getTime()
+  return diffMs <= 30 * 24 * 60 * 60 * 1000
+}
+
 function buildPrefilledAnalysis(searchParams: URLSearchParams): StockAnalysis | null {
   const ticker = searchParams.get('ticker')?.trim().toUpperCase() ?? ''
   if (!ticker) return null
@@ -211,6 +239,8 @@ function InvestingAnalysisPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [savedView, setSavedView] = useState('all')
+  const [activeFilter, setActiveFilter] = useState('all')
 
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledAnalysis(searchParams)
@@ -260,22 +290,72 @@ function InvestingAnalysisPageContent() {
 
   const filteredAnalyses = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return analyses
 
-    return analyses.filter((analysis) => {
+    let result = analyses.filter((analysis) => {
+      if (!term) return true
+
       return (
         analysis.ticker.toLowerCase().includes(term) ||
         analysis.company.toLowerCase().includes(term) ||
         analysis.sector.toLowerCase().includes(term) ||
-        (analysis.verdict ?? '').toLowerCase().includes(term)
+        (analysis.verdict ?? analysis.verdict_auto ?? '').toLowerCase().includes(term) ||
+        (analysis.confidence ?? analysis.confidence_auto ?? '').toLowerCase().includes(term)
       )
     })
-  }, [analyses, search])
+
+    if (savedView === 'high-conviction') {
+      result = result.filter((analysis) => {
+        const verdict = analysis.verdict ?? analysis.verdict_auto ?? null
+        const confidence = analysis.confidence ?? analysis.confidence_auto ?? null
+        return (verdict === 'Strong Buy' || verdict === 'Buy') && confidence === 'High'
+      })
+    }
+
+    if (savedView === 'recent-30d') {
+      result = result.filter((analysis) => isWithinLast30Days(analysis.analysis_date))
+    }
+
+    if (savedView === 'manual-verdict') {
+      result = result.filter((analysis) => analysis.verdict != null)
+    }
+
+    if (savedView === 'auto-verdict') {
+      result = result.filter((analysis) => analysis.verdict == null && analysis.verdict_auto != null)
+    }
+
+    if (activeFilter === 'high-confidence') {
+      result = result.filter(
+        (analysis) => (analysis.confidence ?? analysis.confidence_auto ?? null) === 'High'
+      )
+    }
+
+    if (activeFilter === 'buy-or-strong-buy') {
+      result = result.filter((analysis) => {
+        const verdict = analysis.verdict ?? analysis.verdict_auto ?? null
+        return verdict === 'Buy' || verdict === 'Strong Buy'
+      })
+    }
+
+    if (activeFilter === 'hold-or-worse') {
+      result = result.filter((analysis) => {
+        const verdict = analysis.verdict ?? analysis.verdict_auto ?? null
+        return verdict === 'Hold' || verdict === 'Avoid' || verdict === 'Red Flag'
+      })
+    }
+
+    return result
+  }, [analyses, search, savedView, activeFilter])
 
   const summary = useMemo(() => {
-    const strongBuys = analyses.filter((a) => a.verdict === 'Strong Buy').length
-    const buys = analyses.filter((a) => a.verdict === 'Buy').length
-    const holds = analyses.filter((a) => a.verdict === 'Hold').length
+    const strongBuys = analyses.filter(
+      (a) => (a.verdict ?? a.verdict_auto ?? null) === 'Strong Buy'
+    ).length
+    const buys = analyses.filter(
+      (a) => (a.verdict ?? a.verdict_auto ?? null) === 'Buy'
+    ).length
+    const holds = analyses.filter(
+      (a) => (a.verdict ?? a.verdict_auto ?? null) === 'Hold'
+    ).length
 
     const scoredAnalyses = analyses.filter((a) => a.overall_score != null)
     const avgScore =
@@ -654,6 +734,17 @@ function InvestingAnalysisPageContent() {
           value={search}
           onChange={setSearch}
           placeholder="Search ticker, company, sector, or verdict"
+          savedViews={getAnalysisSavedViews()}
+          activeSavedViewKey={savedView}
+          onSavedViewChange={setSavedView}
+          filters={getAnalysisFilters()}
+          activeFilterKey={activeFilter}
+          onFilterChange={setActiveFilter}
+          onClearFilters={() => {
+            setSearch('')
+            setSavedView('all')
+            setActiveFilter('all')
+          }}
         />
       ) : null}
 

@@ -16,6 +16,7 @@ import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
 import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
+import { InvestingSearchToolbar } from '@/components/investing/InvestingSearchToolbar'
 import { HoldingForm } from '@/components/investing/HoldingForm'
 import { HoldingsTable } from '@/components/investing/HoldingsTable'
 import { HoldingsCardList } from '@/components/investing/HoldingsCardList'
@@ -101,6 +102,24 @@ function getSectorStatus(pct: number, min: number | null, max: number | null) {
   if (pct < min) return { label: 'Under', color: 'text-amber-600 dark:text-amber-400' }
   if (pct > max) return { label: 'Over', color: 'text-red-600 dark:text-red-400' }
   return { label: 'In range', color: 'text-emerald-600 dark:text-emerald-400' }
+}
+
+function getPortfolioSavedViews() {
+  return [
+    { key: 'all', label: 'All' },
+    { key: 'risk-review', label: 'Risk Review' },
+    { key: 'add-candidates', label: 'Add Candidates' },
+    { key: 'tfsa-only', label: 'TFSA Only' },
+  ]
+}
+
+function getPortfolioFilters() {
+  return [
+    { key: 'all', label: 'All Filters' },
+    { key: 'review-thesis', label: 'Review Thesis' },
+    { key: 'trim-candidate', label: 'Trim Candidate' },
+    { key: 'high-confidence', label: 'High Confidence' },
+  ]
 }
 
 function getValuationStatus(args: {
@@ -263,6 +282,9 @@ function InvestingPortfolioPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [savedView, setSavedView] = useState('all')
+  const [activeFilter, setActiveFilter] = useState('all')
 
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledHolding(searchParams)
@@ -478,6 +500,55 @@ function InvestingPortfolioPageContent() {
       })
       .sort((a, b) => b.marketValue - a.marketValue)
   }, [holdings, bucketTargets, summary.totalValue])
+
+  const filteredHoldings = useMemo(() => {
+    const term = search.trim().toLowerCase()
+
+    let result = holdings.filter((holding) => {
+      if (!term) return true
+
+      return (
+        holding.ticker.toLowerCase().includes(term) ||
+        holding.company.toLowerCase().includes(term) ||
+        holding.sector.toLowerCase().includes(term) ||
+        holding.account.toLowerCase().includes(term) ||
+        (holding.bucket ?? '').toLowerCase().includes(term) ||
+        (holding.latest_analysis_verdict ?? '').toLowerCase().includes(term) ||
+        (holding.portfolio_action_hint ?? '').toLowerCase().includes(term) ||
+        (holding.thesis_status ?? '').toLowerCase().includes(term)
+      )
+    })
+
+    if (savedView === 'risk-review') {
+      result = result.filter(
+        (holding) =>
+          holding.portfolio_action_hint === 'Review thesis' ||
+          holding.portfolio_action_hint === 'Trim candidate'
+      )
+    }
+
+    if (savedView === 'add-candidates') {
+      result = result.filter((holding) => holding.portfolio_action_hint === 'Add candidate')
+    }
+
+    if (savedView === 'tfsa-only') {
+      result = result.filter((holding) => holding.account === 'TFSA')
+    }
+
+    if (activeFilter === 'review-thesis') {
+      result = result.filter((holding) => holding.portfolio_action_hint === 'Review thesis')
+    }
+
+    if (activeFilter === 'trim-candidate') {
+      result = result.filter((holding) => holding.portfolio_action_hint === 'Trim candidate')
+    }
+
+    if (activeFilter === 'high-confidence') {
+      result = result.filter((holding) => holding.latest_analysis_confidence === 'High')
+    }
+
+    return result
+  }, [holdings, search, savedView, activeFilter])
 
   const topHoldings = useMemo(() => holdings.slice(0, 5), [holdings])
 
@@ -741,6 +812,25 @@ function InvestingPortfolioPageContent() {
         )}
       </section>
 
+      {!loading && holdings.length > 0 ? (
+        <InvestingSearchToolbar
+          value={search}
+          onChange={setSearch}
+          placeholder="Search ticker, company, sector, account, bucket, verdict, action hint, or thesis status"
+          savedViews={getPortfolioSavedViews()}
+          activeSavedViewKey={savedView}
+          onSavedViewChange={setSavedView}
+          filters={getPortfolioFilters()}
+          activeFilterKey={activeFilter}
+          onFilterChange={setActiveFilter}
+          onClearFilters={() => {
+            setSearch('')
+            setSavedView('all')
+            setActiveFilter('all')
+          }}
+        />
+      ) : null}
+
       <CollapsibleSection
         title="Sector exposure"
         subtitle="Compare live sector weights against target ranges."
@@ -835,7 +925,7 @@ function InvestingPortfolioPageContent() {
       >
         {loading ? (
           <SkeletonCard />
-        ) : holdings.length === 0 ? (
+        ) : filteredHoldings.length === 0 ? (
           <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
             No holdings found.
           </div>
@@ -843,7 +933,7 @@ function InvestingPortfolioPageContent() {
           <div className="space-y-3">
             <div className="lg:hidden">
               <HoldingsCardList
-                holdings={holdings}
+                holdings={filteredHoldings}
                 onEdit={openEditSheet}
                 onDelete={handleDeleteHolding}
                 deletingId={deletingId}
@@ -852,7 +942,7 @@ function InvestingPortfolioPageContent() {
 
             <div className="hidden lg:block">
               <HoldingsTable
-                holdings={holdings}
+                holdings={filteredHoldings}
                 onEdit={openEditSheet}
                 onDelete={handleDeleteHolding}
                 deletingId={deletingId}
@@ -864,7 +954,7 @@ function InvestingPortfolioPageContent() {
                 Create a journal entry directly from a holding:
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {holdings.map((holding) => (
+                {filteredHoldings.map((holding) => (
                   <button
                     key={`journal-${holding.id}`}
                     type="button"

@@ -90,6 +90,24 @@ function toNullableNumber(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function getJournalSavedViews() {
+  return [
+    { key: 'all', label: 'All' },
+    { key: 'pending-reviews', label: 'Pending Reviews' },
+    { key: 'buy-decisions', label: 'Buy Decisions' },
+    { key: 'sell-decisions', label: 'Sell Decisions' },
+  ]
+}
+
+function getJournalFilters() {
+  return [
+    { key: 'all', label: 'All Filters' },
+    { key: 'high-score', label: 'High Score' },
+    { key: 'fearful', label: 'Fearful' },
+    { key: 'override', label: 'Override' },
+  ]
+}
+
 function getValuationStatus(args: {
   currentPrice: number | null | undefined
   fairValueLow: number | null | undefined
@@ -237,6 +255,8 @@ function InvestingJournalPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [savedView, setSavedView] = useState('all')
+  const [activeFilter, setActiveFilter] = useState('all')
 
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledJournalEntry(searchParams)
@@ -326,9 +346,11 @@ function InvestingJournalPageContent() {
 
   const filteredEntries = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return entries
+    const today = new Date().toISOString().slice(0, 10)
 
-    return entries.filter((entry) => {
+    let result = entries.filter((entry) => {
+      if (!term) return true
+
       return (
         entry.ticker.toLowerCase().includes(term) ||
         entry.action.toLowerCase().includes(term) ||
@@ -337,7 +359,41 @@ function InvestingJournalPageContent() {
         (entry.emotional_state ?? '').toLowerCase().includes(term)
       )
     })
-  }, [entries, search])
+
+    if (savedView === 'pending-reviews') {
+      result = result.filter(
+        (entry) =>
+          (entry.review_due_3m != null &&
+            entry.review_due_3m <= today &&
+            !entry.three_month_review) ||
+          (entry.review_due_12m != null &&
+            entry.review_due_12m <= today &&
+            !entry.twelve_month_review)
+      )
+    }
+
+    if (savedView === 'buy-decisions') {
+      result = result.filter((entry) => entry.action === 'BUY' || entry.action === 'ADD')
+    }
+
+    if (savedView === 'sell-decisions') {
+      result = result.filter((entry) => entry.action === 'SELL' || entry.action === 'TRIM')
+    }
+
+    if (activeFilter === 'high-score') {
+      result = result.filter((entry) => Number(entry.scorecard_overall ?? -1) >= 8)
+    }
+
+    if (activeFilter === 'fearful') {
+      result = result.filter((entry) => entry.emotional_state === 'Fearful')
+    }
+
+    if (activeFilter === 'override') {
+      result = result.filter((entry) => entry.framework_supported === 'No — override')
+    }
+
+    return result
+  }, [entries, search, savedView, activeFilter])
 
   const summary = useMemo(() => {
     const buys = entries.filter((entry) => entry.action === 'BUY').length
@@ -664,6 +720,17 @@ function InvestingJournalPageContent() {
           value={search}
           onChange={setSearch}
           placeholder="Search ticker, action, account, reasoning, or emotion"
+          savedViews={getJournalSavedViews()}
+          activeSavedViewKey={savedView}
+          onSavedViewChange={setSavedView}
+          filters={getJournalFilters()}
+          activeFilterKey={activeFilter}
+          onFilterChange={setActiveFilter}
+          onClearFilters={() => {
+            setSearch('')
+            setSavedView('all')
+            setActiveFilter('all')
+          }}
         />
       ) : null}
 

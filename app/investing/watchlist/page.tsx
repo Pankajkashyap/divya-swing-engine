@@ -23,7 +23,12 @@ type EnrichedWatchlistItem = WatchlistItem & {
   latest_analysis_fair_value_low?: number | null
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
-  watchlist_action_hint?: 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null
+  watchlist_action_hint?:
+    | 'Ready to buy'
+    | 'Keep watching'
+    | 'Too extended'
+    | 'Needs new analysis'
+    | null
 }
 
 type WatchlistFormPayload = {
@@ -80,6 +85,24 @@ function formatCurrency(value: number | null | undefined) {
 function formatPercent(value: number | null | undefined, digits = 1) {
   if (value == null || Number.isNaN(value)) return '—'
   return `${value.toFixed(digits)}%`
+}
+
+function getWatchlistSavedViews() {
+  return [
+    { key: 'all', label: 'All' },
+    { key: 'opportunity-queue', label: 'Opportunity Queue' },
+    { key: 'high-conviction', label: 'High Conviction' },
+    { key: 'needs-analysis', label: 'Needs Analysis' },
+  ]
+}
+
+function getWatchlistFilters() {
+  return [
+    { key: 'all', label: 'All Filters' },
+    { key: 'ready-to-buy', label: 'Ready to Buy' },
+    { key: 'keep-watching', label: 'Keep Watching' },
+    { key: 'high-confidence', label: 'High Confidence' },
+  ]
 }
 
 function getWatchlistActionHint(args: {
@@ -230,6 +253,8 @@ function InvestingWatchlistPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [savedView, setSavedView] = useState('all')
+  const [activeFilter, setActiveFilter] = useState('all')
 
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledWatchlistItem(searchParams)
@@ -326,9 +351,10 @@ function InvestingWatchlistPageContent() {
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return items
 
-    return items.filter((item) => {
+    let result = items.filter((item) => {
+      if (!term) return true
+
       return (
         item.ticker.toLowerCase().includes(term) ||
         item.company.toLowerCase().includes(term) ||
@@ -339,7 +365,41 @@ function InvestingWatchlistPageContent() {
         (item.watchlist_action_hint ?? '').toLowerCase().includes(term)
       )
     })
-  }, [items, search])
+
+    if (savedView === 'opportunity-queue') {
+      result = result.filter(
+        (item) =>
+          item.watchlist_action_hint === 'Ready to buy' ||
+          item.watchlist_action_hint === 'Keep watching'
+      )
+    }
+
+    if (savedView === 'high-conviction') {
+      result = result.filter((item) => {
+        const verdict = item.latest_analysis_verdict ?? null
+        const confidence = item.latest_analysis_confidence ?? null
+        return (verdict === 'Strong Buy' || verdict === 'Buy') && confidence === 'High'
+      })
+    }
+
+    if (savedView === 'needs-analysis') {
+      result = result.filter((item) => item.watchlist_action_hint === 'Needs new analysis')
+    }
+
+    if (activeFilter === 'ready-to-buy') {
+      result = result.filter((item) => item.watchlist_action_hint === 'Ready to buy')
+    }
+
+    if (activeFilter === 'keep-watching') {
+      result = result.filter((item) => item.watchlist_action_hint === 'Keep watching')
+    }
+
+    if (activeFilter === 'high-confidence') {
+      result = result.filter((item) => item.latest_analysis_confidence === 'High')
+    }
+
+    return result
+  }, [items, search, savedView, activeFilter])
 
   const priorityItems = useMemo(() => {
     return filteredItems.filter((item) => item.status !== 'Removed')
@@ -691,6 +751,17 @@ function InvestingWatchlistPageContent() {
           value={search}
           onChange={setSearch}
           placeholder="Search ticker, company, sector, status, verdict, confidence, or action hint"
+          savedViews={getWatchlistSavedViews()}
+          activeSavedViewKey={savedView}
+          onSavedViewChange={setSavedView}
+          filters={getWatchlistFilters()}
+          activeFilterKey={activeFilter}
+          onFilterChange={setActiveFilter}
+          onClearFilters={() => {
+            setSearch('')
+            setSavedView('all')
+            setActiveFilter('all')
+          }}
         />
       ) : null}
 
