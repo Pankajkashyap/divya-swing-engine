@@ -61,7 +61,7 @@ function formatDate(value: string | null | undefined) {
   })
 }
 
-function getVerdictTone(verdict: StockAnalysis['verdict']) {
+function getVerdictTone(verdict: StockAnalysis['verdict'] | null | undefined) {
   switch (verdict) {
     case 'Strong Buy':
       return 'text-emerald-600 dark:text-emerald-400'
@@ -107,6 +107,98 @@ function buildQuery(params: Record<string, string | number | null | undefined>) 
   return query ? `?${query}` : ''
 }
 
+function getValuationStatus(args: {
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Below fair value' | 'Within range' | 'Above fair value' | null {
+  const { currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return null
+  }
+
+  if (currentPrice < fairValueLow) return 'Below fair value'
+  if (currentPrice > fairValueHigh) return 'Above fair value'
+  return 'Within range'
+}
+
+function getWatchlistActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null {
+  const { latestVerdict, latestConfidence, currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (!latestVerdict) return 'Needs new analysis'
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return latestVerdict === 'Strong Buy' || latestVerdict === 'Buy'
+      ? 'Keep watching'
+      : 'Needs new analysis'
+  }
+
+  if ((latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') && currentPrice <= fairValueHigh) {
+    return 'Ready to buy'
+  }
+
+  if (currentPrice > fairValueHigh) {
+    return 'Too extended'
+  }
+
+  if (latestConfidence === 'Low') {
+    return 'Needs new analysis'
+  }
+
+  return 'Keep watching'
+}
+
+function getPortfolioActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  valuationStatus: 'Below fair value' | 'Within range' | 'Above fair value' | null | undefined
+  thesisStatus: Holding['thesis_status'] | null | undefined
+}): 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null {
+  const { latestVerdict, latestConfidence, valuationStatus, thesisStatus } = args
+
+  if (thesisStatus === 'Broken' || thesisStatus === 'Weakening') {
+    return 'Review thesis'
+  }
+
+  if (
+    (latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') &&
+    valuationStatus === 'Below fair value' &&
+    latestConfidence !== 'Low'
+  ) {
+    return 'Add candidate'
+  }
+
+  if (
+    valuationStatus === 'Above fair value' &&
+    (latestVerdict === 'Hold' || latestVerdict === 'Avoid' || latestVerdict === 'Red Flag')
+  ) {
+    return 'Trim candidate'
+  }
+
+  return 'Hold'
+}
+
 export default async function InvestingTickerDetailPage({ params }: Props) {
   const { ticker } = await params
   const normalizedTicker = decodeURIComponent(ticker).trim().toUpperCase()
@@ -115,7 +207,8 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
     notFound()
   }
 
-const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseServerClient()
+
   const [holdingsRes, watchlistRes, analysesRes, journalRes] = await Promise.all([
     supabase
       .from('investing_holdings')
@@ -158,6 +251,41 @@ const supabase = await createSupabaseServerClient()
   const latestAnalysis = analyses[0] ?? null
   const latestJournal = journalEntries[0] ?? null
   const primaryHolding = holdings[0] ?? null
+
+  const latestAnalysisVerdict =
+    latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
+  const latestAnalysisConfidence =
+    latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+
+  const referenceCurrentPrice =
+    primaryHolding?.current_price ?? watchlistItem?.current_price ?? null
+
+  const analysisValuationStatus = getValuationStatus({
+    currentPrice: referenceCurrentPrice,
+    fairValueLow: latestAnalysis?.fair_value_low ?? null,
+    fairValueHigh: latestAnalysis?.fair_value_high ?? null,
+  })
+
+  const watchlistActionHint = getWatchlistActionHint({
+    latestVerdict: latestAnalysisVerdict,
+    latestConfidence: latestAnalysisConfidence,
+    currentPrice: watchlistItem?.current_price ?? primaryHolding?.current_price ?? null,
+    fairValueLow: latestAnalysis?.fair_value_low ?? watchlistItem?.fair_value_low ?? null,
+    fairValueHigh: latestAnalysis?.fair_value_high ?? watchlistItem?.fair_value_high ?? null,
+  })
+
+  const portfolioActionHint = primaryHolding
+    ? getPortfolioActionHint({
+        latestVerdict: latestAnalysisVerdict,
+        latestConfidence: latestAnalysisConfidence,
+        valuationStatus: getValuationStatus({
+          currentPrice: primaryHolding.current_price,
+          fairValueLow: latestAnalysis?.fair_value_low ?? null,
+          fairValueHigh: latestAnalysis?.fair_value_high ?? null,
+        }),
+        thesisStatus: primaryHolding.thesis_status,
+      })
+    : null
 
   const companyName =
     primaryHolding?.company ??
@@ -232,7 +360,7 @@ const supabase = await createSupabaseServerClient()
     thesis: latestAnalysis?.thesis ?? watchlistItem?.why_watching ?? primaryHolding?.thesis,
     thesis_breakers: latestAnalysis?.thesis_breakers ?? primaryHolding?.thesis_breakers,
     overall_score: latestAnalysis?.overall_score ?? watchlistItem?.scorecard_overall,
-    confidence: latestAnalysis?.confidence,
+    confidence: latestAnalysisConfidence,
     raw_analysis: latestAnalysis?.raw_analysis ?? watchlistItem?.why_watching,
     moat_score: latestAnalysis?.moat_score,
     valuation_score: latestAnalysis?.valuation_score,
@@ -240,7 +368,7 @@ const supabase = await createSupabaseServerClient()
     roic_score: latestAnalysis?.roic_score,
     fin_health_score: latestAnalysis?.fin_health_score,
     biz_understanding_score: latestAnalysis?.biz_understanding_score,
-    verdict: latestAnalysis?.verdict,
+    verdict: latestAnalysisVerdict,
   })}`
 
   const createJournalHref = `/investing/journal${buildQuery({
@@ -300,11 +428,56 @@ const supabase = await createSupabaseServerClient()
         </DataCard>
 
         <DataCard title="Latest Analysis">
-          <DataCardRow label="Verdict" value={latestAnalysis?.verdict ?? '—'} />
+          <DataCardRow label="Verdict" value={latestAnalysisVerdict ?? '—'} />
           <DataCardRow label="Overall score" value={formatScore(latestAnalysis?.overall_score)} />
           <DataCardRow label="Analysis date" value={formatDate(latestAnalysis?.analysis_date)} />
         </DataCard>
       </section>
+
+      <CollapsibleSection
+        title="Decision support snapshot"
+        subtitle="Research-driven guidance from the latest saved analysis."
+        defaultOpen={true}
+      >
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <DataCard title="Research Summary">
+            <DataCardRow label="Verdict" value={latestAnalysisVerdict ?? '—'} />
+            <DataCardRow label="Confidence" value={latestAnalysisConfidence ?? '—'} />
+            <DataCardRow label="Overall score" value={formatScore(latestAnalysis?.overall_score)} />
+          </DataCard>
+
+          <DataCard title="Valuation">
+            <DataCardRow label="Current price" value={formatCurrency(referenceCurrentPrice)} />
+            <DataCardRow
+              label="Fair value"
+              value={
+                latestAnalysis?.fair_value_low != null || latestAnalysis?.fair_value_high != null
+                  ? `${formatCurrency(latestAnalysis?.fair_value_low)} – ${formatCurrency(latestAnalysis?.fair_value_high)}`
+                  : '—'
+              }
+            />
+            <DataCardRow label="Valuation status" value={analysisValuationStatus ?? '—'} />
+          </DataCard>
+
+          <DataCard title="Watchlist Hint">
+            <DataCardRow label="Action hint" value={watchlistActionHint ?? '—'} />
+            <DataCardRow label="Watchlist status" value={watchlistItem?.status ?? '—'} />
+            <DataCardRow
+              label="Target entry"
+              value={formatCurrency(watchlistItem?.target_entry ?? latestAnalysis?.fair_value_low)}
+            />
+          </DataCard>
+
+          <DataCard title="Portfolio Hint">
+            <DataCardRow label="Action hint" value={portfolioActionHint ?? '—'} />
+            <DataCardRow label="Thesis status" value={primaryHolding?.thesis_status ?? '—'} />
+            <DataCardRow
+              label="Position value"
+              value={formatCurrencyRounded(primaryHolding?.market_value)}
+            />
+          </DataCard>
+        </section>
+      </CollapsibleSection>
 
       <CollapsibleSection
         title="Quick actions"
@@ -340,53 +513,70 @@ const supabase = await createSupabaseServerClient()
               <DataCardRow label="Buckets" value={holdingBuckets} />
             </DataCard>
 
-            {holdings.map((holding) => (
-              <div key={holding.id} className="ui-card p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                      {holding.account}
+            {holdings.map((holding) => {
+              const holdingValuationStatus = getValuationStatus({
+                currentPrice: holding.current_price,
+                fairValueLow: latestAnalysis?.fair_value_low ?? null,
+                fairValueHigh: latestAnalysis?.fair_value_high ?? null,
+              })
+
+              const holdingActionHint = getPortfolioActionHint({
+                latestVerdict: latestAnalysisVerdict,
+                latestConfidence: latestAnalysisConfidence,
+                valuationStatus: holdingValuationStatus,
+                thesisStatus: holding.thesis_status,
+              })
+
+              return (
+                <div key={holding.id} className="ui-card p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {holding.account}
+                      </div>
+                      <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        {holding.bucket}
+                      </div>
+                      <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                        {holding.sector}
+                      </div>
                     </div>
-                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                      {holding.bucket}
-                    </div>
-                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
-                      {holding.sector}
+                    <div className="text-right text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {formatCurrencyRounded(holding.market_value)}
                     </div>
                   </div>
-                  <div className="text-right text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                    {formatCurrencyRounded(holding.market_value)}
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <DataCardRow label="Shares" value={String(holding.shares)} />
+                    <DataCardRow label="Avg cost" value={formatCurrency(holding.avg_cost)} />
+                    <DataCardRow label="Current price" value={formatCurrency(holding.current_price)} />
+                    <DataCardRow label="Gain/Loss" value={formatPercent(holding.gain_loss_pct)} />
+                    <DataCardRow label="Date bought" value={formatDate(holding.date_bought)} />
+                    <DataCardRow label="Thesis status" value={holding.thesis_status} />
+                    <DataCardRow label="Valuation status" value={holdingValuationStatus ?? '—'} />
+                    <DataCardRow label="Action hint" value={holdingActionHint ?? '—'} />
                   </div>
+
+                  {holding.thesis ? (
+                    <div className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                        Thesis:
+                      </span>{' '}
+                      {holding.thesis}
+                    </div>
+                  ) : null}
+
+                  {holding.thesis_breakers ? (
+                    <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                        Thesis breakers:
+                      </span>{' '}
+                      {holding.thesis_breakers}
+                    </div>
+                  ) : null}
                 </div>
-
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  <DataCardRow label="Shares" value={String(holding.shares)} />
-                  <DataCardRow label="Avg cost" value={formatCurrency(holding.avg_cost)} />
-                  <DataCardRow label="Current price" value={formatCurrency(holding.current_price)} />
-                  <DataCardRow label="Gain/Loss" value={formatPercent(holding.gain_loss_pct)} />
-                  <DataCardRow label="Date bought" value={formatDate(holding.date_bought)} />
-                  <DataCardRow label="Thesis status" value={holding.thesis_status} />
-                </div>
-
-                {holding.thesis ? (
-                  <div className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                    <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                      Thesis:
-                    </span>{' '}
-                    {holding.thesis}
-                  </div>
-                ) : null}
-
-                {holding.thesis_breakers ? (
-                  <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                    <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                      Thesis breakers:
-                    </span>{' '}
-                    {holding.thesis_breakers}
-                  </div>
-                ) : null}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </CollapsibleSection>
@@ -419,6 +609,8 @@ const supabase = await createSupabaseServerClient()
                 label="Discount to entry"
                 value={formatPercent(watchlistItem.discount_to_entry)}
               />
+              <DataCardRow label="Action hint" value={watchlistActionHint ?? '—'} />
+              <DataCardRow label="Latest analysis verdict" value={latestAnalysisVerdict ?? '—'} />
             </div>
 
             {watchlistItem.why_watching ? (
@@ -441,57 +633,72 @@ const supabase = await createSupabaseServerClient()
           </div>
         ) : (
           <div className="space-y-3">
-            {analyses.map((analysis) => (
-              <div key={analysis.id} className="ui-card p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                      {formatDate(analysis.analysis_date)}
+            {analyses.map((analysis) => {
+              const analysisVerdict = analysis.verdict ?? analysis.verdict_auto ?? null
+              const analysisConfidence = analysis.confidence ?? analysis.confidence_auto ?? null
+              const valuationStatus = getValuationStatus({
+                currentPrice: referenceCurrentPrice,
+                fairValueLow: analysis.fair_value_low ?? null,
+                fairValueHigh: analysis.fair_value_high ?? null,
+              })
+
+              return (
+                <div key={analysis.id} className="ui-card p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {formatDate(analysis.analysis_date)}
+                      </div>
+                      <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                        {analysis.sector}
+                      </div>
                     </div>
-                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
-                      {analysis.sector}
+                    <div className={`text-right text-sm font-medium ${getVerdictTone(analysisVerdict)}`}>
+                      {analysisVerdict ?? '—'}
                     </div>
                   </div>
-                  <div className={`text-right text-sm font-medium ${getVerdictTone(analysis.verdict)}`}>
-                    {analysis.verdict ?? '—'}
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <DataCardRow label="Overall score" value={formatScore(analysis.overall_score)} />
+                    <DataCardRow label="Confidence" value={analysisConfidence ?? '—'} />
+                    <DataCardRow label="Moat score" value={formatScore(analysis.moat_score)} />
+                    <DataCardRow label="Valuation score" value={formatScore(analysis.valuation_score)} />
+                    <DataCardRow label="ROIC score" value={formatScore(analysis.roic_score)} />
+                    <DataCardRow
+                      label="Fair value"
+                      value={
+                        analysis.fair_value_low != null || analysis.fair_value_high != null
+                          ? `${formatCurrency(analysis.fair_value_low)} – ${formatCurrency(analysis.fair_value_high)}`
+                          : '—'
+                      }
+                    />
+                    <DataCardRow label="Valuation status" value={valuationStatus ?? '—'} />
+                    <DataCardRow
+                      label="Verdict source"
+                      value={analysis.verdict ? 'Manual' : analysis.verdict_auto ? 'Auto' : '—'}
+                    />
                   </div>
+
+                  {analysis.thesis ? (
+                    <div className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                        Thesis:
+                      </span>{' '}
+                      {analysis.thesis}
+                    </div>
+                  ) : null}
+
+                  {analysis.thesis_breakers ? (
+                    <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                        Breakers:
+                      </span>{' '}
+                      {analysis.thesis_breakers}
+                    </div>
+                  ) : null}
                 </div>
-
-                <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  <DataCardRow label="Overall score" value={formatScore(analysis.overall_score)} />
-                  <DataCardRow label="Confidence" value={analysis.confidence ?? '—'} />
-                  <DataCardRow label="Moat score" value={formatScore(analysis.moat_score)} />
-                  <DataCardRow label="Valuation score" value={formatScore(analysis.valuation_score)} />
-                  <DataCardRow label="ROIC score" value={formatScore(analysis.roic_score)} />
-                  <DataCardRow
-                    label="Fair value"
-                    value={
-                      analysis.fair_value_low != null || analysis.fair_value_high != null
-                        ? `${formatCurrency(analysis.fair_value_low)} – ${formatCurrency(analysis.fair_value_high)}`
-                        : '—'
-                    }
-                  />
-                </div>
-
-                {analysis.thesis ? (
-                  <div className="mt-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                    <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                      Thesis:
-                    </span>{' '}
-                    {analysis.thesis}
-                  </div>
-                ) : null}
-
-                {analysis.thesis_breakers ? (
-                  <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                    <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                      Breakers:
-                    </span>{' '}
-                    {analysis.thesis_breakers}
-                  </div>
-                ) : null}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </CollapsibleSection>
