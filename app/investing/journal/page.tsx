@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 import type {
   DecisionJournalEntry,
@@ -241,6 +241,9 @@ function InvestingJournalPageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const searchParams = useSearchParams()
 
+  const router = useRouter()
+  const pathname = usePathname()
+
   const queryMode = searchParams.get('mode')
   const queryPrefillEntry = useMemo(
     () => (queryMode === 'new' ? buildPrefilledJournalEntry(searchParams) : null),
@@ -254,9 +257,39 @@ function InvestingJournalPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [savedView, setSavedView] = useState('all')
-  const [activeFilter, setActiveFilter] = useState('all')
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
+  const [savedView, setSavedView] = useState(() => searchParams.get('view') ?? 'all')
+  const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all')
+
+useEffect(() => {
+  const params = new URLSearchParams(searchParams.toString())
+
+  if (search.trim()) {
+    params.set('q', search.trim())
+  } else {
+    params.delete('q')
+  }
+
+  if (savedView !== 'all') {
+    params.set('view', savedView)
+  } else {
+    params.delete('view')
+  }
+
+  if (activeFilter !== 'all') {
+    params.set('filter', activeFilter)
+  } else {
+    params.delete('filter')
+  }
+
+  const next = params.toString()
+  const current = searchParams.toString()
+
+  if (next !== current) {
+    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
+  }
+}, [search, savedView, activeFilter, pathname, router, searchParams])
+
 
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledJournalEntry(searchParams)
