@@ -37,6 +37,16 @@ function formatDate(value: string | null | undefined) {
   })
 }
 
+function getManualOrAutoSource(args: {
+  manualValue: unknown
+  autoValue: unknown
+}): 'Manual' | 'Auto' | null {
+  const { manualValue, autoValue } = args
+  if (manualValue != null) return 'Manual'
+  if (autoValue != null) return 'Auto'
+  return null
+}
+
 export function AnalysisTable({
   analyses,
   onEdit,
@@ -61,53 +71,68 @@ export function AnalysisTable({
             <th>Date</th>
             <th>Sector</th>
             <th>Verdict</th>
+            <th>Verdict Source</th>
             <th>Overall</th>
             <th>Confidence</th>
+            <th>Confidence Source</th>
             <th>Fair Value Low</th>
             <th>Fair Value High</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {analyses.map((analysis) => (
-            <tr key={analysis.id}>
-              <td className="font-medium">
-                <Link
-                  href={`/investing/ticker/${encodeURIComponent(analysis.ticker)}`}
-                  className="text-[#3346cc] underline-offset-2 hover:underline dark:text-[#9db2ff]"
-                >
-                  {analysis.ticker}
-                </Link>
-              </td>
-              <td>{analysis.company}</td>
-              <td>{formatDate(analysis.analysis_date)}</td>
-              <td>{analysis.sector}</td>
-              <td>{analysis.verdict ?? analysis.verdict_auto ?? '—'}</td>
-              <td>{formatScore(analysis.overall_score)}</td>
-              <td>{analysis.confidence ?? analysis.confidence_auto ?? '—'}</td>
-              <td>{formatCurrency(analysis.fair_value_low)}</td>
-              <td>{formatCurrency(analysis.fair_value_high)}</td>
-              <td>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onEdit(analysis)}
-                    className="ui-btn-secondary"
+          {analyses.map((analysis) => {
+            const verdictSource = getManualOrAutoSource({
+              manualValue: analysis.verdict,
+              autoValue: analysis.verdict_auto,
+            })
+            const confidenceSource = getManualOrAutoSource({
+              manualValue: analysis.confidence,
+              autoValue: analysis.confidence_auto,
+            })
+
+            return (
+              <tr key={analysis.id}>
+                <td className="font-medium">
+                  <Link
+                    href={`/investing/ticker/${encodeURIComponent(analysis.ticker)}`}
+                    className="text-[#3346cc] underline-offset-2 hover:underline dark:text-[#9db2ff]"
                   >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete(analysis)}
-                    className="ui-btn-secondary"
-                    disabled={deletingId === analysis.id}
-                  >
-                    {deletingId === analysis.id ? 'Deleting...' : 'Delete'}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+                    {analysis.ticker}
+                  </Link>
+                </td>
+                <td>{analysis.company}</td>
+                <td>{formatDate(analysis.analysis_date)}</td>
+                <td>{analysis.sector}</td>
+                <td>{analysis.verdict ?? analysis.verdict_auto ?? '—'}</td>
+                <td>{verdictSource ?? '—'}</td>
+                <td>{formatScore(analysis.overall_score)}</td>
+                <td>{analysis.confidence ?? analysis.confidence_auto ?? '—'}</td>
+                <td>{confidenceSource ?? '—'}</td>
+                <td>{formatCurrency(analysis.fair_value_low)}</td>
+                <td>{formatCurrency(analysis.fair_value_high)}</td>
+                <td>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(analysis)}
+                      className="ui-btn-secondary"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(analysis)}
+                      className="ui-btn-secondary"
+                      disabled={deletingId === analysis.id}
+                    >
+                      {deletingId === analysis.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

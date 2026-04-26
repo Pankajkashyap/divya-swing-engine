@@ -199,6 +199,34 @@ function getPortfolioActionHint(args: {
   return 'Hold'
 }
 
+function getManualOrAutoSource(args: {
+  manualValue: unknown
+  autoValue: unknown
+}): 'Manual' | 'Auto' | null {
+  const { manualValue, autoValue } = args
+  if (manualValue != null) return 'Manual'
+  if (autoValue != null) return 'Auto'
+  return null
+}
+
+function getSourceBadgeClass(source: 'Manual' | 'Auto') {
+  return source === 'Manual'
+    ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300'
+    : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+}
+
+function SourceBadge({ source }: { source: 'Manual' | 'Auto' | null }) {
+  if (!source) return <span className="text-neutral-500 dark:text-[#a8b2bf]">—</span>
+
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${getSourceBadgeClass(source)}`}
+    >
+      {source}
+    </span>
+  )
+}
+
 export default async function InvestingTickerDetailPage({ params }: Props) {
   const { ticker } = await params
   const normalizedTicker = decodeURIComponent(ticker).trim().toUpperCase()
@@ -256,6 +284,18 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
     latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
   const latestAnalysisConfidence =
     latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+  const latestVerdictSource = getManualOrAutoSource({
+    manualValue: latestAnalysis?.verdict,
+    autoValue: latestAnalysis?.verdict_auto,
+  })
+  const latestConfidenceSource = getManualOrAutoSource({
+    manualValue: latestAnalysis?.confidence,
+    autoValue: latestAnalysis?.confidence_auto,
+  })
+  const latestValuationSource = getManualOrAutoSource({
+    manualValue: latestAnalysis?.valuation_score,
+    autoValue: latestAnalysis?.valuation_score_auto,
+  })
 
   const referenceCurrentPrice =
     primaryHolding?.current_price ?? watchlistItem?.current_price ?? null
@@ -446,6 +486,18 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
             <DataCardRow label="Overall score" value={formatScore(latestAnalysis?.overall_score)} />
           </DataCard>
 
+          <DataCard title="Source Summary">
+            <DataCardRow label="Verdict source" value={<SourceBadge source={latestVerdictSource} />} />
+            <DataCardRow
+              label="Confidence source"
+              value={<SourceBadge source={latestConfidenceSource} />}
+            />
+            <DataCardRow
+              label="Valuation source"
+              value={<SourceBadge source={latestValuationSource} />}
+            />
+          </DataCard>
+
           <DataCard title="Valuation">
             <DataCardRow label="Current price" value={formatCurrency(referenceCurrentPrice)} />
             <DataCardRow
@@ -459,22 +511,10 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
             <DataCardRow label="Valuation status" value={analysisValuationStatus ?? '—'} />
           </DataCard>
 
-          <DataCard title="Watchlist Hint">
-            <DataCardRow label="Action hint" value={watchlistActionHint ?? '—'} />
-            <DataCardRow label="Watchlist status" value={watchlistItem?.status ?? '—'} />
-            <DataCardRow
-              label="Target entry"
-              value={formatCurrency(watchlistItem?.target_entry ?? latestAnalysis?.fair_value_low)}
-            />
-          </DataCard>
-
-          <DataCard title="Portfolio Hint">
-            <DataCardRow label="Action hint" value={portfolioActionHint ?? '—'} />
+          <DataCard title="Portfolio / Watchlist Hints">
+            <DataCardRow label="Watchlist hint" value={watchlistActionHint ?? '—'} />
+            <DataCardRow label="Portfolio hint" value={portfolioActionHint ?? '—'} />
             <DataCardRow label="Thesis status" value={primaryHolding?.thesis_status ?? '—'} />
-            <DataCardRow
-              label="Position value"
-              value={formatCurrencyRounded(primaryHolding?.market_value)}
-            />
           </DataCard>
         </section>
       </CollapsibleSection>
@@ -636,6 +676,14 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
             {analyses.map((analysis) => {
               const analysisVerdict = analysis.verdict ?? analysis.verdict_auto ?? null
               const analysisConfidence = analysis.confidence ?? analysis.confidence_auto ?? null
+              const analysisVerdictSource = getManualOrAutoSource({
+                manualValue: analysis.verdict,
+                autoValue: analysis.verdict_auto,
+              })
+              const analysisConfidenceSource = getManualOrAutoSource({
+                manualValue: analysis.confidence,
+                autoValue: analysis.confidence_auto,
+              })
               const valuationStatus = getValuationStatus({
                 currentPrice: referenceCurrentPrice,
                 fairValueLow: analysis.fair_value_low ?? null,
@@ -661,6 +709,11 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <DataCardRow label="Overall score" value={formatScore(analysis.overall_score)} />
                     <DataCardRow label="Confidence" value={analysisConfidence ?? '—'} />
+                    <DataCardRow label="Verdict source" value={<SourceBadge source={analysisVerdictSource} />} />
+                    <DataCardRow
+                      label="Confidence source"
+                      value={<SourceBadge source={analysisConfidenceSource} />}
+                    />
                     <DataCardRow label="Moat score" value={formatScore(analysis.moat_score)} />
                     <DataCardRow label="Valuation score" value={formatScore(analysis.valuation_score)} />
                     <DataCardRow label="ROIC score" value={formatScore(analysis.roic_score)} />
@@ -673,10 +726,6 @@ export default async function InvestingTickerDetailPage({ params }: Props) {
                       }
                     />
                     <DataCardRow label="Valuation status" value={valuationStatus ?? '—'} />
-                    <DataCardRow
-                      label="Verdict source"
-                      value={analysis.verdict ? 'Manual' : analysis.verdict_auto ? 'Auto' : '—'}
-                    />
                   </div>
 
                   {analysis.thesis ? (

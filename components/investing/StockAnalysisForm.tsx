@@ -146,6 +146,48 @@ function FieldHint({ children }: { children: React.ReactNode }) {
   )
 }
 
+function SourceBadge({ source }: { source: 'Manual' | 'Auto' | null }) {
+  if (!source) return null
+
+  const className =
+    source === 'Manual'
+      ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+
+  return (
+    <span
+      className={`ml-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${className}`}
+    >
+      {source}
+    </span>
+  )
+}
+
+function FieldLabel({
+  children,
+  source,
+}: {
+  children: React.ReactNode
+  source?: 'Manual' | 'Auto' | null
+}) {
+  return (
+    <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+      {children}
+      <SourceBadge source={source ?? null} />
+    </span>
+  )
+}
+
+function getManualOrAutoSource(args: {
+  manualValue: unknown
+  autoValue: unknown
+}): 'Manual' | 'Auto' | null {
+  const { manualValue, autoValue } = args
+  if (manualValue != null) return 'Manual'
+  if (autoValue != null) return 'Auto'
+  return null
+}
+
 export function StockAnalysisForm({
   initialAnalysis,
   onSubmit,
@@ -173,6 +215,39 @@ export function StockAnalysisForm({
   const [qualitativeConfidence, setQualitativeConfidence] = useState<string | null>(
     initialAnalysis?.qualitative_confidence ?? null
   )
+
+  const moatSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.moat_score,
+    autoValue: initialAnalysis?.moat_score_auto,
+  })
+  const valuationSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.valuation_score,
+    autoValue: initialAnalysis?.valuation_score_auto,
+  })
+  const mgmtSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.mgmt_score,
+    autoValue: initialAnalysis?.management_score_auto,
+  })
+  const roicSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.roic_score,
+    autoValue: initialAnalysis?.roic_score_auto,
+  })
+  const finHealthSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.fin_health_score,
+    autoValue: initialAnalysis?.fin_health_score_auto,
+  })
+  const bizUnderstandingSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.biz_understanding_score,
+    autoValue: initialAnalysis?.biz_understanding_score_auto,
+  })
+  const verdictSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.verdict,
+    autoValue: initialAnalysis?.verdict_auto,
+  })
+  const confidenceSource = getManualOrAutoSource({
+    manualValue: initialAnalysis?.confidence,
+    autoValue: initialAnalysis?.confidence_auto,
+  })
 
   function update<K extends keyof StockAnalysisFormValues>(
     key: K,
@@ -410,9 +485,7 @@ export function StockAnalysisForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Ticker
-            </span>
+            <FieldLabel>Ticker</FieldLabel>
             <input
               value={values.ticker}
               onChange={(e) => update('ticker', e.target.value)}
@@ -422,9 +495,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Company
-            </span>
+            <FieldLabel>Company</FieldLabel>
             <input
               value={values.company}
               onChange={(e) => update('company', e.target.value)}
@@ -434,9 +505,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Analysis date
-            </span>
+            <FieldLabel>Analysis date</FieldLabel>
             <input
               type="date"
               value={values.analysis_date}
@@ -446,9 +515,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Sector
-            </span>
+            <FieldLabel>Sector</FieldLabel>
             <select
               value={values.sector}
               onChange={(e) => update('sector', e.target.value as Sector | '')}
@@ -464,9 +531,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Verdict
-            </span>
+            <FieldLabel source={verdictSource}>Verdict</FieldLabel>
             <select
               value={values.verdict}
               onChange={(e) => update('verdict', e.target.value as Verdict | '')}
@@ -482,9 +547,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Confidence
-            </span>
+            <FieldLabel source={confidenceSource}>Confidence</FieldLabel>
             <FieldHint>Leave blank to use the auto confidence level when available.</FieldHint>
             <select
               value={values.confidence}
@@ -501,9 +564,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Fair value low
-            </span>
+            <FieldLabel>Fair value low</FieldLabel>
             <input
               type="number"
               step="0.01"
@@ -516,9 +577,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Fair value high
-            </span>
+            <FieldLabel>Fair value high</FieldLabel>
             <input
               type="number"
               step="0.01"
@@ -533,9 +592,7 @@ export function StockAnalysisForm({
 
         <div className="mt-4 space-y-4">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Thesis
-            </span>
+            <FieldLabel>Thesis</FieldLabel>
             <textarea
               value={values.thesis}
               onChange={(e) => update('thesis', e.target.value)}
@@ -545,9 +602,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Thesis breakers
-            </span>
+            <FieldLabel>Thesis breakers</FieldLabel>
             <textarea
               value={values.thesis_breakers}
               onChange={(e) => update('thesis_breakers', e.target.value)}
@@ -566,9 +621,7 @@ export function StockAnalysisForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Moat score
-            </span>
+            <FieldLabel source={moatSource}>Moat score</FieldLabel>
             <FieldHint>Usually imported from qualitative analysis.</FieldHint>
             <input
               type="number"
@@ -583,9 +636,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Valuation score
-            </span>
+            <FieldLabel source={valuationSource}>Valuation score</FieldLabel>
             <FieldHint>Leave blank to use the auto valuation score when available.</FieldHint>
             <input
               type="number"
@@ -600,9 +651,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Management score
-            </span>
+            <FieldLabel source={mgmtSource}>Management score</FieldLabel>
             <FieldHint>Usually imported from qualitative analysis.</FieldHint>
             <input
               type="number"
@@ -617,9 +666,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              ROIC score
-            </span>
+            <FieldLabel source={roicSource}>ROIC score</FieldLabel>
             <FieldHint>Leave blank to use the auto ROIC score when available.</FieldHint>
             <input
               type="number"
@@ -634,9 +681,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Financial health score
-            </span>
+            <FieldLabel source={finHealthSource}>Financial health score</FieldLabel>
             <FieldHint>Leave blank to use the auto financial health score when available.</FieldHint>
             <input
               type="number"
@@ -651,9 +696,7 @@ export function StockAnalysisForm({
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Business understanding score
-            </span>
+            <FieldLabel source={bizUnderstandingSource}>Business understanding score</FieldLabel>
             <FieldHint>
               Leave blank to use the auto business understanding score when available.
             </FieldHint>
@@ -702,9 +745,7 @@ export function StockAnalysisForm({
         {promptText ? (
           <div className="mt-4">
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-                Generated prompt
-              </span>
+              <FieldLabel>Generated prompt</FieldLabel>
               <textarea value={promptText} readOnly className="ui-textarea min-h-40" />
             </label>
           </div>
@@ -712,9 +753,7 @@ export function StockAnalysisForm({
 
         <div className="mt-4">
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              Moat / Management JSON
-            </span>
+            <FieldLabel>Moat / Management JSON</FieldLabel>
             <textarea
               value={values.qualitative_json_text}
               onChange={(e) => {
@@ -761,9 +800,7 @@ export function StockAnalysisForm({
         />
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Business Understanding JSON
-          </span>
+          <FieldLabel>Business Understanding JSON</FieldLabel>
           <textarea
             value={values.business_understanding_json_text}
             onChange={(e) => update('business_understanding_json_text', e.target.value)}
@@ -780,9 +817,7 @@ export function StockAnalysisForm({
         />
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-            Raw analysis
-          </span>
+          <FieldLabel>Raw analysis</FieldLabel>
           <textarea
             value={values.raw_analysis}
             onChange={(e) => update('raw_analysis', e.target.value)}
