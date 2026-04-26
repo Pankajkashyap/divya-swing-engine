@@ -3,7 +3,16 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
-import type { DecisionJournalEntry } from '@/app/investing/types'
+import type {
+  DecisionJournalEntry,
+  Holding,
+  StockAnalysis,
+  WatchlistItem,
+} from '@/app/investing/types'
+import {
+  DecisionJournalForm,
+  type JournalDecisionContext,
+} from '@/components/investing/DecisionJournalForm'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
@@ -11,7 +20,6 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
 import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
 import { InvestingSearchToolbar } from '@/components/investing/InvestingSearchToolbar'
-import { DecisionJournalForm } from '@/components/investing/DecisionJournalForm'
 import { DecisionJournalTable } from '@/components/investing/DecisionJournalTable'
 import { DecisionJournalCardList } from '@/components/investing/DecisionJournalCardList'
 
@@ -82,6 +90,98 @@ function toNullableNumber(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function getValuationStatus(args: {
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Below fair value' | 'Within range' | 'Above fair value' | null {
+  const { currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return null
+  }
+
+  if (currentPrice < fairValueLow) return 'Below fair value'
+  if (currentPrice > fairValueHigh) return 'Above fair value'
+  return 'Within range'
+}
+
+function getPortfolioActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  valuationStatus: 'Below fair value' | 'Within range' | 'Above fair value' | null | undefined
+  thesisStatus: Holding['thesis_status'] | null | undefined
+}): 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null {
+  const { latestVerdict, latestConfidence, valuationStatus, thesisStatus } = args
+
+  if (thesisStatus === 'Broken' || thesisStatus === 'Weakening') {
+    return 'Review thesis'
+  }
+
+  if (
+    (latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') &&
+    valuationStatus === 'Below fair value' &&
+    latestConfidence !== 'Low'
+  ) {
+    return 'Add candidate'
+  }
+
+  if (
+    valuationStatus === 'Above fair value' &&
+    (latestVerdict === 'Hold' || latestVerdict === 'Avoid' || latestVerdict === 'Red Flag')
+  ) {
+    return 'Trim candidate'
+  }
+
+  return 'Hold'
+}
+
+function getWatchlistActionHint(args: {
+  latestVerdict: StockAnalysis['verdict'] | null | undefined
+  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
+  currentPrice: number | null | undefined
+  fairValueLow: number | null | undefined
+  fairValueHigh: number | null | undefined
+}): 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null {
+  const { latestVerdict, latestConfidence, currentPrice, fairValueLow, fairValueHigh } = args
+
+  if (!latestVerdict) return 'Needs new analysis'
+
+  if (
+    currentPrice == null ||
+    !Number.isFinite(currentPrice) ||
+    fairValueLow == null ||
+    !Number.isFinite(fairValueLow) ||
+    fairValueHigh == null ||
+    !Number.isFinite(fairValueHigh)
+  ) {
+    return latestVerdict === 'Strong Buy' || latestVerdict === 'Buy'
+      ? 'Keep watching'
+      : 'Needs new analysis'
+  }
+
+  if ((latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') && currentPrice <= fairValueHigh) {
+    return 'Ready to buy'
+  }
+
+  if (currentPrice > fairValueHigh) {
+    return 'Too extended'
+  }
+
+  if (latestConfidence === 'Low') {
+    return 'Needs new analysis'
+  }
+
+  return 'Keep watching'
+}
+
 function buildPrefilledJournalEntry(searchParams: URLSearchParams): DecisionJournalEntry | null {
   const ticker = searchParams.get('ticker')?.trim().toUpperCase() ?? ''
   if (!ticker) return null
@@ -130,6 +230,9 @@ function InvestingJournalPageContent() {
   )
 
   const [entries, setEntries] = useState<DecisionJournalEntry[]>([])
+  const [latestAnalysesByTicker, setLatestAnalysesByTicker] = useState<Record<string, StockAnalysis>>({})
+  const [latestHoldingsByTicker, setLatestHoldingsByTicker] = useState<Record<string, Holding>>({})
+  const [latestWatchlistByTicker, setLatestWatchlistByTicker] = useState<Record<string, WatchlistItem>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -151,21 +254,66 @@ function InvestingJournalPageContent() {
       setLoading(true)
       setError(null)
 
-      const { data, error: loadError } = await supabase
-        .from('investing_decision_journal')
-        .select('*')
-        .order('entry_date', { ascending: false })
-        .order('entry_number', { ascending: false })
+      const [journalRes, analysesRes, holdingsRes, watchlistRes] = await Promise.all([
+        supabase
+          .from('investing_decision_journal')
+          .select('*')
+          .order('entry_date', { ascending: false })
+          .order('entry_number', { ascending: false }),
+        supabase
+          .from('investing_stock_analyses')
+          .select('*')
+          .order('analysis_date', { ascending: false }),
+        supabase
+          .from('investing_holdings')
+          .select('*')
+          .order('updated_at', { ascending: false }),
+        supabase
+          .from('investing_watchlist')
+          .select('*')
+          .order('date_added', { ascending: false }),
+      ])
 
       if (cancelled) return
 
-      if (loadError) {
-        setError(loadError.message)
+      if (journalRes.error) {
+        setError(journalRes.error.message)
         setLoading(false)
         return
       }
 
-      setEntries((data ?? []) as DecisionJournalEntry[])
+      setEntries((journalRes.data ?? []) as DecisionJournalEntry[])
+
+      if (!analysesRes.error) {
+        const map: Record<string, StockAnalysis> = {}
+        for (const item of (analysesRes.data ?? []) as StockAnalysis[]) {
+          const ticker = item.ticker?.toUpperCase?.() ?? ''
+          if (!ticker || map[ticker]) continue
+          map[ticker] = item
+        }
+        setLatestAnalysesByTicker(map)
+      }
+
+      if (!holdingsRes.error) {
+        const map: Record<string, Holding> = {}
+        for (const item of (holdingsRes.data ?? []) as Holding[]) {
+          const ticker = item.ticker?.toUpperCase?.() ?? ''
+          if (!ticker || map[ticker]) continue
+          map[ticker] = item
+        }
+        setLatestHoldingsByTicker(map)
+      }
+
+      if (!watchlistRes.error) {
+        const map: Record<string, WatchlistItem> = {}
+        for (const item of (watchlistRes.data ?? []) as WatchlistItem[]) {
+          const ticker = item.ticker?.toUpperCase?.() ?? ''
+          if (!ticker || map[ticker]) continue
+          map[ticker] = item
+        }
+        setLatestWatchlistByTicker(map)
+      }
+
       setLoading(false)
     }
 
@@ -248,6 +396,63 @@ function InvestingJournalPageContent() {
   }, [entries])
 
   const latestEntry = useMemo(() => entries[0] ?? null, [entries])
+
+  const currentFormContext = useMemo<JournalDecisionContext | null>(() => {
+    const ticker = editingEntry?.ticker?.trim().toUpperCase()
+    if (!ticker) return null
+
+    const latestAnalysis = latestAnalysesByTicker[ticker] ?? null
+    const latestHolding = latestHoldingsByTicker[ticker] ?? null
+    const latestWatchlist = latestWatchlistByTicker[ticker] ?? null
+
+    const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
+    const latestConfidence =
+      latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+
+    const currentPrice =
+      latestHolding?.current_price ??
+      latestWatchlist?.current_price ??
+      editingEntry?.price ??
+      null
+
+    const fairValueLow =
+      latestAnalysis?.fair_value_low ?? latestWatchlist?.fair_value_low ?? null
+    const fairValueHigh =
+      latestAnalysis?.fair_value_high ?? latestWatchlist?.fair_value_high ?? null
+
+    const valuationStatus = getValuationStatus({
+      currentPrice,
+      fairValueLow,
+      fairValueHigh,
+    })
+
+    const actionHint = latestHolding
+      ? getPortfolioActionHint({
+          latestVerdict,
+          latestConfidence,
+          valuationStatus,
+          thesisStatus: latestHolding.thesis_status,
+        })
+      : getWatchlistActionHint({
+          latestVerdict,
+          latestConfidence,
+          currentPrice,
+          fairValueLow,
+          fairValueHigh,
+        })
+
+    return {
+      latest_verdict: latestVerdict,
+      latest_confidence: latestConfidence,
+      latest_overall_score: latestAnalysis?.overall_score ?? null,
+      valuation_status: valuationStatus,
+      action_hint: actionHint,
+      thesis_status: latestHolding?.thesis_status ?? null,
+      current_price: currentPrice,
+      fair_value_low: fairValueLow,
+      fair_value_high: fairValueHigh,
+    }
+  }, [editingEntry, latestAnalysesByTicker, latestHoldingsByTicker, latestWatchlistByTicker])
 
   function openAddSheet() {
     setSuccess(null)
@@ -512,6 +717,7 @@ function InvestingJournalPageContent() {
               : `new-journal-entry-${editingEntry?.ticker ?? 'blank'}`
           }
           initialEntry={editingEntry}
+          context={currentFormContext}
           onSubmit={handleSaveEntry}
           onCancel={closeSheet}
           submitLabel={editingEntry?.id ? 'Save changes' : 'Add journal entry'}

@@ -41,8 +41,21 @@ type DecisionJournalFormPayload = {
   twelve_month_review: string | null
 }
 
+export type JournalDecisionContext = {
+  latest_verdict: string | null
+  latest_confidence: string | null
+  latest_overall_score: number | null
+  valuation_status: string | null
+  action_hint: string | null
+  thesis_status: string | null
+  current_price: number | null
+  fair_value_low: number | null
+  fair_value_high: number | null
+}
+
 type Props = {
   initialEntry?: DecisionJournalEntry | null
+  context?: JournalDecisionContext | null
   onSubmit: (values: DecisionJournalFormPayload) => Promise<void> | void
   onCancel?: () => void
   submitLabel?: string
@@ -69,6 +82,22 @@ function getTodayDateString() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function formatCurrency(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+function formatScore(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return value.toFixed(1)
+}
+
 function toFormValues(entry?: DecisionJournalEntry | null): DecisionJournalFormValues {
   return {
     entry_date: entry?.entry_date ?? getTodayDateString(),
@@ -89,8 +118,26 @@ function toFormValues(entry?: DecisionJournalEntry | null): DecisionJournalFormV
   }
 }
 
+function ContextRow({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-neutral-200 py-2 last:border-b-0 dark:border-neutral-800">
+      <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">{label}</div>
+      <div className="text-right text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+        {value}
+      </div>
+    </div>
+  )
+}
+
 export function DecisionJournalForm({
   initialEntry,
+  context = null,
   onSubmit,
   onCancel,
   submitLabel = 'Save journal entry',
@@ -184,6 +231,34 @@ export function DecisionJournalForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {context ? (
+        <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+          <div className="mb-3 text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Decision context
+          </div>
+          <div className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+            <ContextRow label="Latest verdict" value={context.latest_verdict ?? '—'} />
+            <ContextRow label="Latest confidence" value={context.latest_confidence ?? '—'} />
+            <ContextRow
+              label="Latest overall score"
+              value={formatScore(context.latest_overall_score)}
+            />
+            <ContextRow label="Valuation status" value={context.valuation_status ?? '—'} />
+            <ContextRow label="Action hint" value={context.action_hint ?? '—'} />
+            <ContextRow label="Thesis status" value={context.thesis_status ?? '—'} />
+            <ContextRow label="Current price" value={formatCurrency(context.current_price)} />
+            <ContextRow
+              label="Fair value"
+              value={
+                context.fair_value_low != null || context.fair_value_high != null
+                  ? `${formatCurrency(context.fair_value_low)} – ${formatCurrency(context.fair_value_high)}`
+                  : '—'
+              }
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
