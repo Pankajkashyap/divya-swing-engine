@@ -16,6 +16,15 @@ import { WatchlistTable } from '@/components/investing/WatchlistTable'
 import { WatchlistCardList } from '@/components/investing/WatchlistCardList'
 import { StockAnalysisForm } from '@/components/investing/StockAnalysisForm'
 
+type EnrichedWatchlistItem = WatchlistItem & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+}
+
 type WatchlistFormPayload = {
   ticker: string
   company: string
@@ -48,6 +57,12 @@ type StockAnalysisFormPayload = {
   thesis_breakers: string | null
   confidence: StockAnalysis['confidence']
   raw_analysis: string | null
+  moat_json?: Record<string, unknown> | null
+  management_json?: Record<string, unknown> | null
+  moat_score_auto?: number | null
+  management_score_auto?: number | null
+  qualitative_confidence?: string | null
+  business_understanding_json?: Record<string, unknown> | null
 }
 
 function formatCurrency(value: number | null | undefined) {
@@ -89,7 +104,7 @@ function toNullableNumber(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function buildPrefilledWatchlistItem(searchParams: URLSearchParams): WatchlistItem | null {
+function buildPrefilledWatchlistItem(searchParams: URLSearchParams): EnrichedWatchlistItem | null {
   const ticker = searchParams.get('ticker')?.trim().toUpperCase() ?? ''
   if (!ticker) return null
 
@@ -123,6 +138,12 @@ function buildPrefilledWatchlistItem(searchParams: URLSearchParams): WatchlistIt
         : null,
     created_at: '',
     updated_at: '',
+    latest_analysis_overall_score: null,
+    latest_analysis_verdict: null,
+    latest_analysis_confidence: null,
+    latest_analysis_fair_value_low: null,
+    latest_analysis_fair_value_high: null,
+    latest_analysis_date: null,
   }
 }
 
@@ -163,7 +184,7 @@ function InvestingWatchlistPageContent() {
     [queryMode, searchParams]
   )
 
-  const [items, setItems] = useState<WatchlistItem[]>([])
+  const [items, setItems] = useState<EnrichedWatchlistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -172,14 +193,14 @@ function InvestingWatchlistPageContent() {
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledWatchlistItem(searchParams)
   )
-  const [editingItem, setEditingItem] = useState<WatchlistItem | null>(
+  const [editingItem, setEditingItem] = useState<EnrichedWatchlistItem | null>(
     () => (queryMode === 'new' ? buildPrefilledWatchlistItem(searchParams) : null)
   )
   const [formBusy, setFormBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [analysisSheetOpen, setAnalysisSheetOpen] = useState(false)
-  const [analysisSourceItem, setAnalysisSourceItem] = useState<WatchlistItem | null>(null)
+  const [analysisSourceItem, setAnalysisSourceItem] = useState<EnrichedWatchlistItem | null>(null)
   const [analysisBusy, setAnalysisBusy] = useState(false)
 
   useEffect(() => {
@@ -189,20 +210,59 @@ function InvestingWatchlistPageContent() {
       setLoading(true)
       setError(null)
 
-      const { data, error: loadError } = await supabase
-        .from('investing_watchlist')
-        .select('*')
-        .order('date_added', { ascending: false })
+      const [{ data: watchlistData, error: watchlistError }, { data: analysisData, error: analysisError }] =
+        await Promise.all([
+          supabase.from('investing_watchlist').select('*').order('date_added', { ascending: false }),
+          supabase
+            .from('investing_stock_analyses')
+            .select('*')
+            .order('analysis_date', { ascending: false }),
+        ])
 
       if (cancelled) return
 
-      if (loadError) {
-        setError(loadError.message)
+      if (watchlistError) {
+        setError(watchlistError.message)
         setLoading(false)
         return
       }
 
-      setItems((data ?? []) as WatchlistItem[])
+      if (analysisError) {
+        setError(analysisError.message)
+        setLoading(false)
+        return
+      }
+
+      const latestAnalysisByTicker = new Map<string, StockAnalysis>()
+
+      for (const analysis of (analysisData ?? []) as StockAnalysis[]) {
+        const ticker = analysis.ticker?.toUpperCase?.() ?? ''
+        if (!ticker) continue
+
+        if (!latestAnalysisByTicker.has(ticker)) {
+          latestAnalysisByTicker.set(ticker, analysis)
+        }
+      }
+
+      const enrichedWatchlist: EnrichedWatchlistItem[] = ((watchlistData ?? []) as WatchlistItem[]).map(
+        (item) => {
+          const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
+
+          return {
+            ...item,
+            latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
+            latest_analysis_verdict:
+              latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null,
+            latest_analysis_confidence:
+              latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null,
+            latest_analysis_fair_value_low: latestAnalysis?.fair_value_low ?? null,
+            latest_analysis_fair_value_high: latestAnalysis?.fair_value_high ?? null,
+            latest_analysis_date: latestAnalysis?.analysis_date ?? null,
+          }
+        }
+      )
+
+      setItems(enrichedWatchlist)
       setLoading(false)
     }
 
@@ -222,7 +282,9 @@ function InvestingWatchlistPageContent() {
         item.ticker.toLowerCase().includes(term) ||
         item.company.toLowerCase().includes(term) ||
         item.sector.toLowerCase().includes(term) ||
-        item.status.toLowerCase().includes(term)
+        item.status.toLowerCase().includes(term) ||
+        (item.latest_analysis_verdict ?? '').toLowerCase().includes(term) ||
+        (item.latest_analysis_confidence ?? '').toLowerCase().includes(term)
       )
     })
   }, [items, search])
@@ -262,7 +324,7 @@ function InvestingWatchlistPageContent() {
     setSheetOpen(true)
   }
 
-  function openEditSheet(item: WatchlistItem) {
+  function openEditSheet(item: EnrichedWatchlistItem) {
     setSuccess(null)
     setEditingItem(item)
     setSheetOpen(true)
@@ -274,7 +336,7 @@ function InvestingWatchlistPageContent() {
     setEditingItem(null)
   }
 
-  function openAnalysisSheet(item: WatchlistItem) {
+  function openAnalysisSheet(item: EnrichedWatchlistItem) {
     setSuccess(null)
     setAnalysisSourceItem(item)
     setAnalysisSheetOpen(true)
@@ -363,7 +425,7 @@ function InvestingWatchlistPageContent() {
       }
 
       setItems((prev) =>
-        [inserted as WatchlistItem, ...prev].sort((a, b) =>
+        [inserted as EnrichedWatchlistItem, ...prev].sort((a, b) =>
           b.date_added.localeCompare(a.date_added)
         )
       )
@@ -376,7 +438,7 @@ function InvestingWatchlistPageContent() {
     setEditingItem(null)
   }
 
-  async function handleDeleteItem(item: WatchlistItem) {
+  async function handleDeleteItem(item: EnrichedWatchlistItem) {
     const confirmed = window.confirm(`Delete ${item.ticker} from the watchlist?`)
     if (!confirmed) return
 
@@ -437,6 +499,12 @@ function InvestingWatchlistPageContent() {
       thesis_breakers: payload.thesis_breakers,
       confidence: payload.confidence,
       raw_analysis: payload.raw_analysis,
+      moat_json: payload.moat_json ?? null,
+      management_json: payload.management_json ?? null,
+      moat_score_auto: payload.moat_score_auto ?? null,
+      management_score_auto: payload.management_score_auto ?? null,
+      qualitative_confidence: payload.qualitative_confidence ?? null,
+      business_understanding_json: payload.business_understanding_json ?? null,
     }
 
     const { error: insertError } = await supabase.from('investing_stock_analyses').insert(record)
@@ -570,7 +638,7 @@ function InvestingWatchlistPageContent() {
         <InvestingSearchToolbar
           value={search}
           onChange={setSearch}
-          placeholder="Search ticker, company, sector, or status"
+          placeholder="Search ticker, company, sector, status, verdict, or confidence"
         />
       ) : null}
 

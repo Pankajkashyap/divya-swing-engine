@@ -1,13 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import type { WatchlistItem } from '@/app/investing/types'
+import type { StockAnalysis, WatchlistItem } from '@/app/investing/types'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 
+type EnrichedWatchlistItem = WatchlistItem & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+}
+
 type Props = {
-  items: WatchlistItem[]
-  onEdit: (item: WatchlistItem) => void
-  onDelete: (item: WatchlistItem) => void
+  items: EnrichedWatchlistItem[]
+  onEdit: (item: EnrichedWatchlistItem) => void
+  onDelete: (item: EnrichedWatchlistItem) => void
   deletingId?: string | null
 }
 
@@ -25,6 +34,22 @@ function formatCurrency(value: number | null | undefined) {
 function formatPercent(value: number | null | undefined, digits = 1) {
   if (value == null || Number.isNaN(value)) return '—'
   return `${value.toFixed(digits)}%`
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—'
+  const date = new Date(value + 'T00:00:00')
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function formatScore(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return value.toFixed(1)
 }
 
 function getStatusTone(status: WatchlistItem['status']) {
@@ -116,6 +141,22 @@ export function WatchlistCardList({
               }
             />
             <DataCardRow label="Discount to entry" value={formatPercent(item.discount_to_entry)} />
+            <DataCardRow
+              label="Analysis score"
+              value={formatScore(item.latest_analysis_overall_score)}
+            />
+            <DataCardRow label="Verdict" value={item.latest_analysis_verdict ?? '—'} />
+            <DataCardRow label="Confidence" value={item.latest_analysis_confidence ?? '—'} />
+            <DataCardRow label="Analysis date" value={formatDate(item.latest_analysis_date)} />
+            <DataCardRow
+              label="Analysis fair value"
+              value={
+                item.latest_analysis_fair_value_low != null ||
+                item.latest_analysis_fair_value_high != null
+                  ? `${formatCurrency(item.latest_analysis_fair_value_low)} – ${formatCurrency(item.latest_analysis_fair_value_high)}`
+                  : '—'
+              }
+            />
           </div>
 
           {item.why_watching ? (

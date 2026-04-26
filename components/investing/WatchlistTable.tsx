@@ -1,12 +1,21 @@
 'use client'
 
 import Link from 'next/link'
-import type { WatchlistItem } from '@/app/investing/types'
+import type { StockAnalysis, WatchlistItem } from '@/app/investing/types'
+
+type EnrichedWatchlistItem = WatchlistItem & {
+  latest_analysis_overall_score?: number | null
+  latest_analysis_verdict?: StockAnalysis['verdict'] | null
+  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
+  latest_analysis_fair_value_low?: number | null
+  latest_analysis_fair_value_high?: number | null
+  latest_analysis_date?: string | null
+}
 
 type Props = {
-  items: WatchlistItem[]
-  onEdit: (item: WatchlistItem) => void
-  onDelete: (item: WatchlistItem) => void
+  items: EnrichedWatchlistItem[]
+  onEdit: (item: EnrichedWatchlistItem) => void
+  onDelete: (item: EnrichedWatchlistItem) => void
   deletingId?: string | null
 }
 
@@ -37,6 +46,11 @@ function formatDate(value: string | null | undefined) {
   })
 }
 
+function formatScore(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return value.toFixed(1)
+}
+
 export function WatchlistTable({
   items,
   onEdit,
@@ -64,6 +78,10 @@ export function WatchlistTable({
             <th>Target Entry</th>
             <th>Discount</th>
             <th>Score</th>
+            <th>Analysis Score</th>
+            <th>Verdict</th>
+            <th>Confidence</th>
+            <th>Analysis Date</th>
             <th>Date Added</th>
             <th>Actions</th>
           </tr>
@@ -85,9 +103,11 @@ export function WatchlistTable({
               <td>{formatCurrency(item.current_price)}</td>
               <td>{formatCurrency(item.target_entry)}</td>
               <td>{formatPercent(item.discount_to_entry)}</td>
-              <td>
-                {item.scorecard_overall == null ? '—' : item.scorecard_overall.toFixed(1)}
-              </td>
+              <td>{item.scorecard_overall == null ? '—' : item.scorecard_overall.toFixed(1)}</td>
+              <td>{formatScore(item.latest_analysis_overall_score)}</td>
+              <td>{item.latest_analysis_verdict ?? '—'}</td>
+              <td>{item.latest_analysis_confidence ?? '—'}</td>
+              <td>{formatDate(item.latest_analysis_date)}</td>
               <td>{formatDate(item.date_added)}</td>
               <td>
                 <div className="flex gap-2">
