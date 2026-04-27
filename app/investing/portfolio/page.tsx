@@ -14,6 +14,11 @@ import {
   calculatePositionSize,
   type PositionSizingResult,
 } from '@/app/investing/lib/positionSizing'
+import {
+  runAllSellSignals,
+  type SellSignal,
+  type SellSignalInput,
+} from '@/app/investing/lib/sellSignals'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
@@ -295,6 +300,7 @@ function InvestingPortfolioPageContent() {
   )
 
   const [holdings, setHoldings] = useState<EnrichedHolding[]>([])
+  const [analyses, setAnalyses] = useState<StockAnalysis[]>([])
   const [dbSavedViews, setDbSavedViews] = useState<SavedPortfolioView[]>([])
   const [activeDbSavedViewId, setActiveDbSavedViewId] = useState<string | null>(null)
 
@@ -409,6 +415,8 @@ function InvestingPortfolioPageContent() {
 
       if (analysesRes.error) {
         errors.push(`Analyses: ${analysesRes.error.message}`)
+      } else {
+        setAnalyses((analysesRes.data ?? []) as StockAnalysis[])
       }
 
       if (!holdingsRes.error && !analysesRes.error) {
@@ -417,6 +425,7 @@ function InvestingPortfolioPageContent() {
         for (const analysis of (analysesRes.data ?? []) as StockAnalysis[]) {
           const ticker = analysis.ticker?.toUpperCase?.() ?? ''
           if (!ticker) continue
+
           if (!latestAnalysisByTicker.has(ticker)) {
             latestAnalysisByTicker.set(ticker, analysis)
           }
@@ -623,6 +632,69 @@ function InvestingPortfolioPageContent() {
   }, [holdings, search, savedView, activeFilter])
 
   const topHoldings = useMemo(() => holdings.slice(0, 5), [holdings])
+
+  const sellSignals = useMemo<SellSignal[]>(() => {
+    const totalPortfolioValue = holdings.reduce(
+      (sum, h) => sum + Number(h.market_value ?? 0),
+      0
+    )
+    if (totalPortfolioValue === 0) return []
+
+    const sectorTotals = new Map<string, number>()
+    const bucketTotals = new Map<string, number>()
+
+    for (const h of holdings) {
+      if (h.bucket === 'TFSA Cash' || h.bucket === 'Non-registered Cash') continue
+
+      const sector = h.sector || 'Unassigned'
+      sectorTotals.set(sector, (sectorTotals.get(sector) ?? 0) + Number(h.market_value ?? 0))
+
+      const bucket = h.bucket || 'Unassigned'
+      bucketTotals.set(bucket, (bucketTotals.get(bucket) ?? 0) + Number(h.market_value ?? 0))
+    }
+
+    const inputs: SellSignalInput[] = holdings.map((h) => {
+      const marketValue = Number(h.market_value ?? 0)
+      const sectorTarget = sectorTargets.find((t) => t.sector === h.sector)
+      const bucketTarget = bucketTargets.find((t) => t.bucket === h.bucket)
+
+      const latestAnalysis = analyses.find(
+        (a) => a.ticker.toUpperCase() === h.ticker.toUpperCase()
+      )
+
+      return {
+        ticker: h.ticker,
+        company: h.company,
+        shares: h.shares,
+        avgCost: h.avg_cost,
+        currentPrice: h.current_price,
+        marketValue: h.market_value,
+        gainLossPct: h.gain_loss_pct,
+        sector: h.sector || 'Unassigned',
+        bucket: h.bucket,
+        thesisStatus: h.thesis_status,
+        latestVerdict: latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null,
+        latestConfidence:
+          latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null,
+        fairValueLow: latestAnalysis?.fair_value_low ?? null,
+        fairValueHigh: latestAnalysis?.fair_value_high ?? null,
+        positionWeightPct:
+          totalPortfolioValue > 0 ? (marketValue / totalPortfolioValue) * 100 : 0,
+        sectorWeightPct:
+          totalPortfolioValue > 0
+            ? ((sectorTotals.get(h.sector || 'Unassigned') ?? 0) / totalPortfolioValue) * 100
+            : 0,
+        sectorTargetMaxPct: sectorTarget?.max_pct ?? null,
+        bucketWeightPct:
+          totalPortfolioValue > 0
+            ? ((bucketTotals.get(h.bucket || 'Unassigned') ?? 0) / totalPortfolioValue) * 100
+            : 0,
+        bucketTargetMaxPct: bucketTarget?.max_pct ?? null,
+      }
+    })
+
+    return runAllSellSignals(inputs)
+  }, [holdings, sectorTargets, bucketTargets, analyses])
 
   function handleComputePositionSize() {
     const price = parseFloat(sizerPrice)
@@ -1192,6 +1264,81 @@ function InvestingPortfolioPageContent() {
         )}
       </CollapsibleSection>
 
+      <CollapsibleSection
+        title={`Sell/Trim Signals${sellSignals.length > 0 ? ` (${sellSignals.length})` : ''}`}
+        defaultOpen={true}
+      >
+        {loading ? (
+          <div className="h-20 animate-pulse rounded-xl bg-muted" />
+        ) : sellSignals.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No sell or trim signals. All positions look healthy.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sellSignals.map((signal, i) => (
+              <div
+                key={`${signal.ticker}-${signal.signalType}-${i}`}
+                className={`ui-card border-l-4 p-4 ${
+                  signal.severity === 'critical'
+                    ? 'border-l-red-500'
+                    : signal.severity === 'warning'
+                      ? 'border-l-yellow-500'
+                      : 'border-l-blue-400'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {signal.ticker}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                          signal.severity === 'critical'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            : signal.severity === 'warning'
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                        }`}
+                      >
+                        {signal.suggestedAction}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-sm font-medium text-neutral-700 dark:text-[#c8cdd4]">
+                      {signal.title}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      {signal.explanation}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    {signal.currentValue != null ? (
+                      <div>
+                        $
+                        {signal.currentValue.toLocaleString('en-US', {
+                          maximumFractionDigits: 0,
+                        })}
+                      </div>
+                    ) : null}
+                    {signal.gainLossPct != null ? (
+                      <div
+                        className={
+                          signal.gainLossPct >= 0 ? 'text-green-500' : 'text-red-500'
+                        }
+                      >
+                        {signal.gainLossPct >= 0 ? '+' : ''}
+                        {signal.gainLossPct.toFixed(1)}%
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
       <CollapsibleSection title="Position Sizer" defaultOpen={false}>
         <div className="ui-card p-4 space-y-4">
           <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
@@ -1308,7 +1455,7 @@ function InvestingPortfolioPageContent() {
                 </div>
               </div>
 
-              <div className="ui-card p-3 space-y-2 text-sm">
+              <div className="ui-card p-3 text-sm space-y-2">
                 <div className="flex justify-between">
                   <span className="text-neutral-600 dark:text-[#a8b2bf]">
                     Max position ({sizerResult.maxPositionPct}%)
