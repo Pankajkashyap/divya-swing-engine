@@ -82,6 +82,18 @@ type DecisionJournalFormPayload = {
   twelve_month_review: string | null
 }
 
+type SavedPortfolioView = {
+  id: string
+  user_id: string
+  page_key: string
+  name: string
+  query_text: string | null
+  saved_view_key: string | null
+  filter_key: string | null
+  created_at: string
+  updated_at: string
+}
+
 function formatCurrency(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return '—'
 
@@ -269,7 +281,6 @@ function holdingToJournalSeed(holding: Holding): DecisionJournalEntry {
 function InvestingPortfolioPageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const searchParams = useSearchParams()
-
   const router = useRouter()
   const pathname = usePathname()
 
@@ -280,44 +291,47 @@ function InvestingPortfolioPageContent() {
   )
 
   const [holdings, setHoldings] = useState<EnrichedHolding[]>([])
+  const [dbSavedViews, setDbSavedViews] = useState<SavedPortfolioView[]>([])
+  const [activeDbSavedViewId, setActiveDbSavedViewId] = useState<string | null>(null)
+
   const [sectorTargets, setSectorTargets] = useState<SectorTarget[]>([])
   const [bucketTargets, setBucketTargets] = useState<BucketTarget[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [savedView, setSavedView] = useState(() => searchParams.get('view') ?? 'all')
   const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all')
 
-useEffect(() => {
-  const params = new URLSearchParams(searchParams.toString())
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString())
 
-  if (search.trim()) {
-    params.set('q', search.trim())
-  } else {
-    params.delete('q')
-  }
+    if (search.trim()) {
+      params.set('q', search.trim())
+    } else {
+      params.delete('q')
+    }
 
-  if (savedView !== 'all') {
-    params.set('view', savedView)
-  } else {
-    params.delete('view')
-  }
+    if (savedView !== 'all') {
+      params.set('view', savedView)
+    } else {
+      params.delete('view')
+    }
 
-  if (activeFilter !== 'all') {
-    params.set('filter', activeFilter)
-  } else {
-    params.delete('filter')
-  }
+    if (activeFilter !== 'all') {
+      params.set('filter', activeFilter)
+    } else {
+      params.delete('filter')
+    }
 
-  const next = params.toString()
-  const current = searchParams.toString()
+    const next = params.toString()
+    const current = searchParams.toString()
 
-  if (next !== current) {
-    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
-  }
-}, [search, savedView, activeFilter, pathname, router, searchParams])
-
+    if (next !== current) {
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
+    }
+  }, [search, savedView, activeFilter, pathname, router, searchParams])
 
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledHolding(searchParams)
@@ -339,15 +353,28 @@ useEffect(() => {
       setLoading(true)
       setError(null)
 
-      const [holdingsRes, sectorTargetsRes, bucketTargetsRes, analysesRes] = await Promise.all([
-        supabase.from('investing_holdings').select('*').order('market_value', { ascending: false }),
-        supabase.from('investing_sector_targets').select('*').order('sector', { ascending: true }),
-        supabase.from('investing_bucket_targets').select('*').order('bucket', { ascending: true }),
-        supabase
-          .from('investing_stock_analyses')
-          .select('*')
-          .order('analysis_date', { ascending: false }),
-      ])
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      const [holdingsRes, sectorTargetsRes, bucketTargetsRes, analysesRes, savedViewsRes] =
+        await Promise.all([
+          supabase.from('investing_holdings').select('*').order('market_value', { ascending: false }),
+          supabase.from('investing_sector_targets').select('*').order('sector', { ascending: true }),
+          supabase.from('investing_bucket_targets').select('*').order('bucket', { ascending: true }),
+          supabase
+            .from('investing_stock_analyses')
+            .select('*')
+            .order('analysis_date', { ascending: false }),
+          user?.id
+            ? supabase
+                .from('investing_saved_views')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('page_key', 'portfolio')
+                .order('created_at', { ascending: true })
+            : Promise.resolve({ data: [], error: null }),
+        ])
 
       if (cancelled) return
 
@@ -420,6 +447,8 @@ useEffect(() => {
 
         setHoldings(enrichedHoldings)
       }
+
+      setDbSavedViews((savedViewsRes.data ?? []) as SavedPortfolioView[])
 
       if (errors.length > 0) {
         setError(errors.join(' · '))
@@ -584,6 +613,84 @@ useEffect(() => {
   }, [holdings, search, savedView, activeFilter])
 
   const topHoldings = useMemo(() => holdings.slice(0, 5), [holdings])
+
+  async function handleSaveCurrentDbView() {
+    const name = window.prompt('Enter a name for this saved view:')
+    if (!name?.trim()) return
+
+    setError(null)
+    setSuccess(null)
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      setError(authError?.message ?? 'Unable to load current user.')
+      return
+    }
+
+    const payload = {
+      user_id: user.id,
+      page_key: 'portfolio',
+      name: name.trim(),
+      query_text: search.trim() || null,
+      saved_view_key: savedView !== 'all' ? savedView : null,
+      filter_key: activeFilter !== 'all' ? activeFilter : null,
+    }
+
+    const { data, error: insertError } = await supabase
+      .from('investing_saved_views')
+      .insert(payload)
+      .select('*')
+      .single()
+
+    if (insertError) {
+      setError(insertError.message)
+      return
+    }
+
+    setDbSavedViews((prev) => [...prev, data as SavedPortfolioView])
+    setActiveDbSavedViewId((data as SavedPortfolioView).id)
+    setSuccess(`Saved view "${name.trim()}".`)
+  }
+
+  function handleApplyDbSavedView(id: string) {
+    const selected = dbSavedViews.find((view) => view.id === id)
+    if (!selected) return
+
+    setSearch(selected.query_text ?? '')
+    setSavedView(selected.saved_view_key ?? 'all')
+    setActiveFilter(selected.filter_key ?? 'all')
+    setActiveDbSavedViewId(selected.id)
+    setSuccess(`Applied saved view "${selected.name}".`)
+  }
+
+  async function handleDeleteDbSavedView(id: string) {
+    const selected = dbSavedViews.find((view) => view.id === id)
+    if (!selected) return
+
+    const confirmed = window.confirm(`Delete saved view "${selected.name}"?`)
+    if (!confirmed) return
+
+    setError(null)
+    setSuccess(null)
+
+    const { error: deleteError } = await supabase
+      .from('investing_saved_views')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      setError(deleteError.message)
+      return
+    }
+
+    setDbSavedViews((prev) => prev.filter((view) => view.id !== id))
+    setActiveDbSavedViewId((prev) => (prev === id ? null : prev))
+    setSuccess(`Deleted saved view "${selected.name}".`)
+  }
 
   function openAddSheet() {
     setSuccess(null)
@@ -848,19 +955,37 @@ useEffect(() => {
       {!loading && holdings.length > 0 ? (
         <InvestingSearchToolbar
           value={search}
-          onChange={setSearch}
+          onChange={(value) => {
+            setSearch(value)
+            setActiveDbSavedViewId(null)
+          }}
           placeholder="Search ticker, company, sector, account, bucket, verdict, action hint, or thesis status"
           savedViews={getPortfolioSavedViews()}
           activeSavedViewKey={savedView}
-          onSavedViewChange={setSavedView}
+          onSavedViewChange={(key) => {
+            setSavedView(key)
+            setActiveDbSavedViewId(null)
+          }}
           filters={getPortfolioFilters()}
           activeFilterKey={activeFilter}
-          onFilterChange={setActiveFilter}
+          onFilterChange={(key) => {
+            setActiveFilter(key)
+            setActiveDbSavedViewId(null)
+          }}
           onClearFilters={() => {
             setSearch('')
             setSavedView('all')
             setActiveFilter('all')
+            setActiveDbSavedViewId(null)
           }}
+          dbSavedViews={dbSavedViews.map((view) => ({
+            id: view.id,
+            name: view.name,
+          }))}
+          activeDbSavedViewId={activeDbSavedViewId}
+          onDbSavedViewChange={handleApplyDbSavedView}
+          onSaveCurrentView={handleSaveCurrentDbView}
+          onDeleteDbSavedView={handleDeleteDbSavedView}
         />
       ) : null}
 
