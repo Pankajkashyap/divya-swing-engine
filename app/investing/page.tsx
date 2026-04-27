@@ -42,7 +42,12 @@ type EnrichedWatchlistItem = WatchlistItem & {
   latest_analysis_fair_value_low?: number | null
   latest_analysis_fair_value_high?: number | null
   latest_analysis_date?: string | null
-  watchlist_action_hint?: 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null
+  watchlist_action_hint?:
+    | 'Ready to buy'
+    | 'Keep watching'
+    | 'Too extended'
+    | 'Needs new analysis'
+    | null
 }
 
 type EnrichedHolding = Holding & {
@@ -67,6 +72,14 @@ type SavedDashboardView = {
   is_pinned: boolean
   created_at: string
   updated_at: string
+}
+
+type MacroPoint = {
+  seriesId: string
+  title: string
+  value: number | null
+  date: string | null
+  units: string
 }
 
 function SkeletonCard() {
@@ -195,7 +208,10 @@ function getWatchlistActionHint(args: {
       : 'Needs new analysis'
   }
 
-  if ((latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') && currentPrice <= fairValueHigh) {
+  if (
+    (latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') &&
+    currentPrice <= fairValueHigh
+  ) {
     return 'Ready to buy'
   }
 
@@ -301,9 +317,54 @@ export default function InvestingDashboardPage() {
   const [sectorTargets, setSectorTargets] = useState<SectorTarget[]>([])
   const [bucketTargets, setBucketTargets] = useState<BucketTarget[]>([])
   const [savedViews, setSavedViews] = useState<SavedDashboardView[]>([])
+  const [macroData, setMacroData] = useState<MacroPoint[]>([])
+  const [macroLoading, setMacroLoading] = useState(true)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  function getMacroValue(seriesId: string): number | null {
+    const item = macroData.find((d) => d.seriesId === seriesId)
+    return item?.value ?? null
+  }
+
+  function getMacroDate(seriesId: string): string | null {
+    const item = macroData.find((d) => d.seriesId === seriesId)
+    return item?.date ?? null
+  }
+
+  function formatMacroValue(seriesId: string): string {
+    const val = getMacroValue(seriesId)
+    if (val == null || Number.isNaN(val)) return '—'
+
+    if (['FEDFUNDS', 'DGS10', 'DGS2', 'T10Y2Y', 'UNRATE'].includes(seriesId)) {
+      return `${val.toFixed(2)}%`
+    }
+
+    if (seriesId === 'CPIAUCSL') return val.toFixed(1)
+    if (seriesId === 'VIXCLS') return val.toFixed(2)
+    if (seriesId === 'SP500') {
+      return val.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    }
+
+    return val.toFixed(2)
+  }
+
+  function getYieldCurveStatus(): { label: string; color: string } {
+    const spread = getMacroValue('T10Y2Y')
+    if (spread == null) return { label: '—', color: 'text-muted-foreground' }
+    if (spread < 0) return { label: 'Inverted', color: 'text-red-500' }
+    if (spread < 0.5) return { label: 'Flat', color: 'text-yellow-500' }
+    return { label: 'Normal', color: 'text-green-500' }
+  }
+
+  function getVixStatus(): { label: string; color: string } {
+    const vix = getMacroValue('VIXCLS')
+    if (vix == null) return { label: '—', color: 'text-muted-foreground' }
+    if (vix > 30) return { label: 'High Fear', color: 'text-red-500' }
+    if (vix > 20) return { label: 'Elevated', color: 'text-yellow-500' }
+    return { label: 'Low / Calm', color: 'text-green-500' }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -427,33 +488,33 @@ export default function InvestingDashboardPage() {
       if (watchlistRes.error) {
         errors.push(`Watchlist: ${watchlistRes.error.message}`)
       } else {
-        const enrichedWatchlist: EnrichedWatchlistItem[] = ((watchlistRes.data ?? []) as WatchlistItem[]).map(
-          (item) => {
-            const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
-            const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
-            const latestConfidence =
-              latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
-            const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
-            const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
+        const enrichedWatchlist: EnrichedWatchlistItem[] = (
+          (watchlistRes.data ?? []) as WatchlistItem[]
+        ).map((item) => {
+          const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
+          const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
+          const latestConfidence =
+            latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
+          const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
+          const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
 
-            return {
-              ...item,
-              latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
-              latest_analysis_verdict: latestVerdict,
-              latest_analysis_confidence: latestConfidence,
-              latest_analysis_fair_value_low: latestFairValueLow,
-              latest_analysis_fair_value_high: latestFairValueHigh,
-              latest_analysis_date: latestAnalysis?.analysis_date ?? null,
-              watchlist_action_hint: getWatchlistActionHint({
-                latestVerdict,
-                latestConfidence,
-                currentPrice: item.current_price,
-                fairValueLow: latestFairValueLow,
-                fairValueHigh: latestFairValueHigh,
-              }),
-            }
+          return {
+            ...item,
+            latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
+            latest_analysis_verdict: latestVerdict,
+            latest_analysis_confidence: latestConfidence,
+            latest_analysis_fair_value_low: latestFairValueLow,
+            latest_analysis_fair_value_high: latestFairValueHigh,
+            latest_analysis_date: latestAnalysis?.analysis_date ?? null,
+            watchlist_action_hint: getWatchlistActionHint({
+              latestVerdict,
+              latestConfidence,
+              currentPrice: item.current_price,
+              fairValueLow: latestFairValueLow,
+              fairValueHigh: latestFairValueHigh,
+            }),
           }
-        )
+        })
         setWatchlist(enrichedWatchlist)
       }
 
@@ -500,6 +561,25 @@ export default function InvestingDashboardPage() {
       cancelled = true
     }
   }, [supabase])
+
+  useEffect(() => {
+    async function fetchMacro() {
+      try {
+        setMacroLoading(true)
+        const res = await fetch('/investing/api/macro')
+        if (res.ok) {
+          const json = await res.json()
+          setMacroData(json.data ?? [])
+        }
+      } catch {
+        // Macro is supplementary
+      } finally {
+        setMacroLoading(false)
+      }
+    }
+
+    void fetchMacro()
+  }, [])
 
   const portfolioSummary = useMemo(() => {
     const totalValue = holdings.reduce(
@@ -620,7 +700,10 @@ export default function InvestingDashboardPage() {
                 ? 2
                 : 3
         if (aRank !== bRank) return aRank - bRank
-        return Number(b.latest_analysis_overall_score ?? -999) - Number(a.latest_analysis_overall_score ?? -999)
+        return (
+          Number(b.latest_analysis_overall_score ?? -999) -
+          Number(a.latest_analysis_overall_score ?? -999)
+        )
       })
       .slice(0, 5)
 
@@ -667,7 +750,7 @@ export default function InvestingDashboardPage() {
   const mostUnderweightSector = useMemo(() => {
     const candidates = sectorExposure
       .filter((row) => row.targetMin != null && row.pct < (row.targetMin ?? 0))
-      .sort((a, b) => (a.pct - (a.targetMin ?? 0)) - (b.pct - (b.targetMin ?? 0)))
+      .sort((a, b) => a.pct - (a.targetMin ?? 0) - (b.pct - (b.targetMin ?? 0)))
 
     return candidates[0] ?? null
   }, [sectorExposure])
@@ -675,7 +758,7 @@ export default function InvestingDashboardPage() {
   const mostOverweightSector = useMemo(() => {
     const candidates = sectorExposure
       .filter((row) => row.targetMax != null && row.pct > (row.targetMax ?? 0))
-      .sort((a, b) => (b.pct - (b.targetMax ?? 0)) - (a.pct - (a.targetMax ?? 0)))
+      .sort((a, b) => b.pct - (b.targetMax ?? 0) - (a.pct - (a.targetMax ?? 0)))
 
     return candidates[0] ?? null
   }, [sectorExposure])
@@ -689,9 +772,7 @@ export default function InvestingDashboardPage() {
         const confidence = analysis.confidence ?? analysis.confidence_auto ?? null
         return (verdict === 'Strong Buy' || verdict === 'Buy') && confidence === 'High'
       })
-      .sort(
-        (a, b) => Number(b.overall_score ?? -999) - Number(a.overall_score ?? -999)
-      )
+      .sort((a, b) => Number(b.overall_score ?? -999) - Number(a.overall_score ?? -999))
       .slice(0, 5)
   }, [analyses])
 
@@ -783,10 +864,7 @@ export default function InvestingDashboardPage() {
                 label="Equity exposure"
                 value={formatCurrency(portfolioSummary.equityValue)}
               />
-              <DataCardRow
-                label="Cash position"
-                value={formatCurrency(portfolioSummary.cashValue)}
-              />
+              <DataCardRow label="Cash position" value={formatCurrency(portfolioSummary.cashValue)} />
               <DataCardRow
                 label="Weighted gain/loss"
                 value={formatPercent(portfolioSummary.weightedGainLossPct)}
@@ -806,21 +884,12 @@ export default function InvestingDashboardPage() {
                 label="Needs new analysis"
                 value={String(watchlistSummary.needsNewAnalysisCount)}
               />
-              <DataCardRow
-                label="Total watchlist"
-                value={String(watchlist.length)}
-              />
+              <DataCardRow label="Total watchlist" value={String(watchlist.length)} />
             </DataCard>
 
             <DataCard title="Review Pressure">
-              <DataCardRow
-                label="3M reviews due"
-                value={String(reviewsSummary.due3mCount)}
-              />
-              <DataCardRow
-                label="12M reviews due"
-                value={String(reviewsSummary.due12mCount)}
-              />
+              <DataCardRow label="3M reviews due" value={String(reviewsSummary.due3mCount)} />
+              <DataCardRow label="12M reviews due" value={String(reviewsSummary.due12mCount)} />
               <DataCardRow
                 label="Thesis risk alerts"
                 value={String(thesisRiskAlerts.length)}
@@ -833,6 +902,73 @@ export default function InvestingDashboardPage() {
           </>
         )}
       </section>
+
+<CollapsibleSection title="Macro Environment" defaultOpen>
+  {macroLoading ? (
+    <div className="grid grid-cols-2 gap-3">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
+      ))}
+    </div>
+  ) : macroData.length === 0 ? (
+    <InlineStatusBanner tone="info" message="Macro data unavailable" />
+  ) : (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <DataCard title="S&P 500">
+          <DataCardRow label="Value" value={formatMacroValue('SP500')} />
+          <DataCardRow
+            label="Date"
+            value={getMacroDate('SP500') ? `As of ${getMacroDate('SP500')}` : '—'}
+          />
+        </DataCard>
+
+        <DataCard title="VIX">
+          <DataCardRow label="Value" value={formatMacroValue('VIXCLS')} />
+          <div className={`mt-3 text-sm font-medium ${getVixStatus().color}`}>
+            {getVixStatus().label}
+          </div>
+        </DataCard>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <DataCard title="Fed Funds Rate">
+          <DataCardRow label="Value" value={formatMacroValue('FEDFUNDS')} />
+        </DataCard>
+
+        <DataCard title="10Y Treasury">
+          <DataCardRow label="Value" value={formatMacroValue('DGS10')} />
+        </DataCard>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <DataCard title="2Y Treasury">
+          <DataCardRow label="Value" value={formatMacroValue('DGS2')} />
+        </DataCard>
+
+        <DataCard title="Yield Curve (10Y-2Y)">
+          <DataCardRow label="Spread" value={formatMacroValue('T10Y2Y')} />
+          <div className={`mt-3 text-sm font-medium ${getYieldCurveStatus().color}`}>
+            {getYieldCurveStatus().label}
+          </div>
+        </DataCard>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <DataCard title="Unemployment">
+          <DataCardRow label="Value" value={formatMacroValue('UNRATE')} />
+        </DataCard>
+
+        <DataCard title="CPI Index">
+          <DataCardRow label="Value" value={formatMacroValue('CPIAUCSL')} />
+          <div className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Consumer Price Index
+          </div>
+        </DataCard>
+      </div>
+    </div>
+  )}
+</CollapsibleSection>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
@@ -1120,28 +1256,30 @@ export default function InvestingDashboardPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {[...reviewsSummary.due3m.slice(0, 3), ...reviewsSummary.due12m.slice(0, 3)].map((entry) => (
-              <Link
-                key={entry.id}
-                href={`/investing/ticker/${encodeURIComponent(entry.ticker)}`}
-                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-                      {entry.ticker} · {entry.action}
+            {[...reviewsSummary.due3m.slice(0, 3), ...reviewsSummary.due12m.slice(0, 3)].map(
+              (entry) => (
+                <Link
+                  key={entry.id}
+                  href={`/investing/ticker/${encodeURIComponent(entry.ticker)}`}
+                  className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {entry.ticker} · {entry.action}
+                      </div>
+                      <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        Entry date: {formatDate(entry.entry_date)}
+                      </div>
                     </div>
-                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                      Entry date: {formatDate(entry.entry_date)}
+                    <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      <div>3M due: {formatDate(entry.review_due_3m)}</div>
+                      <div>12M due: {formatDate(entry.review_due_12m)}</div>
                     </div>
                   </div>
-                  <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
-                    <div>3M due: {formatDate(entry.review_due_3m)}</div>
-                    <div>12M due: {formatDate(entry.review_due_12m)}</div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              )
+            )}
           </div>
         )}
       </CollapsibleSection>
@@ -1286,7 +1424,10 @@ export default function InvestingDashboardPage() {
         defaultOpen={false}
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Link href="/investing/portfolio" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
+          <Link
+            href="/investing/portfolio"
+            className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+          >
             <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               Portfolio
             </div>
@@ -1295,7 +1436,10 @@ export default function InvestingDashboardPage() {
             </div>
           </Link>
 
-          <Link href="/investing/watchlist" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
+          <Link
+            href="/investing/watchlist"
+            className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+          >
             <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               Watchlist
             </div>
@@ -1304,7 +1448,10 @@ export default function InvestingDashboardPage() {
             </div>
           </Link>
 
-          <Link href="/investing/analysis" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
+          <Link
+            href="/investing/analysis"
+            className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+          >
             <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               Analysis
             </div>
@@ -1313,7 +1460,10 @@ export default function InvestingDashboardPage() {
             </div>
           </Link>
 
-          <Link href="/investing/journal" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
+          <Link
+            href="/investing/journal"
+            className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+          >
             <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               Journal
             </div>
@@ -1322,7 +1472,10 @@ export default function InvestingDashboardPage() {
             </div>
           </Link>
 
-          <Link href="/investing/reviews" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
+          <Link
+            href="/investing/reviews"
+            className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+          >
             <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               Reviews
             </div>
@@ -1331,7 +1484,10 @@ export default function InvestingDashboardPage() {
             </div>
           </Link>
 
-          <Link href="/investing/save-views" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
+          <Link
+            href="/investing/save-views"
+            className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+          >
             <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
               Saved Views
             </div>
