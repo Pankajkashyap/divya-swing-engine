@@ -71,6 +71,18 @@ type StockAnalysisFormPayload = {
   business_understanding_json?: Record<string, unknown> | null
 }
 
+type SavedWatchlistView = {
+  id: string
+  user_id: string
+  page_key: string
+  name: string
+  query_text: string | null
+  saved_view_key: string | null
+  filter_key: string | null
+  created_at: string
+  updated_at: string
+}
+
 function formatCurrency(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return '—'
 
@@ -235,13 +247,31 @@ function watchlistToAnalysisSeed(item: WatchlistItem): StockAnalysis {
     raw_analysis: item.why_watching ?? null,
     created_at: '',
     updated_at: '',
+    moat_json: null,
+    management_json: null,
+    moat_score_auto: null,
+    management_score_auto: null,
+    qualitative_confidence: null,
+    qualitative_imported_at: null,
+    roic_score_auto: null,
+    roic_score_explanation: null,
+    fin_health_score_auto: null,
+    fin_health_score_explanation: null,
+    valuation_score_auto: null,
+    valuation_score_explanation: null,
+    confidence_auto: null,
+    confidence_explanation: null,
+    verdict_auto: null,
+    verdict_explanation: null,
+    business_understanding_json: null,
+    biz_understanding_score_auto: null,
+    biz_understanding_score_explanation: null,
   }
 }
 
 function InvestingWatchlistPageContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const searchParams = useSearchParams()
-
   const router = useRouter()
   const pathname = usePathname()
 
@@ -252,42 +282,45 @@ function InvestingWatchlistPageContent() {
   )
 
   const [items, setItems] = useState<EnrichedWatchlistItem[]>([])
+  const [dbSavedViews, setDbSavedViews] = useState<SavedWatchlistView[]>([])
+  const [activeDbSavedViewId, setActiveDbSavedViewId] = useState<string | null>(null)
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [savedView, setSavedView] = useState(() => searchParams.get('view') ?? 'all')
-  const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all') 
-
+  const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all')
 
   useEffect(() => {
-  const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams.toString())
 
-  if (search.trim()) {
-    params.set('q', search.trim())
-  } else {
-    params.delete('q')
-  }
+    if (search.trim()) {
+      params.set('q', search.trim())
+    } else {
+      params.delete('q')
+    }
 
-  if (savedView !== 'all') {
-    params.set('view', savedView)
-  } else {
-    params.delete('view')
-  }
+    if (savedView !== 'all') {
+      params.set('view', savedView)
+    } else {
+      params.delete('view')
+    }
 
-  if (activeFilter !== 'all') {
-    params.set('filter', activeFilter)
-  } else {
-    params.delete('filter')
-  }
+    if (activeFilter !== 'all') {
+      params.set('filter', activeFilter)
+    } else {
+      params.delete('filter')
+    }
 
-  const next = params.toString()
-  const current = searchParams.toString()
+    const next = params.toString()
+    const current = searchParams.toString()
 
-  if (next !== current) {
-    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
-  }
-}, [search, savedView, activeFilter, pathname, router, searchParams])
+    if (next !== current) {
+      router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
+    }
+  }, [search, savedView, activeFilter, pathname, router, searchParams])
 
   const [sheetOpen, setSheetOpen] = useState(
     () => queryMode === 'new' && !!buildPrefilledWatchlistItem(searchParams)
@@ -309,32 +342,43 @@ function InvestingWatchlistPageContent() {
       setLoading(true)
       setError(null)
 
-      const [{ data: watchlistData, error: watchlistError }, { data: analysisData, error: analysisError }] =
-        await Promise.all([
-          supabase.from('investing_watchlist').select('*').order('date_added', { ascending: false }),
-          supabase
-            .from('investing_stock_analyses')
-            .select('*')
-            .order('analysis_date', { ascending: false }),
-        ])
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      const [watchlistRes, analysesRes, savedViewsRes] = await Promise.all([
+        supabase.from('investing_watchlist').select('*').order('date_added', { ascending: false }),
+        supabase
+          .from('investing_stock_analyses')
+          .select('*')
+          .order('analysis_date', { ascending: false }),
+        user?.id
+          ? supabase
+              .from('investing_saved_views')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('page_key', 'watchlist')
+              .order('created_at', { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
+      ])
 
       if (cancelled) return
 
-      if (watchlistError) {
-        setError(watchlistError.message)
+      if (watchlistRes.error) {
+        setError(watchlistRes.error.message)
         setLoading(false)
         return
       }
 
-      if (analysisError) {
-        setError(analysisError.message)
+      if (analysesRes.error) {
+        setError(analysesRes.error.message)
         setLoading(false)
         return
       }
 
       const latestAnalysisByTicker = new Map<string, StockAnalysis>()
 
-      for (const analysis of (analysisData ?? []) as StockAnalysis[]) {
+      for (const analysis of (analysesRes.data ?? []) as StockAnalysis[]) {
         const ticker = analysis.ticker?.toUpperCase?.() ?? ''
         if (!ticker) continue
 
@@ -343,7 +387,7 @@ function InvestingWatchlistPageContent() {
         }
       }
 
-      const enrichedWatchlist: EnrichedWatchlistItem[] = ((watchlistData ?? []) as WatchlistItem[]).map(
+      const enrichedWatchlist: EnrichedWatchlistItem[] = ((watchlistRes.data ?? []) as WatchlistItem[]).map(
         (item) => {
           const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
           const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
@@ -372,6 +416,7 @@ function InvestingWatchlistPageContent() {
       )
 
       setItems(enrichedWatchlist)
+      setDbSavedViews((savedViewsRes.data ?? []) as SavedWatchlistView[])
       setLoading(false)
     }
 
@@ -462,6 +507,84 @@ function InvestingWatchlistPageContent() {
       activeItems,
     }
   }, [items])
+
+  async function handleSaveCurrentDbView() {
+    const name = window.prompt('Enter a name for this saved view:')
+    if (!name?.trim()) return
+
+    setError(null)
+    setSuccess(null)
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      setError(authError?.message ?? 'Unable to load current user.')
+      return
+    }
+
+    const payload = {
+      user_id: user.id,
+      page_key: 'watchlist',
+      name: name.trim(),
+      query_text: search.trim() || null,
+      saved_view_key: savedView !== 'all' ? savedView : null,
+      filter_key: activeFilter !== 'all' ? activeFilter : null,
+    }
+
+    const { data, error: insertError } = await supabase
+      .from('investing_saved_views')
+      .insert(payload)
+      .select('*')
+      .single()
+
+    if (insertError) {
+      setError(insertError.message)
+      return
+    }
+
+    setDbSavedViews((prev) => [...prev, data as SavedWatchlistView])
+    setActiveDbSavedViewId((data as SavedWatchlistView).id)
+    setSuccess(`Saved view "${name.trim()}".`)
+  }
+
+  function handleApplyDbSavedView(id: string) {
+    const selected = dbSavedViews.find((view) => view.id === id)
+    if (!selected) return
+
+    setSearch(selected.query_text ?? '')
+    setSavedView(selected.saved_view_key ?? 'all')
+    setActiveFilter(selected.filter_key ?? 'all')
+    setActiveDbSavedViewId(selected.id)
+    setSuccess(`Applied saved view "${selected.name}".`)
+  }
+
+  async function handleDeleteDbSavedView(id: string) {
+    const selected = dbSavedViews.find((view) => view.id === id)
+    if (!selected) return
+
+    const confirmed = window.confirm(`Delete saved view "${selected.name}"?`)
+    if (!confirmed) return
+
+    setError(null)
+    setSuccess(null)
+
+    const { error: deleteError } = await supabase
+      .from('investing_saved_views')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      setError(deleteError.message)
+      return
+    }
+
+    setDbSavedViews((prev) => prev.filter((view) => view.id !== id))
+    setActiveDbSavedViewId((prev) => (prev === id ? null : prev))
+    setSuccess(`Deleted saved view "${selected.name}".`)
+  }
 
   function openAddSheet() {
     setSuccess(null)
@@ -782,19 +905,37 @@ function InvestingWatchlistPageContent() {
       {!loading && items.length > 0 ? (
         <InvestingSearchToolbar
           value={search}
-          onChange={setSearch}
+          onChange={(value) => {
+            setSearch(value)
+            setActiveDbSavedViewId(null)
+          }}
           placeholder="Search ticker, company, sector, status, verdict, confidence, or action hint"
           savedViews={getWatchlistSavedViews()}
           activeSavedViewKey={savedView}
-          onSavedViewChange={setSavedView}
+          onSavedViewChange={(key) => {
+            setSavedView(key)
+            setActiveDbSavedViewId(null)
+          }}
           filters={getWatchlistFilters()}
           activeFilterKey={activeFilter}
-          onFilterChange={setActiveFilter}
+          onFilterChange={(key) => {
+            setActiveFilter(key)
+            setActiveDbSavedViewId(null)
+          }}
           onClearFilters={() => {
             setSearch('')
             setSavedView('all')
             setActiveFilter('all')
+            setActiveDbSavedViewId(null)
           }}
+          dbSavedViews={dbSavedViews.map((view) => ({
+            id: view.id,
+            name: view.name,
+          }))}
+          activeDbSavedViewId={activeDbSavedViewId}
+          onDbSavedViewChange={handleApplyDbSavedView}
+          onSaveCurrentView={handleSaveCurrentDbView}
+          onDeleteDbSavedView={handleDeleteDbSavedView}
         />
       ) : null}
 
