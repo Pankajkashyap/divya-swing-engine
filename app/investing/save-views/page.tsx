@@ -8,19 +8,10 @@ import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
 import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
-import { SavedViewsTable } from '@/components/investing/SavedViewsTable'
-
-type SavedViewRecord = {
-  id: string
-  user_id: string
-  page_key: string
-  name: string
-  query_text: string | null
-  saved_view_key: string | null
-  filter_key: string | null
-  created_at: string
-  updated_at: string
-}
+import {
+  SavedViewsTable,
+  type SavedViewRecord,
+} from '../../../components/investing/SavedViewsTable'
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '—'
@@ -81,6 +72,7 @@ export default function InvestingSavedViewsPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [pinningId, setPinningId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -112,8 +104,8 @@ export default function InvestingSavedViewsPage() {
         .from('investing_saved_views')
         .select('*')
         .eq('user_id', user.id)
-        .order('page_key', { ascending: true })
-        .order('created_at', { ascending: true })
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false })
 
       if (cancelled) return
 
@@ -139,14 +131,16 @@ export default function InvestingSavedViewsPage() {
     const watchlist = savedViews.filter((item) => item.page_key === 'watchlist').length
     const portfolio = savedViews.filter((item) => item.page_key === 'portfolio').length
     const journal = savedViews.filter((item) => item.page_key === 'journal').length
+    const pinned = savedViews.filter((item) => item.is_pinned).length
 
     return {
       total: savedViews.length,
+      pinned,
       analysis,
       watchlist,
       portfolio,
       journal,
-      latestCreatedAt: savedViews[savedViews.length - 1]?.created_at ?? null,
+      latestUpdatedAt: savedViews[0]?.updated_at ?? null,
     }
   }, [savedViews])
 
@@ -179,10 +173,48 @@ export default function InvestingSavedViewsPage() {
     }
 
     setSavedViews((prev) =>
-      prev.map((item) => (item.id === view.id ? ((data as SavedViewRecord) ?? item) : item))
+      prev
+        .map((item) => (item.id === view.id ? ((data as SavedViewRecord) ?? item) : item))
+        .sort((a, b) => {
+          if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        })
     )
     setRenamingId(null)
     setSuccess(`Renamed view to "${nextName.trim()}".`)
+  }
+
+  async function handleTogglePin(view: SavedViewRecord) {
+    setPinningId(view.id)
+    setError(null)
+    setSuccess(null)
+
+    const { data, error: updateError } = await supabase
+      .from('investing_saved_views')
+      .update({
+        is_pinned: !view.is_pinned,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', view.id)
+      .select('*')
+      .single()
+
+    if (updateError) {
+      setError(updateError.message)
+      setPinningId(null)
+      return
+    }
+
+    setSavedViews((prev) =>
+      prev
+        .map((item) => (item.id === view.id ? ((data as SavedViewRecord) ?? item) : item))
+        .sort((a, b) => {
+          if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        })
+    )
+    setPinningId(null)
+    setSuccess(view.is_pinned ? `Unpinned "${view.name}".` : `Pinned "${view.name}".`)
   }
 
   async function handleDelete(view: SavedViewRecord) {
@@ -224,10 +256,14 @@ export default function InvestingSavedViewsPage() {
       <InlineStatusBanner tone="error" message={error} />
       <InlineStatusBanner tone="success" message={success} />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         <DataCard title="Saved Views Summary">
           <DataCardRow label="Total" value={String(summary.total)} />
-          <DataCardRow label="Latest created" value={formatDateTime(summary.latestCreatedAt)} />
+          <DataCardRow label="Latest updated" value={formatDateTime(summary.latestUpdatedAt)} />
+        </DataCard>
+
+        <DataCard title="Pinned">
+          <DataCardRow label="Views" value={String(summary.pinned)} />
         </DataCard>
 
         <DataCard title="Analysis">
@@ -252,9 +288,11 @@ export default function InvestingSavedViewsPage() {
         loading={loading}
         renamingId={renamingId}
         deletingId={deletingId}
+        pinningId={pinningId}
         onApply={handleApply}
         onRename={handleRename}
         onDelete={handleDelete}
+        onTogglePin={handleTogglePin}
       />
     </div>
   )

@@ -64,6 +64,7 @@ type SavedDashboardView = {
   query_text: string | null
   saved_view_key: string | null
   filter_key: string | null
+  is_pinned: boolean
   created_at: string
   updated_at: string
 }
@@ -359,8 +360,9 @@ export default function InvestingDashboardPage() {
               .from('investing_saved_views')
               .select('*')
               .eq('user_id', user.id)
+              .order('is_pinned', { ascending: false })
               .order('updated_at', { ascending: false })
-              .limit(8)
+              .limit(12)
           : Promise.resolve({ data: [], error: null }),
       ])
 
@@ -717,6 +719,8 @@ export default function InvestingDashboardPage() {
     const watchlistCount = savedViews.filter((item) => item.page_key === 'watchlist').length
     const portfolio = savedViews.filter((item) => item.page_key === 'portfolio').length
     const journal = savedViews.filter((item) => item.page_key === 'journal').length
+    const pinned = savedViews.filter((item) => item.is_pinned)
+    const recent = savedViews.filter((item) => !item.is_pinned)
 
     return {
       total: savedViews.length,
@@ -724,7 +728,8 @@ export default function InvestingDashboardPage() {
       watchlist: watchlistCount,
       portfolio,
       journal,
-      recent: savedViews.slice(0, 5),
+      pinned: pinned.slice(0, 6),
+      recent: recent.slice(0, 5),
     }
   }, [savedViews])
 
@@ -907,6 +912,7 @@ export default function InvestingDashboardPage() {
 
             <DataCard title="Saved Views Snapshot">
               <DataCardRow label="Total saved views" value={String(savedViewsSummary.total)} />
+              <DataCardRow label="Pinned" value={String(savedViewsSummary.pinned.length)} />
               <DataCardRow label="Analysis" value={String(savedViewsSummary.analysis)} />
               <DataCardRow label="Watchlist" value={String(savedViewsSummary.watchlist)} />
               <DataCardRow label="Portfolio" value={String(savedViewsSummary.portfolio)} />
@@ -917,15 +923,64 @@ export default function InvestingDashboardPage() {
       </section>
 
       <CollapsibleSection
+        title="Pinned saved views"
+        subtitle="Your most important investing workflows."
+        defaultOpen={true}
+      >
+        {loading ? (
+          <SkeletonCard />
+        ) : savedViewsSummary.pinned.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No pinned saved views yet. Pin views from Saved Views management.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {savedViewsSummary.pinned.map((view) => (
+              <Link
+                key={view.id}
+                href={buildSavedViewUrl(view)}
+                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {view.name}
+                    </div>
+                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      {formatPageLabel(view.page_key)}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      Search: {view.query_text ?? '—'} · Built-in view: {view.saved_view_key ?? '—'} · Filter:{' '}
+                      {view.filter_key ?? '—'}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    <div>Pinned</div>
+                    <div>{formatDateTime(view.updated_at)}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+
+            <div className="flex justify-end">
+              <Link href="/investing/save-views" className="ui-btn-secondary">
+                Manage saved views
+              </Link>
+            </div>
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
         title="Recent saved views"
-        subtitle="Quick-launch your latest custom investing workflows."
+        subtitle="Quick-launch your latest unpinned custom workflows."
         defaultOpen={true}
       >
         {loading ? (
           <SkeletonCard />
         ) : savedViewsSummary.recent.length === 0 ? (
           <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-            No saved views yet. Save filters on analysis, watchlist, portfolio, or journal to see them here.
+            No recent unpinned saved views yet.
           </div>
         ) : (
           <div className="space-y-3">
@@ -955,12 +1010,6 @@ export default function InvestingDashboardPage() {
                 </div>
               </Link>
             ))}
-
-            <div className="flex justify-end">
-              <Link href="/investing/save-views" className="ui-btn-secondary">
-                Manage all saved views
-              </Link>
-            </div>
           </div>
         )}
       </CollapsibleSection>

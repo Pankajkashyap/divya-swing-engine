@@ -1,6 +1,6 @@
 'use client'
 
-type SavedViewRecord = {
+export type SavedViewRecord = {
   id: string
   user_id: string
   page_key: string
@@ -8,6 +8,7 @@ type SavedViewRecord = {
   query_text: string | null
   saved_view_key: string | null
   filter_key: string | null
+  is_pinned: boolean
   created_at: string
   updated_at: string
 }
@@ -17,9 +18,11 @@ type Props = {
   loading?: boolean
   renamingId?: string | null
   deletingId?: string | null
+  pinningId?: string | null
   onApply: (view: SavedViewRecord) => void
   onRename: (view: SavedViewRecord) => void
   onDelete: (view: SavedViewRecord) => void
+  onTogglePin: (view: SavedViewRecord) => void
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -56,9 +59,11 @@ export function SavedViewsTable({
   loading = false,
   renamingId = null,
   deletingId = null,
+  pinningId = null,
   onApply,
   onRename,
   onDelete,
+  onTogglePin,
 }: Props) {
   if (loading) {
     return (
@@ -81,6 +86,7 @@ export function SavedViewsTable({
       <table className="ui-table">
         <thead>
           <tr>
+            <th>Pinned</th>
             <th>Name</th>
             <th>Page</th>
             <th>Search</th>
@@ -94,6 +100,7 @@ export function SavedViewsTable({
         <tbody>
           {views.map((view) => (
             <tr key={view.id}>
+              <td>{view.is_pinned ? 'Yes' : '—'}</td>
               <td className="font-medium">{view.name}</td>
               <td>{formatPageLabel(view.page_key)}</td>
               <td>{view.query_text ?? '—'}</td>
@@ -109,6 +116,21 @@ export function SavedViewsTable({
                     className="ui-btn-secondary"
                   >
                     Apply
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onTogglePin(view)}
+                    className="ui-btn-secondary"
+                    disabled={pinningId === view.id}
+                  >
+                    {pinningId === view.id
+                      ? view.is_pinned
+                        ? 'Unpinning...'
+                        : 'Pinning...'
+                      : view.is_pinned
+                        ? 'Unpin'
+                        : 'Pin'}
                   </button>
 
                   <button
