@@ -322,6 +322,8 @@ export default function InvestingDashboardPage() {
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   function getMacroValue(seriesId: string): number | null {
     const item = macroData.find((d) => d.seriesId === seriesId)
@@ -365,6 +367,44 @@ export default function InvestingDashboardPage() {
     if (vix > 20) return { label: 'Elevated', color: 'text-yellow-500' }
     return { label: 'Low / Calm', color: 'text-green-500' }
   }
+
+async function handleRefreshPrices() {
+  setRefreshing(true)
+  setError(null)
+  setSuccess(null)
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    const res = await fetch('/investing/api/refresh-prices', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {}),
+      },
+    })
+
+    const json = await res.json()
+
+    if (!res.ok) {
+      throw new Error(json.error || 'Refresh failed.')
+    }
+
+    setSuccess(
+      `Prices refreshed: ${json.holdingsUpdated} holdings, ${json.watchlistUpdated} watchlist items updated.`
+    )
+
+    window.location.reload()
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Price refresh failed.')
+  } finally {
+    setRefreshing(false)
+  }
+}
 
   useEffect(() => {
     let cancelled = false
@@ -821,6 +861,15 @@ export default function InvestingDashboardPage() {
         subtitle="Command center for portfolio health, watchlist opportunities, review cadence, conviction signals, and saved workflows."
         actions={
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleRefreshPrices()}
+              disabled={refreshing}
+              className="ui-btn-primary"
+            >
+              {refreshing ? 'Refreshing...' : 'Refresh Prices'}
+            </button>
+
             <Link href="/investing/portfolio" className="ui-btn-secondary">
               Open Portfolio
             </Link>
@@ -840,7 +889,8 @@ export default function InvestingDashboardPage() {
         }
       />
 
-      <InlineStatusBanner tone="error" message={error} />
+<InlineStatusBanner tone="error" message={error} />
+<InlineStatusBanner tone="success" message={success} />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (

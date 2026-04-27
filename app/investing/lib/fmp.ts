@@ -1,4 +1,5 @@
 const FMP_BASE_URL = 'https://financialmodelingprep.com/stable'
+
 function getFmpApiKey() {
   const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || process.env.FMP_API_KEY
 
@@ -32,4 +33,48 @@ export async function fmpFetch<T>(
   }
 
   return response.json() as Promise<T>
+}
+
+export type FmpQuote = {
+  symbol: string
+  price: number
+  name?: string
+  changesPercentage?: number
+  change?: number
+  dayLow?: number
+  dayHigh?: number
+  yearHigh?: number
+  yearLow?: number
+  marketCap?: number
+  volume?: number
+  avgVolume?: number
+  exchange?: string
+  open?: number
+  previousClose?: number
+}
+
+/**
+ * Fetch real-time quotes for multiple tickers in a single API call.
+ * FMP supports comma-separated tickers: /quote/AAPL,MSFT,GOOGL
+ * Free tier: counts as 1 API call regardless of ticker count.
+ */
+export async function getBatchQuotes(tickers: string[]): Promise<FmpQuote[]> {
+  if (tickers.length === 0) return []
+
+  const chunkSize = 50
+  const chunks: string[][] = []
+  for (let i = 0; i < tickers.length; i += chunkSize) {
+    chunks.push(tickers.slice(i, i + chunkSize))
+  }
+
+  const allQuotes: FmpQuote[] = []
+  for (const chunk of chunks) {
+    const joined = chunk.join(',')
+    const quotes = await fmpFetch<FmpQuote[]>(`/quote/${joined}`)
+    if (Array.isArray(quotes)) {
+      allQuotes.push(...quotes)
+    }
+  }
+
+  return allQuotes
 }
