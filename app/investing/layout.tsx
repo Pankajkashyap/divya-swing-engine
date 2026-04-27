@@ -10,6 +10,7 @@ const investingTabs = [
   { label: 'Watchlist', href: '/investing/watchlist' },
   { label: 'Analysis', href: '/investing/analysis' },
   { label: 'Journal', href: '/investing/journal' },
+  { label: 'Saved Views', href: '/investing/save-views' },
   { label: 'Reviews', href: '/investing/reviews' },
   { label: 'Screener', href: '/investing/screener' },
   { label: 'Settings', href: '/investing/settings' },
