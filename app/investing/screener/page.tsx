@@ -197,6 +197,25 @@ export default function InvestingScreenerPage() {
       warning_red_flags: String(result.verdict?.warningRedFlags ?? result.warningRedFlags ?? 0),
     })
 
+const valuationCat = result.scorecard?.categories?.find((c) => c.id === 'valuation')
+const qualityCat = result.scorecard?.categories?.find((c) => c.id === 'quality')
+const finHealthCat = result.scorecard?.categories?.find(
+  (c) => c.id === 'financialHealth'
+)
+
+if (valuationCat?.score != null) {
+  params.set('valuation_score', String(valuationCat.score))
+}
+if (qualityCat?.score != null) {
+  params.set('roic_score', String(qualityCat.score))
+}
+if (finHealthCat?.score != null) {
+  params.set('fin_health_score', String(finHealthCat.score))
+}
+if (result.scorecard?.overallScore != null) {
+  params.set('overall_score', String(result.scorecard.overallScore))
+}
+
     return `/investing/analysis?${params.toString()}`
   }, [result])
 

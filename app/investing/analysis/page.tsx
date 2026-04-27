@@ -267,6 +267,9 @@ function InvestingAnalysisPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  const [autoAnalyzeTicker, setAutoAnalyzeTicker] = useState('')
+  const [autoAnalyzeLoading, setAutoAnalyzeLoading] = useState(false)
+
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [savedView, setSavedView] = useState(() => searchParams.get('view') ?? 'all')
   const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all')
@@ -515,6 +518,176 @@ function InvestingAnalysisPageContent() {
     setActiveDbSavedViewId((data as SavedAnalysisView).id)
     setSuccess(`Saved view "${name.trim()}".`)
   }
+
+  async function handleAutoAnalyze() {
+  const trimmed = autoAnalyzeTicker.trim().toUpperCase()
+  if (!trimmed) return
+
+  setAutoAnalyzeLoading(true)
+  setError(null)
+
+  try {
+    const res = await fetch(
+      `/investing/api/evaluate-ticker?ticker=${encodeURIComponent(trimmed)}`
+    )
+    const data = await res.json()
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Failed to evaluate ticker.')
+    }
+
+    const snapshot = data.snapshot
+    const scorecard = data.scorecard
+    const verdict = data.verdict
+
+    const valuationCat = scorecard?.categories?.find(
+      (c: { id: string }) => c.id === 'valuation'
+    )
+    const qualityCat = scorecard?.categories?.find(
+      (c: { id: string }) => c.id === 'quality'
+    )
+    const finHealthCat = scorecard?.categories?.find(
+      (c: { id: string }) => c.id === 'financialHealth'
+    )
+
+    const autoConfidence: 'High' | 'Medium' | 'Low' =
+      verdict?.label === 'Strong Buy' || verdict?.label === 'Buy'
+        ? 'High'
+        : verdict?.label === 'Hold'
+          ? 'Medium'
+          : 'Low'
+
+    const prefilled: StockAnalysis = {
+      id: '',
+      user_id: null,
+      ticker: snapshot.ticker,
+      company: snapshot.company,
+      analysis_date: getTodayDateString(),
+      sector: snapshot.sector ?? 'Technology',
+      moat_score: null,
+      mgmt_score: null,
+      biz_understanding_score: null,
+      valuation_score: valuationCat?.score ?? null,
+      roic_score: qualityCat?.score ?? null,
+      fin_health_score: finHealthCat?.score ?? null,
+      overall_score: scorecard?.overallScore ?? null,
+      verdict: verdict?.label ?? null,
+      confidence: autoConfidence,
+      fair_value_low: snapshot.fairValueLow ?? null,
+      fair_value_high: snapshot.fairValueHigh ?? null,
+      thesis: null,
+      thesis_breakers:
+        data.redFlags
+          ?.filter((rf: { triggered: boolean; severity: string }) => rf.triggered)
+          .map(
+            (rf: { label: string; explanation: string }) =>
+              `${rf.label}: ${rf.explanation}`
+          )
+          .join('\n') || null,
+      raw_analysis: null,
+      created_at: '',
+      updated_at: '',
+      moat_json: null,
+      management_json: null,
+      moat_score_auto: null,
+      management_score_auto: null,
+      qualitative_confidence: null,
+      qualitative_imported_at: null,
+      roic_score_auto: qualityCat?.score ?? null,
+      roic_score_explanation: qualityCat?.explanation ?? null,
+      fin_health_score_auto: finHealthCat?.score ?? null,
+      fin_health_score_explanation: finHealthCat?.explanation ?? null,
+      valuation_score_auto: valuationCat?.score ?? null,
+      valuation_score_explanation: valuationCat?.explanation ?? null,
+      confidence_auto: autoConfidence,
+      confidence_explanation: verdict?.explanation ?? null,
+      verdict_auto: verdict?.label ?? null,
+      verdict_explanation: verdict?.explanation ?? null,
+      business_understanding_json: null,
+      biz_understanding_score_auto: null,
+      biz_understanding_score_explanation: null,
+    }
+
+    setEditingAnalysis(prefilled)
+    setSheetOpen(true)
+
+    const newUrl = new URL(window.location.href)
+    newUrl.searchParams.set('mode', 'new')
+    newUrl.searchParams.set('ticker', snapshot.ticker)
+    newUrl.searchParams.set('company', snapshot.company)
+    newUrl.searchParams.set('sector', snapshot.sector)
+    if (snapshot.currentPrice != null) {
+      newUrl.searchParams.set('current_price', String(snapshot.currentPrice))
+    }
+    if (snapshot.fairValueLow != null) {
+      newUrl.searchParams.set('fair_value_low', String(snapshot.fairValueLow))
+    }
+    if (snapshot.fairValueBase != null) {
+      newUrl.searchParams.set('fair_value_base', String(snapshot.fairValueBase))
+    }
+    if (snapshot.fairValueHigh != null) {
+      newUrl.searchParams.set('fair_value_high', String(snapshot.fairValueHigh))
+    }
+    if (snapshot.roicTtm != null) {
+      newUrl.searchParams.set('roic_ttm', String(snapshot.roicTtm))
+    }
+    if (snapshot.roic5yAvg != null) {
+      newUrl.searchParams.set('roic_5y_avg', String(snapshot.roic5yAvg))
+    }
+    if (snapshot.roeTtm != null) {
+      newUrl.searchParams.set('roe_ttm', String(snapshot.roeTtm))
+    }
+    if (snapshot.debtToEquity != null) {
+      newUrl.searchParams.set('debt_to_equity', String(snapshot.debtToEquity))
+    }
+    if (snapshot.netDebtToEbitda != null) {
+      newUrl.searchParams.set(
+        'net_debt_to_ebitda',
+        String(snapshot.netDebtToEbitda)
+      )
+    }
+    if (snapshot.interestCoverage != null) {
+      newUrl.searchParams.set(
+        'interest_coverage',
+        String(snapshot.interestCoverage)
+      )
+    }
+    if (snapshot.currentRatio != null) {
+      newUrl.searchParams.set('current_ratio', String(snapshot.currentRatio))
+    }
+    if (snapshot.freeCashFlowTtm != null) {
+      newUrl.searchParams.set(
+        'free_cash_flow_ttm',
+        String(snapshot.freeCashFlowTtm)
+      )
+    }
+    if (valuationCat?.score != null) {
+      newUrl.searchParams.set('valuation_score', String(valuationCat.score))
+    }
+    if (qualityCat?.score != null) {
+      newUrl.searchParams.set('roic_score', String(qualityCat.score))
+    }
+    if (finHealthCat?.score != null) {
+      newUrl.searchParams.set('fin_health_score', String(finHealthCat.score))
+    }
+    if (scorecard?.overallScore != null) {
+      newUrl.searchParams.set('overall_score', String(scorecard.overallScore))
+    }
+    newUrl.searchParams.set('critical_red_flags', String(data.criticalRedFlags ?? 0))
+    newUrl.searchParams.set(
+      'warning_red_flags',
+      String(verdict?.warningRedFlags ?? 0)
+    )
+    window.history.replaceState(null, '', newUrl.toString())
+
+    setAutoAnalyzeTicker('')
+    setSuccess(`Engine analysis complete for ${snapshot.ticker}. Review and save.`)
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Auto-analyze failed.')
+  } finally {
+    setAutoAnalyzeLoading(false)
+  }
+}
 
   function handleApplyDbSavedView(id: string) {
     const selected = dbSavedViews.find((view) => view.id === id)
@@ -826,7 +999,39 @@ function InvestingAnalysisPageContent() {
 
       <InlineStatusBanner tone="error" message={error} />
       <InlineStatusBanner tone="success" message={success} />
-
+<div className="ui-card p-4">
+  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+    <div className="flex-1">
+      <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+        Auto-Analyze a Ticker
+      </label>
+      <p className="mb-2 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+        Run the engine to auto-fill scores, fair value, red flags, and verdict. You review and adjust before saving.
+      </p>
+      <input
+        value={autoAnalyzeTicker}
+        onChange={(e) => setAutoAnalyzeTicker(e.target.value.toUpperCase())}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            void handleAutoAnalyze()
+          }
+        }}
+        placeholder="e.g. AAPL, MSFT, COST"
+        className="ui-input max-w-xs"
+        disabled={autoAnalyzeLoading}
+      />
+    </div>
+    <button
+      type="button"
+      onClick={() => void handleAutoAnalyze()}
+      disabled={autoAnalyzeLoading || !autoAnalyzeTicker.trim()}
+      className="ui-btn-primary"
+    >
+      {autoAnalyzeLoading ? 'Analyzing...' : 'Auto-Analyze'}
+    </button>
+  </div>
+</div>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {loading ? (
           <>
