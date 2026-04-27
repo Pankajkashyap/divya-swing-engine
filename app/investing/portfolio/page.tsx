@@ -10,6 +10,10 @@ import type {
   SectorTarget,
   StockAnalysis,
 } from '@/app/investing/types'
+import {
+  calculatePositionSize,
+  type PositionSizingResult,
+} from '@/app/investing/lib/positionSizing'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
@@ -300,6 +304,13 @@ function InvestingPortfolioPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  const [sizerTicker, setSizerTicker] = useState('')
+  const [sizerConfidence, setSizerConfidence] = useState<'High' | 'Medium' | 'Low'>('Medium')
+  const [sizerSector, setSizerSector] = useState('')
+  const [sizerBucket, setSizerBucket] = useState<string>('Core compounder')
+  const [sizerPrice, setSizerPrice] = useState('')
+  const [sizerResult, setSizerResult] = useState<PositionSizingResult | null>(null)
+
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [savedView, setSavedView] = useState(() => searchParams.get('view') ?? 'all')
   const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all')
@@ -406,7 +417,6 @@ function InvestingPortfolioPageContent() {
         for (const analysis of (analysesRes.data ?? []) as StockAnalysis[]) {
           const ticker = analysis.ticker?.toUpperCase?.() ?? ''
           if (!ticker) continue
-
           if (!latestAnalysisByTicker.has(ticker)) {
             latestAnalysisByTicker.set(ticker, analysis)
           }
@@ -613,6 +623,62 @@ function InvestingPortfolioPageContent() {
   }, [holdings, search, savedView, activeFilter])
 
   const topHoldings = useMemo(() => holdings.slice(0, 5), [holdings])
+
+  function handleComputePositionSize() {
+    const price = parseFloat(sizerPrice)
+    if (!sizerTicker.trim() || !price || price <= 0) return
+
+    const totalPortfolioValue = holdings.reduce(
+      (sum, h) => sum + Number(h.market_value ?? 0),
+      0
+    )
+    const currentCashValue = holdings
+      .filter(
+        (h) => h.bucket === 'TFSA Cash' || h.bucket === 'Non-registered Cash'
+      )
+      .reduce((sum, h) => sum + Number(h.market_value ?? 0), 0)
+
+    const existingHolding = holdings.find(
+      (h) => h.ticker.toUpperCase() === sizerTicker.trim().toUpperCase()
+    )
+    const existingPositionValue = existingHolding
+      ? Number(existingHolding.market_value ?? 0)
+      : 0
+
+    const currentSectorValue = holdings
+      .filter(
+        (h) =>
+          h.sector === sizerSector &&
+          h.bucket !== 'TFSA Cash' &&
+          h.bucket !== 'Non-registered Cash'
+      )
+      .reduce((sum, h) => sum + Number(h.market_value ?? 0), 0)
+
+    const sectorTarget = sectorTargets.find((t) => t.sector === sizerSector)
+
+    const currentBucketValue = holdings
+      .filter((h) => h.bucket === sizerBucket)
+      .reduce((sum, h) => sum + Number(h.market_value ?? 0), 0)
+
+    const bucketTarget = bucketTargets.find((t) => t.bucket === sizerBucket)
+
+    const result = calculatePositionSize({
+      ticker: sizerTicker.trim().toUpperCase(),
+      currentPrice: price,
+      confidence: sizerConfidence,
+      sector: sizerSector,
+      bucket: sizerBucket,
+      totalPortfolioValue,
+      currentCashValue,
+      existingPositionValue,
+      currentSectorValue,
+      sectorTargetMaxPct: sectorTarget?.max_pct ?? null,
+      currentBucketValue,
+      bucketTargetMaxPct: bucketTarget?.max_pct ?? null,
+    })
+
+    setSizerResult(result)
+  }
 
   async function handleSaveCurrentDbView() {
     const name = window.prompt('Enter a name for this saved view:')
@@ -858,10 +924,6 @@ function InvestingPortfolioPageContent() {
       data: { user },
     } = await supabase.auth.getUser()
 
-    const { data: sessionData } = await supabase.auth.getSession()
-    console.log('INVESTING SESSION', sessionData.session)
-    console.log('INVESTING USER', user)
-
     const record = {
       user_id: user?.id ?? null,
       entry_date: payload.entry_date,
@@ -879,7 +941,9 @@ function InvestingPortfolioPageContent() {
       twelve_month_review: payload.twelve_month_review,
     }
 
-    const { error: insertError } = await supabase.from('investing_decision_journal').insert(record)
+    const { error: insertError } = await supabase
+      .from('investing_decision_journal')
+      .insert(record)
 
     if (insertError) {
       setError(insertError.message)
@@ -959,7 +1023,7 @@ function InvestingPortfolioPageContent() {
             setSearch(value)
             setActiveDbSavedViewId(null)
           }}
-          placeholder="Search ticker, company, sector, account, bucket, verdict, action hint, or thesis status"
+          placeholder="Search ticker, company, sector, account, bucket, verdict, or thesis status"
           savedViews={getPortfolioSavedViews()}
           activeSavedViewKey={savedView}
           onSavedViewChange={(key) => {
@@ -1126,6 +1190,208 @@ function InvestingPortfolioPageContent() {
             </div>
           </div>
         )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Position Sizer" defaultOpen={false}>
+        <div className="ui-card p-4 space-y-4">
+          <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Calculate how many shares to buy based on confidence, portfolio limits, sector and bucket caps, and cash reserves.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+                Ticker
+              </label>
+              <input
+                value={sizerTicker}
+                onChange={(e) => setSizerTicker(e.target.value.toUpperCase())}
+                placeholder="e.g. AAPL"
+                className="ui-input"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+                Current Price
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={sizerPrice}
+                onChange={(e) => setSizerPrice(e.target.value)}
+                placeholder="e.g. 195.50"
+                className="ui-input"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+                Confidence
+              </label>
+              <select
+                value={sizerConfidence}
+                onChange={(e) =>
+                  setSizerConfidence(e.target.value as 'High' | 'Medium' | 'Low')
+                }
+                className="ui-input"
+              >
+                <option value="High">High (10% max)</option>
+                <option value="Medium">Medium (7% max)</option>
+                <option value="Low">Low (5% max)</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+                Sector
+              </label>
+              <select
+                value={sizerSector}
+                onChange={(e) => setSizerSector(e.target.value)}
+                className="ui-input"
+              >
+                <option value="">Select sector</option>
+                <option value="Technology">Technology</option>
+                <option value="Consumer Staples">Consumer Staples</option>
+                <option value="Consumer Discretionary">Consumer Discretionary</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Financials">Financials</option>
+                <option value="Industrials">Industrials</option>
+                <option value="Energy">Energy</option>
+                <option value="Communication Services">Communication Services</option>
+                <option value="Real Estate">Real Estate</option>
+                <option value="Utilities">Utilities</option>
+                <option value="Materials">Materials</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+                Bucket
+              </label>
+              <select
+                value={sizerBucket}
+                onChange={(e) => setSizerBucket(e.target.value)}
+                className="ui-input"
+              >
+                <option value="Core compounder">Core compounder</option>
+                <option value="Quality growth">Quality growth</option>
+                <option value="Special opportunity">Special opportunity</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleComputePositionSize}
+            disabled={!sizerTicker.trim() || !sizerPrice}
+            className="ui-btn-primary"
+          >
+            Calculate Position Size
+          </button>
+
+          {sizerResult ? (
+            <div className="mt-4 space-y-3">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                <div className="text-lg font-bold text-blue-900 dark:text-blue-200">
+                  Buy {sizerResult.suggestedShares} shares
+                </div>
+                <div className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                  ≈ $
+                  {sizerResult.suggestedInvestment.toLocaleString('en-US', {
+                    maximumFractionDigits: 0,
+                  })}{' '}
+                  investment
+                </div>
+                <div className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                  Binding constraint: {sizerResult.constraintHit}
+                </div>
+              </div>
+
+              <div className="ui-card p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Max position ({sizerResult.maxPositionPct}%)
+                  </span>
+                  <span>
+                    $
+                    {sizerResult.maxPositionValue.toLocaleString('en-US', {
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Position room remaining
+                  </span>
+                  <span>
+                    $
+                    {sizerResult.remainingRoom.toLocaleString('en-US', {
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+                {sizerResult.sectorCap != null ? (
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-[#a8b2bf]">Sector room</span>
+                    <span>
+                      $
+                      {(sizerResult.sectorRoom ?? 0).toLocaleString('en-US', {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                  </div>
+                ) : null}
+                {sizerResult.bucketCap != null ? (
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-[#a8b2bf]">Bucket room</span>
+                    <span>
+                      $
+                      {(sizerResult.bucketRoom ?? 0).toLocaleString('en-US', {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Available cash (after 5% floor)
+                  </span>
+                  <span>
+                    $
+                    {sizerResult.availableCash.toLocaleString('en-US', {
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Cash floor reserve
+                  </span>
+                  <span>
+                    $
+                    {sizerResult.cashFloorReserve.toLocaleString('en-US', {
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {sizerResult.warnings.length > 0 ? (
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                  {sizerResult.warnings.map((warning, i) => (
+                    <div
+                      key={i}
+                      className="text-sm text-yellow-800 dark:text-yellow-300"
+                    >
+                      {warning}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </CollapsibleSection>
 
       <BottomSheet

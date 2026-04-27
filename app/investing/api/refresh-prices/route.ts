@@ -2,6 +2,39 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getBatchQuotes } from '@/app/investing/lib/fmp'
 
+function computeWatchlistStatus(args: {
+  currentStatus: string | null
+  currentPrice: number
+  targetEntry: number | null
+  fairValueHigh: number | null
+}): string | null {
+  const { currentStatus, currentPrice, targetEntry, fairValueHigh } = args
+
+  if (currentStatus === 'Removed' || currentStatus === 'Under research') {
+    return currentStatus
+  }
+
+  if (targetEntry != null && targetEntry > 0) {
+    if (currentPrice <= targetEntry) {
+      return 'Ready to buy'
+    }
+
+    if (currentPrice <= targetEntry * 1.05) {
+      return 'Watching — approaching entry'
+    }
+  }
+
+  if (fairValueHigh != null && fairValueHigh > 0 && currentPrice > fairValueHigh) {
+    return 'Watching — overvalued'
+  }
+
+  if (targetEntry != null && targetEntry > 0) {
+    return 'Watching — overvalued'
+  }
+
+  return currentStatus
+}
+
 export async function POST(request: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_INVESTING_SUPABASE_URL
@@ -34,7 +67,7 @@ export async function POST(request: Request) {
         .eq('user_id', user.id),
       supabase
         .from('investing_watchlist')
-        .select('id, ticker, target_entry')
+        .select('id, ticker, target_entry, fair_value_high, status')
         .eq('user_id', user.id),
     ])
 
@@ -61,6 +94,7 @@ export async function POST(request: Request) {
         message: 'No tickers to refresh.',
         holdingsUpdated: 0,
         watchlistUpdated: 0,
+        statusChanges: 0,
       })
     }
 
@@ -106,6 +140,7 @@ export async function POST(request: Request) {
     }
 
     let watchlistUpdated = 0
+    let statusChanges = 0
     const watchlistErrors: string[] = []
 
     for (const item of watchlistItems) {
@@ -117,12 +152,24 @@ export async function POST(request: Request) {
           ? ((item.target_entry - price) / item.target_entry) * 100
           : null
 
+      const newStatus = computeWatchlistStatus({
+        currentStatus: item.status,
+        currentPrice: price,
+        targetEntry: item.target_entry,
+        fairValueHigh: item.fair_value_high,
+      })
+
+      if (newStatus != null && newStatus !== item.status) {
+        statusChanges++
+      }
+
       const { error: updateError } = await supabase
         .from('investing_watchlist')
         .update({
           current_price: Math.round(price * 100) / 100,
           discount_to_entry:
             discountToEntry != null ? Math.round(discountToEntry * 100) / 100 : null,
+          ...(newStatus != null ? { status: newStatus } : {}),
           updated_at: new Date().toISOString(),
         })
         .eq('id', item.id)
@@ -140,6 +187,7 @@ export async function POST(request: Request) {
       message: 'Prices refreshed successfully.',
       holdingsUpdated,
       watchlistUpdated,
+      statusChanges,
       tickersFetched: uniqueTickers.length,
       quotesReceived: quotes.length,
       errors: errors.length > 0 ? errors : undefined,
