@@ -56,6 +56,18 @@ type EnrichedHolding = Holding & {
   portfolio_action_hint?: 'Add candidate' | 'Hold' | 'Trim candidate' | 'Review thesis' | null
 }
 
+type SavedDashboardView = {
+  id: string
+  user_id: string
+  page_key: string
+  name: string
+  query_text: string | null
+  saved_view_key: string | null
+  filter_key: string | null
+  created_at: string
+  updated_at: string
+}
+
 function SkeletonCard() {
   return (
     <div className="ui-card p-4">
@@ -105,6 +117,21 @@ function formatDate(value: string | null | undefined) {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+  })
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return '—'
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+
+  return parsed.toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   })
 }
 
@@ -212,6 +239,56 @@ function getPortfolioActionHint(args: {
   return 'Hold'
 }
 
+function formatPageLabel(pageKey: string) {
+  switch (pageKey) {
+    case 'analysis':
+      return 'Analysis'
+    case 'watchlist':
+      return 'Watchlist'
+    case 'portfolio':
+      return 'Portfolio'
+    case 'journal':
+      return 'Journal'
+    default:
+      return pageKey
+  }
+}
+
+function getPagePath(pageKey: string) {
+  switch (pageKey) {
+    case 'analysis':
+      return '/investing/analysis'
+    case 'watchlist':
+      return '/investing/watchlist'
+    case 'portfolio':
+      return '/investing/portfolio'
+    case 'journal':
+      return '/investing/journal'
+    default:
+      return '/investing'
+  }
+}
+
+function buildSavedViewUrl(view: SavedDashboardView) {
+  const path = getPagePath(view.page_key)
+  const params = new URLSearchParams()
+
+  if (view.query_text?.trim()) {
+    params.set('q', view.query_text.trim())
+  }
+
+  if (view.saved_view_key?.trim()) {
+    params.set('view', view.saved_view_key.trim())
+  }
+
+  if (view.filter_key?.trim()) {
+    params.set('filter', view.filter_key.trim())
+  }
+
+  const query = params.toString()
+  return query ? `${path}?${query}` : path
+}
+
 export default function InvestingDashboardPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
@@ -222,6 +299,7 @@ export default function InvestingDashboardPage() {
   const [quarterlyReviews, setQuarterlyReviews] = useState<QuarterlyReview[]>([])
   const [sectorTargets, setSectorTargets] = useState<SectorTarget[]>([])
   const [bucketTargets, setBucketTargets] = useState<BucketTarget[]>([])
+  const [savedViews, setSavedViews] = useState<SavedDashboardView[]>([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -233,6 +311,10 @@ export default function InvestingDashboardPage() {
       setLoading(true)
       setError(null)
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
       const [
         holdingsRes,
         watchlistRes,
@@ -241,6 +323,7 @@ export default function InvestingDashboardPage() {
         reviewsRes,
         sectorTargetsRes,
         bucketTargetsRes,
+        savedViewsRes,
       ] = await Promise.all([
         supabase
           .from('investing_holdings')
@@ -271,6 +354,14 @@ export default function InvestingDashboardPage() {
           .from('investing_bucket_targets')
           .select('*')
           .order('bucket', { ascending: true }),
+        user?.id
+          ? supabase
+              .from('investing_saved_views')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('updated_at', { ascending: false })
+              .limit(8)
+          : Promise.resolve({ data: [], error: null }),
       ])
 
       if (cancelled) return
@@ -386,6 +477,12 @@ export default function InvestingDashboardPage() {
         errors.push(`Bucket targets: ${bucketTargetsRes.error.message}`)
       } else {
         setBucketTargets((bucketTargetsRes.data ?? []) as BucketTarget[])
+      }
+
+      if (savedViewsRes.error) {
+        errors.push(`Saved views: ${savedViewsRes.error.message}`)
+      } else {
+        setSavedViews((savedViewsRes.data ?? []) as SavedDashboardView[])
       }
 
       if (errors.length > 0) {
@@ -615,11 +712,27 @@ export default function InvestingDashboardPage() {
       .slice(0, 5)
   }, [holdings])
 
+  const savedViewsSummary = useMemo(() => {
+    const analysis = savedViews.filter((item) => item.page_key === 'analysis').length
+    const watchlistCount = savedViews.filter((item) => item.page_key === 'watchlist').length
+    const portfolio = savedViews.filter((item) => item.page_key === 'portfolio').length
+    const journal = savedViews.filter((item) => item.page_key === 'journal').length
+
+    return {
+      total: savedViews.length,
+      analysis,
+      watchlist: watchlistCount,
+      portfolio,
+      journal,
+      recent: savedViews.slice(0, 5),
+    }
+  }, [savedViews])
+
   return (
     <div className="space-y-4">
       <InvestingPageHeader
         title="Shayna — Investment Dashboard"
-        subtitle="Command center for portfolio health, watchlist opportunities, review cadence, and conviction signals."
+        subtitle="Command center for portfolio health, watchlist opportunities, review cadence, conviction signals, and saved workflows."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link href="/investing/portfolio" className="ui-btn-secondary">
@@ -633,6 +746,9 @@ export default function InvestingDashboardPage() {
             </Link>
             <Link href="/investing/journal" className="ui-btn-secondary">
               Open Journal
+            </Link>
+            <Link href="/investing/save-views" className="ui-btn-secondary">
+              Open Saved Views
             </Link>
           </div>
         }
@@ -789,39 +905,65 @@ export default function InvestingDashboardPage() {
               />
             </DataCard>
 
-            <DataCard title="Latest Context">
-              <DataCardRow
-                label="Latest quarterly review"
-                value={
-                  reviewsSummary.latestQuarterlyReview
-                    ? `${reviewsSummary.latestQuarterlyReview.quarter} · ${formatDate(
-                        reviewsSummary.latestQuarterlyReview.review_date
-                      )}`
-                    : '—'
-                }
-              />
-              <DataCardRow
-                label="Latest journal entry"
-                value={
-                  reviewsSummary.latestJournalEntry
-                    ? `${reviewsSummary.latestJournalEntry.ticker} · ${formatDate(
-                        reviewsSummary.latestJournalEntry.entry_date
-                      )}`
-                    : '—'
-                }
-              />
-              <DataCardRow
-                label="Latest analysis"
-                value={
-                  latestAnalyses[0]
-                    ? `${latestAnalyses[0].ticker} · ${formatDate(latestAnalyses[0].analysis_date)}`
-                    : '—'
-                }
-              />
+            <DataCard title="Saved Views Snapshot">
+              <DataCardRow label="Total saved views" value={String(savedViewsSummary.total)} />
+              <DataCardRow label="Analysis" value={String(savedViewsSummary.analysis)} />
+              <DataCardRow label="Watchlist" value={String(savedViewsSummary.watchlist)} />
+              <DataCardRow label="Portfolio" value={String(savedViewsSummary.portfolio)} />
+              <DataCardRow label="Journal" value={String(savedViewsSummary.journal)} />
             </DataCard>
           </>
         )}
       </section>
+
+      <CollapsibleSection
+        title="Recent saved views"
+        subtitle="Quick-launch your latest custom investing workflows."
+        defaultOpen={true}
+      >
+        {loading ? (
+          <SkeletonCard />
+        ) : savedViewsSummary.recent.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No saved views yet. Save filters on analysis, watchlist, portfolio, or journal to see them here.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {savedViewsSummary.recent.map((view) => (
+              <Link
+                key={view.id}
+                href={buildSavedViewUrl(view)}
+                className="ui-card block p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {view.name}
+                    </div>
+                    <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                      {formatPageLabel(view.page_key)}
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      Search: {view.query_text ?? '—'} · Built-in view: {view.saved_view_key ?? '—'} · Filter:{' '}
+                      {view.filter_key ?? '—'}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    <div>Updated</div>
+                    <div>{formatDateTime(view.updated_at)}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+
+            <div className="flex justify-end">
+              <Link href="/investing/save-views" className="ui-btn-secondary">
+                Manage all saved views
+              </Link>
+            </div>
+          </div>
+        )}
+      </CollapsibleSection>
 
       <CollapsibleSection
         title="Top watchlist opportunities"
@@ -1140,12 +1282,12 @@ export default function InvestingDashboardPage() {
             </div>
           </Link>
 
-          <Link href="/investing/settings" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
+          <Link href="/investing/save-views" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
             <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-              Settings
+              Saved Views
             </div>
             <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-              Configure defaults, targets, and workflow preferences.
+              Launch your custom workflows and manage saved filters.
             </div>
           </Link>
         </div>
