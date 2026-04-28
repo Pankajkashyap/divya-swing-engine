@@ -59,6 +59,17 @@ type BucketExposureRow = {
   targetMax: number | null
 }
 
+type RebalanceAlert = {
+  category: 'sector' | 'bucket' | 'portfolio'
+  name: string
+  status: 'overweight' | 'underweight' | 'cash_low' | 'position_concentrated'
+  currentPct: number
+  targetMinPct: number | null
+  targetMaxPct: number | null
+  deviationPct: number
+  suggestion: string
+}
+
 type HoldingFormPayload = {
   ticker: string
   company: string
@@ -376,9 +387,18 @@ function InvestingPortfolioPageContent() {
 
       const [holdingsRes, sectorTargetsRes, bucketTargetsRes, analysesRes, savedViewsRes] =
         await Promise.all([
-          supabase.from('investing_holdings').select('*').order('market_value', { ascending: false }),
-          supabase.from('investing_sector_targets').select('*').order('sector', { ascending: true }),
-          supabase.from('investing_bucket_targets').select('*').order('bucket', { ascending: true }),
+          supabase
+            .from('investing_holdings')
+            .select('*')
+            .order('market_value', { ascending: false }),
+          supabase
+            .from('investing_sector_targets')
+            .select('*')
+            .order('sector', { ascending: true }),
+          supabase
+            .from('investing_bucket_targets')
+            .select('*')
+            .order('bucket', { ascending: true }),
           supabase
             .from('investing_stock_analyses')
             .select('*')
@@ -695,6 +715,116 @@ function InvestingPortfolioPageContent() {
 
     return runAllSellSignals(inputs)
   }, [holdings, sectorTargets, bucketTargets, analyses])
+
+  const rebalanceAlerts = useMemo<RebalanceAlert[]>(() => {
+    const alerts: RebalanceAlert[] = []
+
+    for (const row of sectorExposure) {
+      if (row.targetMax != null && row.pct > row.targetMax) {
+        alerts.push({
+          category: 'sector',
+          name: row.sector,
+          status: 'overweight',
+          currentPct: row.pct,
+          targetMinPct: row.targetMin,
+          targetMaxPct: row.targetMax,
+          deviationPct: row.pct - row.targetMax,
+          suggestion: `Trim ${row.sector} holdings by ~$${(
+            row.marketValue - summary.totalValue * (row.targetMax / 100)
+          ).toLocaleString('en-US', { maximumFractionDigits: 0 })} to reach ${row.targetMax}% target max.`,
+        })
+      }
+
+      if (row.targetMin != null && row.pct < row.targetMin && row.pct > 0) {
+        alerts.push({
+          category: 'sector',
+          name: row.sector,
+          status: 'underweight',
+          currentPct: row.pct,
+          targetMinPct: row.targetMin,
+          targetMaxPct: row.targetMax,
+          deviationPct: row.targetMin - row.pct,
+          suggestion: `Add ~$${(
+            summary.totalValue * (row.targetMin / 100) - row.marketValue
+          ).toLocaleString('en-US', { maximumFractionDigits: 0 })} to ${row.sector} to reach ${row.targetMin}% target min.`,
+        })
+      }
+    }
+
+    for (const row of bucketExposure) {
+      if (row.bucket === 'TFSA Cash' || row.bucket === 'Non-registered Cash') continue
+
+      if (row.targetMax != null && row.pct > row.targetMax) {
+        alerts.push({
+          category: 'bucket',
+          name: row.bucket,
+          status: 'overweight',
+          currentPct: row.pct,
+          targetMinPct: row.targetMin,
+          targetMaxPct: row.targetMax,
+          deviationPct: row.pct - row.targetMax,
+          suggestion: `Trim ${row.bucket} bucket by ~$${(
+            row.marketValue - summary.totalValue * (row.targetMax / 100)
+          ).toLocaleString('en-US', { maximumFractionDigits: 0 })} to reach ${row.targetMax}% target max.`,
+        })
+      }
+
+      if (row.targetMin != null && row.pct < row.targetMin && row.pct > 0) {
+        alerts.push({
+          category: 'bucket',
+          name: row.bucket,
+          status: 'underweight',
+          currentPct: row.pct,
+          targetMinPct: row.targetMin,
+          targetMaxPct: row.targetMax,
+          deviationPct: row.targetMin - row.pct,
+          suggestion: `Add ~$${(
+            summary.totalValue * (row.targetMin / 100) - row.marketValue
+          ).toLocaleString('en-US', { maximumFractionDigits: 0 })} to ${row.bucket} to reach ${row.targetMin}% target min.`,
+        })
+      }
+    }
+
+    const cashPct = summary.totalValue > 0 ? (summary.cashValue / summary.totalValue) * 100 : 0
+    if (cashPct < 5 && summary.totalValue > 0) {
+      alerts.push({
+        category: 'portfolio',
+        name: 'Cash reserves',
+        status: 'cash_low',
+        currentPct: cashPct,
+        targetMinPct: 5,
+        targetMaxPct: null,
+        deviationPct: 5 - cashPct,
+        suggestion: `Cash is ${cashPct.toFixed(1)}% of portfolio. Add ~$${(
+          summary.totalValue * 0.05 - summary.cashValue
+        ).toLocaleString('en-US', { maximumFractionDigits: 0 })} to reach 5% minimum.`,
+      })
+    }
+
+    for (const h of holdings) {
+      if (h.bucket === 'TFSA Cash' || h.bucket === 'Non-registered Cash') continue
+
+      const weight =
+        summary.totalValue > 0 ? (Number(h.market_value ?? 0) / summary.totalValue) * 100 : 0
+
+      if (weight > 12) {
+        alerts.push({
+          category: 'portfolio',
+          name: h.ticker,
+          status: 'position_concentrated',
+          currentPct: weight,
+          targetMinPct: null,
+          targetMaxPct: 10,
+          deviationPct: weight - 10,
+          suggestion: `${h.ticker} is ${weight.toFixed(1)}% of portfolio. Trim ~$${(
+            Number(h.market_value ?? 0) - summary.totalValue * 0.1
+          ).toLocaleString('en-US', { maximumFractionDigits: 0 })} to bring below 10%.`,
+        })
+      }
+    }
+
+    return alerts.sort((a, b) => b.deviationPct - a.deviationPct)
+  }, [sectorExposure, bucketExposure, holdings, summary])
 
   function handleComputePositionSize() {
     const price = parseFloat(sizerPrice)
@@ -1331,6 +1461,84 @@ function InvestingPortfolioPageContent() {
                         {signal.gainLossPct.toFixed(1)}%
                       </div>
                     ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title={`Rebalancing Alerts${rebalanceAlerts.length > 0 ? ` (${rebalanceAlerts.length})` : ''}`}
+        defaultOpen={true}
+      >
+        {loading ? (
+          <div className="h-20 animate-pulse rounded-xl bg-muted" />
+        ) : rebalanceAlerts.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Portfolio is balanced. No rebalancing needed.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {rebalanceAlerts.map((alert, i) => (
+              <div
+                key={`${alert.category}-${alert.name}-${i}`}
+                className={`ui-card border-l-4 p-4 ${
+                  alert.status === 'cash_low' || alert.status === 'position_concentrated'
+                    ? 'border-l-red-500'
+                    : alert.status === 'overweight'
+                      ? 'border-l-yellow-500'
+                      : 'border-l-blue-400'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                        {alert.name}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                          alert.status === 'overweight'
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                            : alert.status === 'underweight'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                        }`}
+                      >
+                        {alert.status === 'cash_low'
+                          ? 'Low cash'
+                          : alert.status === 'position_concentrated'
+                            ? 'Concentrated'
+                            : alert.status === 'overweight'
+                              ? 'Overweight'
+                              : 'Underweight'}
+                      </span>
+                      <span className="text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                        {alert.category === 'sector'
+                          ? 'Sector'
+                          : alert.category === 'bucket'
+                            ? 'Bucket'
+                            : 'Portfolio'}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      {alert.suggestion}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                    <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                      {alert.currentPct.toFixed(1)}%
+                    </div>
+                    <div>
+                      Target: {alert.targetMinPct != null ? `${alert.targetMinPct}%` : '—'} –{' '}
+                      {alert.targetMaxPct != null ? `${alert.targetMaxPct}%` : '—'}
+                    </div>
+                    <div className={alert.deviationPct > 3 ? 'text-red-500' : 'text-yellow-500'}>
+                      {alert.status === 'underweight' ? '−' : '+'}
+                      {alert.deviationPct.toFixed(1)}% off
+                    </div>
                   </div>
                 </div>
               </div>
