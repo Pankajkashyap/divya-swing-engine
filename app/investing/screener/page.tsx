@@ -87,6 +87,16 @@ type ScreenerEngineResult = {
   verdict?: VerdictResult
 }
 
+type StockSearchResult = {
+  ticker: string
+  company: string
+  sector: string
+  industry: string | null
+  marketCap: number | null
+  price: number | null
+  exchange: string | null
+}
+
 function formatPrice(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return '--'
   return new Intl.NumberFormat('en-US', {
@@ -137,6 +147,13 @@ export default function InvestingScreenerPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<ScreenerEngineResult | null>(null)
+
+  const [searchSector, setSearchSector] = useState('')
+  const [searchMarketCapMin, setSearchMarketCapMin] = useState('2000000000')
+  const [searchMarketCapMax, setSearchMarketCapMax] = useState('')
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   const marginOfSafetyVsBase = useMemo(() => {
     if (!result) return null
@@ -197,27 +214,67 @@ export default function InvestingScreenerPage() {
       warning_red_flags: String(result.verdict?.warningRedFlags ?? result.warningRedFlags ?? 0),
     })
 
-const valuationCat = result.scorecard?.categories?.find((c) => c.id === 'valuation')
-const qualityCat = result.scorecard?.categories?.find((c) => c.id === 'quality')
-const finHealthCat = result.scorecard?.categories?.find(
-  (c) => c.id === 'financialHealth'
-)
+    const valuationCat = result.scorecard?.categories?.find((c) => c.id === 'valuation')
+    const qualityCat = result.scorecard?.categories?.find((c) => c.id === 'quality')
+    const finHealthCat = result.scorecard?.categories?.find(
+      (c) => c.id === 'financialHealth'
+    )
 
-if (valuationCat?.score != null) {
-  params.set('valuation_score', String(valuationCat.score))
-}
-if (qualityCat?.score != null) {
-  params.set('roic_score', String(qualityCat.score))
-}
-if (finHealthCat?.score != null) {
-  params.set('fin_health_score', String(finHealthCat.score))
-}
-if (result.scorecard?.overallScore != null) {
-  params.set('overall_score', String(result.scorecard.overallScore))
-}
+    if (valuationCat?.score != null) {
+      params.set('valuation_score', String(valuationCat.score))
+    }
+    if (qualityCat?.score != null) {
+      params.set('roic_score', String(qualityCat.score))
+    }
+    if (finHealthCat?.score != null) {
+      params.set('fin_health_score', String(finHealthCat.score))
+    }
+    if (result.scorecard?.overallScore != null) {
+      params.set('overall_score', String(result.scorecard.overallScore))
+    }
 
     return `/investing/analysis?${params.toString()}`
   }, [result])
+
+  async function handleStockSearch() {
+    setSearching(true)
+    setSearchError(null)
+
+    try {
+      const params = new URLSearchParams()
+      if (searchSector) params.set('sector', searchSector)
+      if (searchMarketCapMin) params.set('marketCapMin', searchMarketCapMin)
+      if (searchMarketCapMax) params.set('marketCapMax', searchMarketCapMax)
+      params.set('limit', '25')
+
+      const res = await fetch(`/investing/api/screen-stocks?${params.toString()}`)
+      const json = await res.json()
+
+      if (!res.ok) throw new Error(json.error || 'Search failed.')
+
+      setSearchResults(json.data ?? [])
+      if ((json.data ?? []).length === 0) {
+        setSearchError('No stocks found matching criteria. Try broadening your search.')
+      }
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Search failed.')
+      setSearchResults([])
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function handleEvaluateFromSearch(tickerToEvaluate: string) {
+    setTicker(tickerToEvaluate)
+    setResult(null)
+    setError(null)
+    setTimeout(() => {
+      const form = document.querySelector('form[data-screener-form="true"]') as
+        | HTMLFormElement
+        | null
+      if (form) form.requestSubmit()
+    }, 100)
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -248,10 +305,11 @@ if (result.scorecard?.overallScore != null) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-[#e6eaf0]">
-            Screener Tester
+            Screener
           </h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-            Test the investing screener engine with a ticker.
+            Discover investment ideas by sector, or evaluate a specific ticker against Shayna&apos;s
+            screening criteria.
           </p>
         </div>
 
@@ -262,7 +320,142 @@ if (result.scorecard?.overallScore != null) {
         ) : null}
       </div>
 
-      <form onSubmit={handleSubmit} className="ui-card p-4">
+      <div className="ui-card p-4 space-y-4">
+        <div>
+          <div className="text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Find Investment Ideas
+          </div>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            Search for stocks by sector and market cap. Then evaluate any result with the screening
+            engine.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-[#a8b2bf]">
+              Sector
+            </label>
+            <select
+              value={searchSector}
+              onChange={(e) => setSearchSector(e.target.value)}
+              className="ui-input"
+            >
+              <option value="">All sectors</option>
+              <option value="Technology">Technology</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Financial Services">Financial Services</option>
+              <option value="Consumer Cyclical">Consumer Cyclical</option>
+              <option value="Consumer Defensive">Consumer Defensive</option>
+              <option value="Industrials">Industrials</option>
+              <option value="Energy">Energy</option>
+              <option value="Communication Services">Communication Services</option>
+              <option value="Real Estate">Real Estate</option>
+              <option value="Utilities">Utilities</option>
+              <option value="Basic Materials">Basic Materials</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-[#a8b2bf]">
+              Min Market Cap
+            </label>
+            <select
+              value={searchMarketCapMin}
+              onChange={(e) => setSearchMarketCapMin(e.target.value)}
+              className="ui-input"
+            >
+              <option value="300000000">$300M+ (Small cap)</option>
+              <option value="2000000000">$2B+ (Mid cap)</option>
+              <option value="10000000000">$10B+ (Large cap)</option>
+              <option value="100000000000">$100B+ (Mega cap)</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-[#a8b2bf]">
+              Max Market Cap
+            </label>
+            <select
+              value={searchMarketCapMax}
+              onChange={(e) => setSearchMarketCapMax(e.target.value)}
+              className="ui-input"
+            >
+              <option value="">No limit</option>
+              <option value="2000000000">Up to $2B</option>
+              <option value="10000000000">Up to $10B</option>
+              <option value="100000000000">Up to $100B</option>
+              <option value="500000000000">Up to $500B</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={() => void handleStockSearch()}
+              disabled={searching}
+              className="ui-btn-primary w-full"
+            >
+              {searching ? 'Searching...' : 'Search Stocks'}
+            </button>
+          </div>
+        </div>
+
+        {searchError ? (
+          <div className="rounded-md bg-red-50 p-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+            {searchError}
+          </div>
+        ) : null}
+
+        {searchResults.length > 0 ? (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-neutral-700 dark:text-[#c8cdd4]">
+              {searchResults.length} stocks found
+            </div>
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {searchResults.map((stock) => (
+                <div
+                  key={stock.ticker}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                      {stock.ticker}
+                      <span className="ml-2 font-normal text-neutral-600 dark:text-[#a8b2bf]">
+                        {stock.company}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      {stock.sector}
+                      {stock.industry ? ` · ${stock.industry}` : ''}
+                      {stock.marketCap ? ` · ${formatMarketCap(stock.marketCap)}` : ''}
+                      {stock.price ? ` · ${formatPrice(stock.price)}` : ''}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEvaluateFromSearch(stock.ticker)}
+                      className="ui-btn-primary px-3 py-1 text-xs"
+                    >
+                      Evaluate
+                    </button>
+                    <Link
+                      href={`/investing/watchlist?mode=new&ticker=${encodeURIComponent(stock.ticker)}&company=${encodeURIComponent(stock.company)}&sector=${encodeURIComponent(stock.sector)}&current_price=${stock.price ?? ''}`}
+                      className="ui-btn-secondary px-3 py-1 text-xs"
+                    >
+                      + Watchlist
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <form
+        data-screener-form="true"
+        onSubmit={handleSubmit}
+        className="ui-card p-4"
+      >
         <div className="flex gap-3">
           <input
             value={ticker}
