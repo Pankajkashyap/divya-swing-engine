@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   AccountType,
   Action,
@@ -146,6 +146,35 @@ export function DecisionJournalForm({
   const initialValues = useMemo(() => toFormValues(initialEntry), [initialEntry])
   const [values, setValues] = useState<DecisionJournalFormValues>(initialValues)
   const [error, setError] = useState<string | null>(null)
+  const [checklistCompleted, setChecklistCompleted] = useState(false)
+  const [checklistItems, setChecklistItems] = useState({
+    reviewedThesis: false,
+    consideredBearCase: false,
+    checked24Hours: false,
+    confirmedSizing: false,
+    acceptedRisk: false,
+  })
+
+  const isActionableEntry = ['BUY', 'SELL', 'ADD', 'TRIM'].includes(values.action)
+  const isRiskyEmotionalState = ['Excited', 'Fearful', 'Pressured', 'Impatient'].includes(
+    values.emotional_state
+  )
+  const allChecklistItemsChecked = Object.values(checklistItems).every(Boolean)
+
+  useEffect(() => {
+    setChecklistCompleted(allChecklistItemsChecked)
+  }, [allChecklistItemsChecked])
+
+  function resetChecklist() {
+    setChecklistItems({
+      reviewedThesis: false,
+      consideredBearCase: false,
+      checked24Hours: false,
+      confirmedSizing: false,
+      acceptedRisk: false,
+    })
+    setChecklistCompleted(false)
+  }
 
   function update<K extends keyof DecisionJournalFormValues>(
     key: K,
@@ -153,11 +182,16 @@ export function DecisionJournalForm({
   ) {
     setError(null)
     setValues((prev) => ({ ...prev, [key]: value }))
+
+    if (key === 'action') {
+      resetChecklist()
+    }
   }
 
   function handleReset() {
     setValues(initialValues)
     setError(null)
+    resetChecklist()
   }
 
   function parseNullableNumber(value: string) {
@@ -251,7 +285,9 @@ export function DecisionJournalForm({
               label="Fair value"
               value={
                 context.fair_value_low != null || context.fair_value_high != null
-                  ? `${formatCurrency(context.fair_value_low)} – ${formatCurrency(context.fair_value_high)}`
+                  ? `${formatCurrency(context.fair_value_low)} – ${formatCurrency(
+                      context.fair_value_high
+                    )}`
                   : '—'
               }
             />
@@ -418,6 +454,78 @@ export function DecisionJournalForm({
         </label>
       </div>
 
+      {isActionableEntry ? (
+        <div className="ui-card p-4 space-y-3">
+          <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Pre-Decision Checklist
+          </div>
+          <p className="text-xs text-neutral-500 dark:text-[#a8b2bf]">
+            Complete all items before submitting. This protects against impulsive decisions.
+          </p>
+
+          {[
+            {
+              key: 'reviewedThesis' as const,
+              label: 'I have reviewed the written investment thesis for this stock.',
+            },
+            {
+              key: 'consideredBearCase' as const,
+              label: 'I have considered the bear case and thesis breakers.',
+            },
+            {
+              key: 'checked24Hours' as const,
+              label: 'I have waited at least 24 hours since the emotional trigger (if any).',
+            },
+            {
+              key: 'confirmedSizing' as const,
+              label: 'The position size aligns with my confidence level and portfolio limits.',
+            },
+            {
+              key: 'acceptedRisk' as const,
+              label: 'I accept the risk and this decision is process-driven, not reactive.',
+            },
+          ].map((item) => (
+            <label key={item.key} className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={checklistItems[item.key]}
+                onChange={(e) =>
+                  setChecklistItems((prev) => ({
+                    ...prev,
+                    [item.key]: e.target.checked,
+                  }))
+                }
+                className="mt-0.5 h-4 w-4 rounded border-neutral-300 dark:border-neutral-600"
+              />
+              <span className="text-sm text-neutral-700 dark:text-[#a8b2bf]">
+                {item.label}
+              </span>
+            </label>
+          ))}
+
+          {checklistCompleted ? (
+            <div className="rounded-md bg-green-50 p-2 text-xs text-green-700 dark:bg-green-900/20 dark:text-green-300">
+              Checklist complete. You may proceed.
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {isActionableEntry && isRiskyEmotionalState ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+          <div className="text-sm font-semibold text-red-800 dark:text-red-300">
+            Cooling-Off Warning
+          </div>
+          <div className="mt-1 text-xs text-red-700 dark:text-red-400">
+Your emotional state is &quot;{values.emotional_state}&quot;. Decisions made under emotional            pressure tend to underperform. Consider waiting 24 hours before executing.
+          </div>
+          <div className="mt-2 text-xs text-red-600 dark:text-red-400">
+            If you proceed, this decision will be flagged as emotionally influenced in your review
+            history.
+          </div>
+        </div>
+      ) : null}
+
       <label className="block">
         <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
           Reasoning
@@ -481,8 +589,16 @@ export function DecisionJournalForm({
           Reset
         </button>
 
-        <button type="submit" className="ui-btn-primary" disabled={busy}>
-          {busy ? 'Saving...' : submitLabel}
+        <button
+          type="submit"
+          className="ui-btn-primary"
+          disabled={busy || (isActionableEntry && !allChecklistItemsChecked)}
+        >
+          {busy
+            ? 'Saving...'
+            : isActionableEntry && !allChecklistItemsChecked
+              ? 'Complete checklist to save'
+              : submitLabel}
         </button>
       </div>
     </form>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
-import type { QuarterlyReview } from '@/app/investing/types'
+import type { DecisionJournalEntry, QuarterlyReview } from '@/app/investing/types'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
@@ -72,6 +72,7 @@ function SkeletonCard() {
 export default function InvestingReviewsPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [reviews, setReviews] = useState<QuarterlyReview[]>([])
+  const [journalEntries, setJournalEntries] = useState<DecisionJournalEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -89,20 +90,37 @@ export default function InvestingReviewsPage() {
       setLoading(true)
       setError(null)
 
-      const { data, error: loadError } = await supabase
-        .from('investing_quarterly_reviews')
-        .select('*')
-        .order('review_date', { ascending: false })
+      const [reviewsRes, journalRes] = await Promise.all([
+        supabase
+          .from('investing_quarterly_reviews')
+          .select('*')
+          .order('review_date', { ascending: false }),
+        supabase
+          .from('investing_decision_journal')
+          .select('*')
+          .order('entry_date', { ascending: false }),
+      ])
 
       if (cancelled) return
 
-      if (loadError) {
-        setError(loadError.message)
-        setLoading(false)
-        return
+      const errors: string[] = []
+
+      if (reviewsRes.error) {
+        errors.push(reviewsRes.error.message)
+      } else {
+        setReviews((reviewsRes.data ?? []) as QuarterlyReview[])
       }
 
-      setReviews((data ?? []) as QuarterlyReview[])
+      if (journalRes.error) {
+        errors.push(journalRes.error.message)
+      } else {
+        setJournalEntries((journalRes.data ?? []) as DecisionJournalEntry[])
+      }
+
+      if (errors.length > 0) {
+        setError(errors.join(' · '))
+      }
+
       setLoading(false)
     }
 
@@ -151,6 +169,43 @@ export default function InvestingReviewsPage() {
       avgAlpha,
     }
   }, [reviews])
+
+  const performanceAttribution = useMemo(() => {
+    const reviewed = journalEntries.filter(
+      (entry) =>
+        entry.framework_supported &&
+        (entry.three_month_review || entry.twelve_month_review)
+    )
+
+    const frameworkYes = reviewed.filter((e) => e.framework_supported === 'Yes')
+    const frameworkPartial = reviewed.filter((e) => e.framework_supported === 'Partially')
+    const frameworkOverride = reviewed.filter((e) => e.framework_supported === 'No — override')
+
+    const emotionalDecisions = journalEntries.filter((e) =>
+      ['Excited', 'Fearful', 'Pressured', 'Impatient'].includes(e.emotional_state ?? '')
+    )
+    const calmDecisions = journalEntries.filter((e) =>
+      ['Calm & analytical', 'Confident'].includes(e.emotional_state ?? '')
+    )
+
+    return {
+      totalReviewed: reviewed.length,
+      frameworkYesCount: frameworkYes.length,
+      frameworkPartialCount: frameworkPartial.length,
+      frameworkOverrideCount: frameworkOverride.length,
+      emotionalDecisionCount: emotionalDecisions.length,
+      calmDecisionCount: calmDecisions.length,
+      totalDecisions: journalEntries.length,
+      overrideRate:
+        journalEntries.length > 0
+          ? (frameworkOverride.length / journalEntries.length) * 100
+          : 0,
+      emotionalRate:
+        journalEntries.length > 0
+          ? (emotionalDecisions.length / journalEntries.length) * 100
+          : 0,
+    }
+  }, [journalEntries])
 
   function openAddSheet() {
     setSuccess(null)
@@ -403,6 +458,126 @@ export default function InvestingReviewsPage() {
             onDelete={handleDeleteReview}
             deletingId={deletingId}
           />
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Performance Attribution" defaultOpen={false}>
+        {loading ? (
+          <div className="h-20 animate-pulse rounded-xl bg-muted" />
+        ) : performanceAttribution.totalDecisions === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No journal entries yet. Start logging decisions to see attribution data.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="ui-card p-4">
+              <div className="mb-3 text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                Decision Discipline
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Total decisions logged
+                  </span>
+                  <span>{performanceAttribution.totalDecisions}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Framework-supported (Yes)
+                  </span>
+                  <span className="text-green-500">
+                    {performanceAttribution.frameworkYesCount}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Partially supported
+                  </span>
+                  <span className="text-yellow-500">
+                    {performanceAttribution.frameworkPartialCount}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Overrides (No)
+                  </span>
+                  <span className="text-red-500">
+                    {performanceAttribution.frameworkOverrideCount}
+                  </span>
+                </div>
+                <div className="mt-2 flex justify-between border-t border-neutral-200 pt-2 dark:border-neutral-700">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">Override rate</span>
+                  <span
+                    className={
+                      performanceAttribution.overrideRate > 20
+                        ? 'text-red-500'
+                        : 'text-green-500'
+                    }
+                  >
+                    {performanceAttribution.overrideRate.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="ui-card p-4">
+              <div className="mb-3 text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                Emotional Discipline
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Calm / Analytical decisions
+                  </span>
+                  <span className="text-green-500">
+                    {performanceAttribution.calmDecisionCount}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Emotional decisions
+                  </span>
+                  <span className="text-red-500">
+                    {performanceAttribution.emotionalDecisionCount}
+                  </span>
+                </div>
+                <div className="mt-2 flex justify-between border-t border-neutral-200 pt-2 dark:border-neutral-700">
+                  <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                    Emotional decision rate
+                  </span>
+                  <span
+                    className={
+                      performanceAttribution.emotionalRate > 30
+                        ? 'text-red-500'
+                        : 'text-green-500'
+                    }
+                  >
+                    {performanceAttribution.emotionalRate.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {performanceAttribution.overrideRate > 20 ? (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                <div className="text-sm text-yellow-800 dark:text-yellow-300">
+                  Your override rate is {performanceAttribution.overrideRate.toFixed(0)}%. The
+                  framework exists to protect you — aim for under 20%. Review your overrides to
+                  see if they outperformed framework-supported decisions.
+                </div>
+              </div>
+            ) : null}
+
+            {performanceAttribution.emotionalRate > 30 ? (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-800 dark:bg-yellow-900/20">
+                <div className="text-sm text-yellow-800 dark:text-yellow-300">
+                  {performanceAttribution.emotionalRate.toFixed(0)}% of your decisions were made
+                  under emotional pressure. Consider implementing a mandatory 24-hour waiting
+                  period for non-urgent decisions.
+                </div>
+              </div>
+            ) : null}
+          </div>
         )}
       </CollapsibleSection>
 
