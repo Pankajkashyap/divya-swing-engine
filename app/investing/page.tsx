@@ -324,6 +324,7 @@ export default function InvestingDashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [sendingDigest, setSendingDigest] = useState(false)
 
   function getMacroValue(seriesId: string): number | null {
     const item = macroData.find((d) => d.seriesId === seriesId)
@@ -368,43 +369,79 @@ export default function InvestingDashboardPage() {
     return { label: 'Low / Calm', color: 'text-green-500' }
   }
 
-async function handleRefreshPrices() {
-  setRefreshing(true)
-  setError(null)
-  setSuccess(null)
+  async function handleRefreshPrices() {
+    setRefreshing(true)
+    setError(null)
+    setSuccess(null)
 
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
 
-    const res = await fetch('/investing/api/refresh-prices', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : {}),
-      },
-    })
+      const res = await fetch('/investing/api/refresh-prices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+      })
 
-    const json = await res.json()
+      const json = await res.json()
 
-    if (!res.ok) {
-      throw new Error(json.error || 'Refresh failed.')
+      if (!res.ok) {
+        throw new Error(json.error || 'Refresh failed.')
+      }
+
+      setSuccess(
+        `Prices refreshed: ${json.holdingsUpdated} holdings, ${json.watchlistUpdated} watchlist items updated.`
+      )
+
+      window.location.reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Price refresh failed.')
+    } finally {
+      setRefreshing(false)
     }
-
-    setSuccess(
-      `Prices refreshed: ${json.holdingsUpdated} holdings, ${json.watchlistUpdated} watchlist items updated.`
-    )
-
-    window.location.reload()
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Price refresh failed.')
-  } finally {
-    setRefreshing(false)
   }
-}
+
+  async function handleSendDigest() {
+    setSendingDigest(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const res = await fetch('/investing/api/send-digest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+      })
+
+      const json = await res.json()
+
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to send digest.')
+      }
+
+      setSuccess(
+        `Digest sent to ${json.to}. ${json.criticalSignals} critical, ${json.warningSignals} warnings, ${json.readyToBuy} ready to buy.`
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Digest send failed.')
+    } finally {
+      setSendingDigest(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -870,6 +907,15 @@ async function handleRefreshPrices() {
               {refreshing ? 'Refreshing...' : 'Refresh Prices'}
             </button>
 
+            <button
+              type="button"
+              onClick={() => void handleSendDigest()}
+              disabled={sendingDigest}
+              className="ui-btn-secondary"
+            >
+              {sendingDigest ? 'Sending...' : 'Send Digest'}
+            </button>
+
             <Link href="/investing/portfolio" className="ui-btn-secondary">
               Open Portfolio
             </Link>
@@ -889,8 +935,8 @@ async function handleRefreshPrices() {
         }
       />
 
-<InlineStatusBanner tone="error" message={error} />
-<InlineStatusBanner tone="success" message={success} />
+      <InlineStatusBanner tone="error" message={error} />
+      <InlineStatusBanner tone="success" message={success} />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
@@ -914,7 +960,10 @@ async function handleRefreshPrices() {
                 label="Equity exposure"
                 value={formatCurrency(portfolioSummary.equityValue)}
               />
-              <DataCardRow label="Cash position" value={formatCurrency(portfolioSummary.cashValue)} />
+              <DataCardRow
+                label="Cash position"
+                value={formatCurrency(portfolioSummary.cashValue)}
+              />
               <DataCardRow
                 label="Weighted gain/loss"
                 value={formatPercent(portfolioSummary.weightedGainLossPct)}
@@ -934,12 +983,21 @@ async function handleRefreshPrices() {
                 label="Needs new analysis"
                 value={String(watchlistSummary.needsNewAnalysisCount)}
               />
-              <DataCardRow label="Total watchlist" value={String(watchlist.length)} />
+              <DataCardRow
+                label="Total watchlist"
+                value={String(watchlist.length)}
+              />
             </DataCard>
 
             <DataCard title="Review Pressure">
-              <DataCardRow label="3M reviews due" value={String(reviewsSummary.due3mCount)} />
-              <DataCardRow label="12M reviews due" value={String(reviewsSummary.due12mCount)} />
+              <DataCardRow
+                label="3M reviews due"
+                value={String(reviewsSummary.due3mCount)}
+              />
+              <DataCardRow
+                label="12M reviews due"
+                value={String(reviewsSummary.due12mCount)}
+              />
               <DataCardRow
                 label="Thesis risk alerts"
                 value={String(thesisRiskAlerts.length)}
@@ -953,72 +1011,75 @@ async function handleRefreshPrices() {
         )}
       </section>
 
-<CollapsibleSection title="Macro Environment" defaultOpen>
-  {macroLoading ? (
-    <div className="grid grid-cols-2 gap-3">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
-      ))}
-    </div>
-  ) : macroData.length === 0 ? (
-    <InlineStatusBanner tone="info" message="Macro data unavailable" />
-  ) : (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <DataCard title="S&P 500">
-          <DataCardRow label="Value" value={formatMacroValue('SP500')} />
-          <DataCardRow
-            label="Date"
-            value={getMacroDate('SP500') ? `As of ${getMacroDate('SP500')}` : '—'}
-          />
-        </DataCard>
-
-        <DataCard title="VIX">
-          <DataCardRow label="Value" value={formatMacroValue('VIXCLS')} />
-          <div className={`mt-3 text-sm font-medium ${getVixStatus().color}`}>
-            {getVixStatus().label}
+      <CollapsibleSection title="Macro Environment" defaultOpen>
+        {macroLoading ? (
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-20 rounded-xl bg-muted animate-pulse"
+              />
+            ))}
           </div>
-        </DataCard>
-      </div>
+        ) : macroData.length === 0 ? (
+          <InlineStatusBanner tone="info" message="Macro data unavailable" />
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <DataCard title="S&P 500">
+                <DataCardRow label="Value" value={formatMacroValue('SP500')} />
+                <DataCardRow
+                  label="Date"
+                  value={getMacroDate('SP500') ? `As of ${getMacroDate('SP500')}` : '—'}
+                />
+              </DataCard>
 
-      <div className="grid grid-cols-2 gap-3">
-        <DataCard title="Fed Funds Rate">
-          <DataCardRow label="Value" value={formatMacroValue('FEDFUNDS')} />
-        </DataCard>
+              <DataCard title="VIX">
+                <DataCardRow label="Value" value={formatMacroValue('VIXCLS')} />
+                <div className={`mt-3 text-sm font-medium ${getVixStatus().color}`}>
+                  {getVixStatus().label}
+                </div>
+              </DataCard>
+            </div>
 
-        <DataCard title="10Y Treasury">
-          <DataCardRow label="Value" value={formatMacroValue('DGS10')} />
-        </DataCard>
-      </div>
+            <div className="grid grid-cols-2 gap-3">
+              <DataCard title="Fed Funds Rate">
+                <DataCardRow label="Value" value={formatMacroValue('FEDFUNDS')} />
+              </DataCard>
 
-      <div className="grid grid-cols-2 gap-3">
-        <DataCard title="2Y Treasury">
-          <DataCardRow label="Value" value={formatMacroValue('DGS2')} />
-        </DataCard>
+              <DataCard title="10Y Treasury">
+                <DataCardRow label="Value" value={formatMacroValue('DGS10')} />
+              </DataCard>
+            </div>
 
-        <DataCard title="Yield Curve (10Y-2Y)">
-          <DataCardRow label="Spread" value={formatMacroValue('T10Y2Y')} />
-          <div className={`mt-3 text-sm font-medium ${getYieldCurveStatus().color}`}>
-            {getYieldCurveStatus().label}
+            <div className="grid grid-cols-2 gap-3">
+              <DataCard title="2Y Treasury">
+                <DataCardRow label="Value" value={formatMacroValue('DGS2')} />
+              </DataCard>
+
+              <DataCard title="Yield Curve (10Y-2Y)">
+                <DataCardRow label="Spread" value={formatMacroValue('T10Y2Y')} />
+                <div className={`mt-3 text-sm font-medium ${getYieldCurveStatus().color}`}>
+                  {getYieldCurveStatus().label}
+                </div>
+              </DataCard>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <DataCard title="Unemployment">
+                <DataCardRow label="Value" value={formatMacroValue('UNRATE')} />
+              </DataCard>
+
+              <DataCard title="CPI Index">
+                <DataCardRow label="Value" value={formatMacroValue('CPIAUCSL')} />
+                <div className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                  Consumer Price Index
+                </div>
+              </DataCard>
+            </div>
           </div>
-        </DataCard>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <DataCard title="Unemployment">
-          <DataCardRow label="Value" value={formatMacroValue('UNRATE')} />
-        </DataCard>
-
-        <DataCard title="CPI Index">
-          <DataCardRow label="Value" value={formatMacroValue('CPIAUCSL')} />
-          <div className="mt-3 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-            Consumer Price Index
-          </div>
-        </DataCard>
-      </div>
-    </div>
-  )}
-</CollapsibleSection>
+        )}
+      </CollapsibleSection>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
