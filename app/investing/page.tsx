@@ -482,6 +482,21 @@ export default function InvestingDashboardPage() {
     }
   }
 
+  async function handleRefreshMacro() {
+    setMacroLoading(true)
+    try {
+      const res = await fetch(`/investing/api/macro?_t=${Date.now()}`)
+      if (res.ok) {
+        const json = await res.json()
+        setMacroData(json.data ?? [])
+      }
+    } catch {
+      // Silent fail
+    } finally {
+      setMacroLoading(false)
+    }
+  }
+
   useEffect(() => {
     let cancelled = false
 
@@ -930,6 +945,24 @@ export default function InvestingDashboardPage() {
     }
   }, [savedViews])
 
+  const totalAlertCount = useMemo(() => {
+    let count = 0
+
+    count += holdings.filter(
+      (h) => h.thesis_status === 'Broken' || h.thesis_status === 'Weakening'
+    ).length
+
+    count += watchlist.filter(
+      (w) => w.watchlist_action_hint === 'Ready to buy'
+    ).length
+
+    count += holdingsNeedingReview.length
+
+    count += reviewsSummary.due3mCount + reviewsSummary.due12mCount
+
+    return count
+  }, [holdings, watchlist, holdingsNeedingReview, reviewsSummary])
+
   return (
     <div className="space-y-4">
       <InvestingPageHeader
@@ -984,6 +1017,14 @@ export default function InvestingDashboardPage() {
           </div>
         }
       />
+
+      {!loading && totalAlertCount > 0 ? (
+        <div className="-mt-2 mb-2 flex items-center gap-2">
+          <span className="inline-flex items-center justify-center rounded-full bg-red-500 px-2.5 py-1 text-xs font-bold text-white">
+            {totalAlertCount} alert{totalAlertCount !== 1 ? 's' : ''} need attention
+          </span>
+        </div>
+      ) : null}
 
       <InlineStatusBanner tone="error" message={error} />
       <InlineStatusBanner tone="success" message={success} />
@@ -1062,6 +1103,17 @@ export default function InvestingDashboardPage() {
       </section>
 
       <CollapsibleSection title="Macro Environment" defaultOpen>
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => void handleRefreshMacro()}
+            disabled={macroLoading}
+            className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-[#a8b2bf] dark:hover:text-[#e6eaf0]"
+          >
+            {macroLoading ? 'Refreshing...' : 'Refresh macro data'}
+          </button>
+        </div>
+
         {macroLoading ? (
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: 8 }).map((_, i) => (
