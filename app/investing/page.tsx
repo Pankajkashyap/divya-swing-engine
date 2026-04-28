@@ -325,6 +325,7 @@ export default function InvestingDashboardPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [sendingDigest, setSendingDigest] = useState(false)
+  const [refreshingFundamentals, setRefreshingFundamentals] = useState(false)
 
   function getMacroValue(seriesId: string): number | null {
     const item = macroData.find((d) => d.seriesId === seriesId)
@@ -440,6 +441,44 @@ export default function InvestingDashboardPage() {
       setError(err instanceof Error ? err.message : 'Digest send failed.')
     } finally {
       setSendingDigest(false)
+    }
+  }
+
+  async function handleRefreshFundamentals() {
+    setRefreshingFundamentals(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const res = await fetch('/investing/api/refresh-fundamentals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+      })
+
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Fundamental refresh failed.')
+
+      const errorCount = json.errors?.length ?? 0
+      setSuccess(
+        `Fundamentals refreshed: ${json.evaluated} evaluated, ${json.updated} updated.${errorCount > 0 ? ` ${errorCount} errors.` : ''}`
+      )
+
+      setTimeout(() => window.location.reload(), 2000)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Fundamental refresh failed.'
+      )
+    } finally {
+      setRefreshingFundamentals(false)
     }
   }
 
@@ -914,6 +953,17 @@ export default function InvestingDashboardPage() {
               className="ui-btn-secondary"
             >
               {sendingDigest ? 'Sending...' : 'Send Digest'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleRefreshFundamentals()}
+              disabled={refreshingFundamentals}
+              className="ui-btn-secondary"
+            >
+              {refreshingFundamentals
+                ? 'Refreshing Fundamentals...'
+                : 'Refresh Fundamentals'}
             </button>
 
             <Link href="/investing/portfolio" className="ui-btn-secondary">
