@@ -210,3 +210,18 @@ export type PriceCache = {
   close_price: number
   fetched_at: string
 }
+
+export type StockUniverseItem = {
+  id: string
+  ticker: string
+  company: string
+  sector: string
+  industry: string | null
+  market_cap_tier: string
+  country: string
+  exchange: string | null
+  is_active: boolean
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
