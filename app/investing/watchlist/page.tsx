@@ -1,35 +1,16 @@
 'use client'
 
+import Link from 'next/link'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
-import type { StockAnalysis, WatchlistItem } from '@/app/investing/types'
-import { DataCard } from '@/components/ui/DataCard'
-import { DataCardRow } from '@/components/ui/DataCardRow'
-import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
+import type { WatchlistItem } from '@/app/investing/types'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
 import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
-import { InvestingSearchToolbar } from '@/components/investing/InvestingSearchToolbar'
 import { WatchlistForm } from '@/components/investing/WatchlistForm'
-import { WatchlistTable } from '@/components/investing/WatchlistTable'
-import { WatchlistCardList } from '@/components/investing/WatchlistCardList'
-import { StockAnalysisForm } from '@/components/investing/StockAnalysisForm'
 
-type EnrichedWatchlistItem = WatchlistItem & {
-  latest_analysis_overall_score?: number | null
-  latest_analysis_verdict?: StockAnalysis['verdict'] | null
-  latest_analysis_confidence?: StockAnalysis['confidence'] | string | null
-  latest_analysis_fair_value_low?: number | null
-  latest_analysis_fair_value_high?: number | null
-  latest_analysis_date?: string | null
-  watchlist_action_hint?:
-    | 'Ready to buy'
-    | 'Keep watching'
-    | 'Too extended'
-    | 'Needs new analysis'
-    | null
-}
+type EnrichedWatchlistItem = WatchlistItem
 
 type WatchlistFormPayload = {
   ticker: string
@@ -45,44 +26,6 @@ type WatchlistFormPayload = {
   date_added: string
 }
 
-type StockAnalysisFormPayload = {
-  ticker: string
-  company: string
-  analysis_date: string
-  sector: StockAnalysis['sector']
-  moat_score: number | null
-  valuation_score: number | null
-  mgmt_score: number | null
-  roic_score: number | null
-  fin_health_score: number | null
-  biz_understanding_score: number | null
-  verdict: StockAnalysis['verdict']
-  fair_value_low: number | null
-  fair_value_high: number | null
-  thesis: string | null
-  thesis_breakers: string | null
-  confidence: StockAnalysis['confidence']
-  raw_analysis: string | null
-  moat_json?: Record<string, unknown> | null
-  management_json?: Record<string, unknown> | null
-  moat_score_auto?: number | null
-  management_score_auto?: number | null
-  qualitative_confidence?: string | null
-  business_understanding_json?: Record<string, unknown> | null
-}
-
-type SavedWatchlistView = {
-  id: string
-  user_id: string
-  page_key: string
-  name: string
-  query_text: string | null
-  saved_view_key: string | null
-  filter_key: string | null
-  created_at: string
-  updated_at: string
-}
-
 function formatCurrency(value: number | null | undefined) {
   if (value == null || Number.isNaN(value)) return '—'
 
@@ -92,81 +35,6 @@ function formatCurrency(value: number | null | undefined) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value)
-}
-
-function formatPercent(value: number | null | undefined, digits = 1) {
-  if (value == null || Number.isNaN(value)) return '—'
-  return `${value.toFixed(digits)}%`
-}
-
-function getWatchlistSavedViews() {
-  return [
-    { key: 'all', label: 'All' },
-    { key: 'opportunity-queue', label: 'Opportunity Queue' },
-    { key: 'high-conviction', label: 'High Conviction' },
-    { key: 'needs-analysis', label: 'Needs Analysis' },
-  ]
-}
-
-function getWatchlistFilters() {
-  return [
-    { key: 'all', label: 'All Filters' },
-    { key: 'ready-to-buy', label: 'Ready to Buy' },
-    { key: 'keep-watching', label: 'Keep Watching' },
-    { key: 'high-confidence', label: 'High Confidence' },
-  ]
-}
-
-function getWatchlistActionHint(args: {
-  latestVerdict: StockAnalysis['verdict'] | null | undefined
-  latestConfidence: StockAnalysis['confidence'] | string | null | undefined
-  currentPrice: number | null | undefined
-  fairValueLow: number | null | undefined
-  fairValueHigh: number | null | undefined
-}): 'Ready to buy' | 'Keep watching' | 'Too extended' | 'Needs new analysis' | null {
-  const { latestVerdict, latestConfidence, currentPrice, fairValueLow, fairValueHigh } = args
-
-  if (!latestVerdict) return 'Needs new analysis'
-
-  if (
-    currentPrice == null ||
-    !Number.isFinite(currentPrice) ||
-    fairValueLow == null ||
-    !Number.isFinite(fairValueLow) ||
-    fairValueHigh == null ||
-    !Number.isFinite(fairValueHigh)
-  ) {
-    return latestVerdict === 'Strong Buy' || latestVerdict === 'Buy'
-      ? 'Keep watching'
-      : 'Needs new analysis'
-  }
-
-  if ((latestVerdict === 'Strong Buy' || latestVerdict === 'Buy') && currentPrice <= fairValueHigh) {
-    return 'Ready to buy'
-  }
-
-  if (currentPrice > fairValueHigh) {
-    return 'Too extended'
-  }
-
-  if (latestConfidence === 'Low') {
-    return 'Needs new analysis'
-  }
-
-  return 'Keep watching'
-}
-
-function SkeletonCard() {
-  return (
-    <div className="ui-card p-4">
-      <div className="h-4 w-32 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
-      <div className="mt-4 space-y-3">
-        <div className="h-4 w-full animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
-        <div className="h-4 w-5/6 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
-        <div className="h-4 w-2/3 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
-      </div>
-    </div>
-  )
 }
 
 function getTodayDateString() {
@@ -208,65 +76,55 @@ function buildPrefilledWatchlistItem(searchParams: URLSearchParams): EnrichedWat
     status: statusParam ?? 'Under research',
     date_added: getTodayDateString(),
     discount_to_entry:
-      targetEntry != null && currentPrice > 0
-        ? ((targetEntry - currentPrice) / currentPrice) * 100
+      targetEntry != null && targetEntry > 0
+        ? ((targetEntry - currentPrice) / targetEntry) * 100
         : null,
     created_at: '',
     updated_at: '',
-    latest_analysis_overall_score: null,
-    latest_analysis_verdict: null,
-    latest_analysis_confidence: null,
-    latest_analysis_fair_value_low: null,
-    latest_analysis_fair_value_high: null,
-    latest_analysis_date: null,
-    watchlist_action_hint: null,
   }
 }
 
-function watchlistToAnalysisSeed(item: WatchlistItem): StockAnalysis {
-  return {
-    id: '',
-    user_id: null,
-    ticker: item.ticker,
-    company: item.company,
-    analysis_date: getTodayDateString(),
-    sector: item.sector,
-    moat_score: null,
-    valuation_score: null,
-    mgmt_score: null,
-    roic_score: null,
-    fin_health_score: null,
-    biz_understanding_score: null,
-    overall_score: item.scorecard_overall ?? null,
-    verdict: null,
-    fair_value_low: item.fair_value_low ?? null,
-    fair_value_high: item.fair_value_high ?? null,
-    thesis: item.why_watching ?? null,
-    thesis_breakers: null,
-    confidence: null,
-    raw_analysis: item.why_watching ?? null,
-    created_at: '',
-    updated_at: '',
-    moat_json: null,
-    management_json: null,
-    moat_score_auto: null,
-    management_score_auto: null,
-    qualitative_confidence: null,
-    qualitative_imported_at: null,
-    roic_score_auto: null,
-    roic_score_explanation: null,
-    fin_health_score_auto: null,
-    fin_health_score_explanation: null,
-    valuation_score_auto: null,
-    valuation_score_explanation: null,
-    confidence_auto: null,
-    confidence_explanation: null,
-    verdict_auto: null,
-    verdict_explanation: null,
-    business_understanding_json: null,
-    biz_understanding_score_auto: null,
-    biz_understanding_score_explanation: null,
+function SkeletonCard() {
+  return (
+    <div className="ui-card p-4">
+      <div className="h-4 w-32 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
+      <div className="mt-4 space-y-3">
+        <div className="h-4 w-full animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
+        <div className="h-4 w-5/6 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
+        <div className="h-4 w-2/3 animate-pulse rounded bg-neutral-200 dark:bg-[#2a313b]" />
+      </div>
+    </div>
+  )
+}
+
+function statusBadgeClass(status: WatchlistItem['status']) {
+  if (status === 'Ready to buy') {
+    return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
   }
+  if (status === 'Watching — approaching entry') {
+    return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+  }
+  if (status === 'Watching — overvalued') {
+    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+  }
+  if (status === 'Removed') {
+    return 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+  }
+  return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+}
+
+function buildResearchHref(item: EnrichedWatchlistItem) {
+  const params = new URLSearchParams()
+  params.set('mode', 'new')
+  params.set('ticker', item.ticker)
+  params.set('company', item.company)
+  params.set('sector', item.sector)
+  if (item.current_price > 0) params.set('current_price', String(item.current_price))
+  if (item.fair_value_low != null) params.set('fair_value_low', String(item.fair_value_low))
+  if (item.fair_value_high != null) params.set('fair_value_high', String(item.fair_value_high))
+  if (item.scorecard_overall != null) params.set('scorecard_overall', String(item.scorecard_overall))
+  if (item.why_watching?.trim()) params.set('thesis', item.why_watching.trim())
+  return `/investing/research?${params.toString()}`
 }
 
 function InvestingWatchlistPageContent() {
@@ -282,16 +140,23 @@ function InvestingWatchlistPageContent() {
   )
 
   const [items, setItems] = useState<EnrichedWatchlistItem[]>([])
-  const [dbSavedViews, setDbSavedViews] = useState<SavedWatchlistView[]>([])
-  const [activeDbSavedViewId, setActiveDbSavedViewId] = useState<string | null>(null)
-
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
-  const [savedView, setSavedView] = useState(() => searchParams.get('view') ?? 'all')
-  const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'ready' | 'research'>(
+    () => (searchParams.get('filter') as 'all' | 'ready' | 'research' | null) ?? 'all'
+  )
+
+  const [sheetOpen, setSheetOpen] = useState(
+    () => queryMode === 'new' && !!buildPrefilledWatchlistItem(searchParams)
+  )
+  const [editingItem, setEditingItem] = useState<EnrichedWatchlistItem | null>(
+    () => (queryMode === 'new' ? buildPrefilledWatchlistItem(searchParams) : null)
+  )
+  const [formBusy, setFormBusy] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
@@ -300,12 +165,6 @@ function InvestingWatchlistPageContent() {
       params.set('q', search.trim())
     } else {
       params.delete('q')
-    }
-
-    if (savedView !== 'all') {
-      params.set('view', savedView)
-    } else {
-      params.delete('view')
     }
 
     if (activeFilter !== 'all') {
@@ -320,20 +179,7 @@ function InvestingWatchlistPageContent() {
     if (next !== current) {
       router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false })
     }
-  }, [search, savedView, activeFilter, pathname, router, searchParams])
-
-  const [sheetOpen, setSheetOpen] = useState(
-    () => queryMode === 'new' && !!buildPrefilledWatchlistItem(searchParams)
-  )
-  const [editingItem, setEditingItem] = useState<EnrichedWatchlistItem | null>(
-    () => (queryMode === 'new' ? buildPrefilledWatchlistItem(searchParams) : null)
-  )
-  const [formBusy, setFormBusy] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  const [analysisSheetOpen, setAnalysisSheetOpen] = useState(false)
-  const [analysisSourceItem, setAnalysisSourceItem] = useState<EnrichedWatchlistItem | null>(null)
-  const [analysisBusy, setAnalysisBusy] = useState(false)
+  }, [search, activeFilter, pathname, router, searchParams])
 
   useEffect(() => {
     let cancelled = false
@@ -342,81 +188,20 @@ function InvestingWatchlistPageContent() {
       setLoading(true)
       setError(null)
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      const [watchlistRes, analysesRes, savedViewsRes] = await Promise.all([
-        supabase.from('investing_watchlist').select('*').order('date_added', { ascending: false }),
-        supabase
-          .from('investing_stock_analyses')
-          .select('*')
-          .order('analysis_date', { ascending: false }),
-        user?.id
-          ? supabase
-              .from('investing_saved_views')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('page_key', 'watchlist')
-              .order('created_at', { ascending: true })
-          : Promise.resolve({ data: [], error: null }),
-      ])
+      const { data, error: watchlistError } = await supabase
+        .from('investing_watchlist')
+        .select('*')
+        .order('date_added', { ascending: false })
 
       if (cancelled) return
 
-      if (watchlistRes.error) {
-        setError(watchlistRes.error.message)
+      if (watchlistError) {
+        setError(watchlistError.message)
         setLoading(false)
         return
       }
 
-      if (analysesRes.error) {
-        setError(analysesRes.error.message)
-        setLoading(false)
-        return
-      }
-
-      const latestAnalysisByTicker = new Map<string, StockAnalysis>()
-
-      for (const analysis of (analysesRes.data ?? []) as StockAnalysis[]) {
-        const ticker = analysis.ticker?.toUpperCase?.() ?? ''
-        if (!ticker) continue
-
-        if (!latestAnalysisByTicker.has(ticker)) {
-          latestAnalysisByTicker.set(ticker, analysis)
-        }
-      }
-
-      const enrichedWatchlist: EnrichedWatchlistItem[] = ((watchlistRes.data ?? []) as WatchlistItem[]).map(
-        (item) => {
-          const latestAnalysis = latestAnalysisByTicker.get(item.ticker.toUpperCase())
-          const latestVerdict = latestAnalysis?.verdict ?? latestAnalysis?.verdict_auto ?? null
-          const latestConfidence =
-            latestAnalysis?.confidence ?? latestAnalysis?.confidence_auto ?? null
-          const latestFairValueLow = latestAnalysis?.fair_value_low ?? null
-          const latestFairValueHigh = latestAnalysis?.fair_value_high ?? null
-
-          return {
-            ...item,
-            latest_analysis_overall_score: latestAnalysis?.overall_score ?? null,
-            latest_analysis_verdict: latestVerdict,
-            latest_analysis_confidence: latestConfidence,
-            latest_analysis_fair_value_low: latestFairValueLow,
-            latest_analysis_fair_value_high: latestFairValueHigh,
-            latest_analysis_date: latestAnalysis?.analysis_date ?? null,
-            watchlist_action_hint: getWatchlistActionHint({
-              latestVerdict,
-              latestConfidence,
-              currentPrice: item.current_price,
-              fairValueLow: latestFairValueLow,
-              fairValueHigh: latestFairValueHigh,
-            }),
-          }
-        }
-      )
-
-      setItems(enrichedWatchlist)
-      setDbSavedViews((savedViewsRes.data ?? []) as SavedWatchlistView[])
+      setItems((data ?? []) as EnrichedWatchlistItem[])
       setLoading(false)
     }
 
@@ -427,166 +212,36 @@ function InvestingWatchlistPageContent() {
     }
   }, [supabase])
 
-  const filteredItems = useMemo(() => {
-    const term = search.trim().toLowerCase()
+  const watchlist = useMemo(() => items.filter((w) => w.status !== 'Removed'), [items])
 
-    let result = items.filter((item) => {
-      if (!term) return true
+  const filteredWatchlist = useMemo(() => {
+    let result = [...watchlist]
 
-      return (
-        item.ticker.toLowerCase().includes(term) ||
-        item.company.toLowerCase().includes(term) ||
-        item.sector.toLowerCase().includes(term) ||
-        item.status.toLowerCase().includes(term) ||
-        (item.latest_analysis_verdict ?? '').toLowerCase().includes(term) ||
-        (item.latest_analysis_confidence ?? '').toLowerCase().includes(term) ||
-        (item.watchlist_action_hint ?? '').toLowerCase().includes(term)
-      )
-    })
-
-    if (savedView === 'opportunity-queue') {
+    if (search.trim()) {
+      const term = search.toLowerCase()
       result = result.filter(
-        (item) =>
-          item.watchlist_action_hint === 'Ready to buy' ||
-          item.watchlist_action_hint === 'Keep watching'
+        (w) =>
+          w.ticker.toLowerCase().includes(term) ||
+          (w.company ?? '').toLowerCase().includes(term)
       )
     }
 
-    if (savedView === 'high-conviction') {
-      result = result.filter((item) => {
-        const verdict = item.latest_analysis_verdict ?? null
-        const confidence = item.latest_analysis_confidence ?? null
-        return (verdict === 'Strong Buy' || verdict === 'Buy') && confidence === 'High'
-      })
-    }
-
-    if (savedView === 'needs-analysis') {
-      result = result.filter((item) => item.watchlist_action_hint === 'Needs new analysis')
-    }
-
-    if (activeFilter === 'ready-to-buy') {
-      result = result.filter((item) => item.watchlist_action_hint === 'Ready to buy')
-    }
-
-    if (activeFilter === 'keep-watching') {
-      result = result.filter((item) => item.watchlist_action_hint === 'Keep watching')
-    }
-
-    if (activeFilter === 'high-confidence') {
-      result = result.filter((item) => item.latest_analysis_confidence === 'High')
+    if (activeFilter === 'ready') {
+      result = result.filter((w) => w.status === 'Ready to buy')
+    } else if (activeFilter === 'research') {
+      result = result.filter((w) => w.status === 'Under research')
     }
 
     return result
-  }, [items, search, savedView, activeFilter])
+  }, [watchlist, search, activeFilter])
 
-  const priorityItems = useMemo(() => {
-    return filteredItems.filter((item) => item.status !== 'Removed')
-  }, [filteredItems])
+  const bestValueGap = useMemo(() => {
+    return [...watchlist]
+      .filter((w) => w.discount_to_entry != null)
+      .sort((a, b) => (b.discount_to_entry ?? 0) - (a.discount_to_entry ?? 0))[0]
+  }, [watchlist])
 
-  const summary = useMemo(() => {
-    const readyToBuy = items.filter((item) => item.status === 'Ready to buy').length
-    const approachingEntry = items.filter(
-      (item) => item.status === 'Watching — approaching entry'
-    ).length
-    const underResearch = items.filter((item) => item.status === 'Under research').length
-
-    const activeItems = items.filter((item) => item.status !== 'Removed')
-
-    const avgDiscount =
-      activeItems.length > 0
-        ? activeItems.reduce((sum, item) => sum + Number(item.discount_to_entry ?? 0), 0) /
-          activeItems.length
-        : 0
-
-    return {
-      total: items.length,
-      readyToBuy,
-      approachingEntry,
-      underResearch,
-      avgDiscount,
-      activeItems,
-    }
-  }, [items])
-
-  async function handleSaveCurrentDbView() {
-    const name = window.prompt('Enter a name for this saved view:')
-    if (!name?.trim()) return
-
-    setError(null)
-    setSuccess(null)
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      setError(authError?.message ?? 'Unable to load current user.')
-      return
-    }
-
-    const payload = {
-      user_id: user.id,
-      page_key: 'watchlist',
-      name: name.trim(),
-      query_text: search.trim() || null,
-      saved_view_key: savedView !== 'all' ? savedView : null,
-      filter_key: activeFilter !== 'all' ? activeFilter : null,
-    }
-
-    const { data, error: insertError } = await supabase
-      .from('investing_saved_views')
-      .insert(payload)
-      .select('*')
-      .single()
-
-    if (insertError) {
-      setError(insertError.message)
-      return
-    }
-
-    setDbSavedViews((prev) => [...prev, data as SavedWatchlistView])
-    setActiveDbSavedViewId((data as SavedWatchlistView).id)
-    setSuccess(`Saved view "${name.trim()}".`)
-  }
-
-  function handleApplyDbSavedView(id: string) {
-    const selected = dbSavedViews.find((view) => view.id === id)
-    if (!selected) return
-
-    setSearch(selected.query_text ?? '')
-    setSavedView(selected.saved_view_key ?? 'all')
-    setActiveFilter(selected.filter_key ?? 'all')
-    setActiveDbSavedViewId(selected.id)
-    setSuccess(`Applied saved view "${selected.name}".`)
-  }
-
-  async function handleDeleteDbSavedView(id: string) {
-    const selected = dbSavedViews.find((view) => view.id === id)
-    if (!selected) return
-
-    const confirmed = window.confirm(`Delete saved view "${selected.name}"?`)
-    if (!confirmed) return
-
-    setError(null)
-    setSuccess(null)
-
-    const { error: deleteError } = await supabase
-      .from('investing_saved_views')
-      .delete()
-      .eq('id', id)
-
-    if (deleteError) {
-      setError(deleteError.message)
-      return
-    }
-
-    setDbSavedViews((prev) => prev.filter((view) => view.id !== id))
-    setActiveDbSavedViewId((prev) => (prev === id ? null : prev))
-    setSuccess(`Deleted saved view "${selected.name}".`)
-  }
-
-  function openAddSheet() {
+  function handleAddNew() {
     setSuccess(null)
     setEditingItem(queryPrefillItem)
     setSheetOpen(true)
@@ -602,18 +257,6 @@ function InvestingWatchlistPageContent() {
     if (formBusy) return
     setSheetOpen(false)
     setEditingItem(null)
-  }
-
-  function openAnalysisSheet(item: EnrichedWatchlistItem) {
-    setSuccess(null)
-    setAnalysisSourceItem(item)
-    setAnalysisSheetOpen(true)
-  }
-
-  function closeAnalysisSheet() {
-    if (analysisBusy) return
-    setAnalysisSheetOpen(false)
-    setAnalysisSourceItem(null)
   }
 
   async function handleSaveItem(payload: WatchlistFormPayload) {
@@ -633,8 +276,8 @@ function InvestingWatchlistPageContent() {
     }
 
     const discountToEntry =
-      payload.target_entry != null && payload.current_price > 0
-        ? ((payload.target_entry - payload.current_price) / payload.current_price) * 100
+      payload.target_entry != null && payload.target_entry > 0
+        ? ((payload.target_entry - payload.current_price) / payload.target_entry) * 100
         : null
 
     const record = {
@@ -650,6 +293,7 @@ function InvestingWatchlistPageContent() {
       scorecard_overall: payload.scorecard_overall,
       status: payload.status,
       date_added: payload.date_added,
+      discount_to_entry: discountToEntry,
     }
 
     if (editingItem && editingItem.id) {
@@ -671,7 +315,6 @@ function InvestingWatchlistPageContent() {
               ? {
                   ...item,
                   ...record,
-                  discount_to_entry: discountToEntry,
                 }
               : item
           )
@@ -730,297 +373,277 @@ function InvestingWatchlistPageContent() {
     setSuccess(`Deleted ${item.ticker} from watchlist.`)
   }
 
-  async function handleCreateAnalysis(payload: StockAnalysisFormPayload) {
-    if (!analysisSourceItem) return
-
-    setAnalysisBusy(true)
-    setError(null)
-    setSuccess(null)
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError) {
-      setError(authError.message)
-      setAnalysisBusy(false)
-      return
-    }
-
-    const record = {
-      user_id: user?.id ?? null,
-      ticker: payload.ticker,
-      company: payload.company,
-      analysis_date: payload.analysis_date,
-      sector: payload.sector,
-      moat_score: payload.moat_score,
-      valuation_score: payload.valuation_score,
-      mgmt_score: payload.mgmt_score,
-      roic_score: payload.roic_score,
-      fin_health_score: payload.fin_health_score,
-      biz_understanding_score: payload.biz_understanding_score,
-      verdict: payload.verdict,
-      fair_value_low: payload.fair_value_low,
-      fair_value_high: payload.fair_value_high,
-      thesis: payload.thesis,
-      thesis_breakers: payload.thesis_breakers,
-      confidence: payload.confidence,
-      raw_analysis: payload.raw_analysis,
-      moat_json: payload.moat_json ?? null,
-      management_json: payload.management_json ?? null,
-      moat_score_auto: payload.moat_score_auto ?? null,
-      management_score_auto: payload.management_score_auto ?? null,
-      qualitative_confidence: payload.qualitative_confidence ?? null,
-      business_understanding_json: payload.business_understanding_json ?? null,
-    }
-
-    const { error: insertError } = await supabase.from('investing_stock_analyses').insert(record)
-
-    if (insertError) {
-      setError(insertError.message)
-      setAnalysisBusy(false)
-      return
-    }
-
-    setAnalysisBusy(false)
-    setAnalysisSheetOpen(false)
-    setAnalysisSourceItem(null)
-    setSuccess(`Created analysis for ${payload.ticker}.`)
-  }
-
   return (
     <div className="space-y-4">
       <InvestingPageHeader
         title="Watchlist"
-        subtitle="Monitor valuation gaps, entry levels, and research status for future investments."
+        subtitle="Track entry targets and wait for the right setup."
         actions={
-          <>
-            {summary.activeItems[0] ? (
-              <button
-                type="button"
-                onClick={() => openAnalysisSheet(summary.activeItems[0])}
-                className="ui-btn-secondary"
-              >
-                Analyze latest idea
-              </button>
-            ) : null}
-            <button type="button" onClick={openAddSheet} className="ui-btn-primary">
-              Add watchlist item
-            </button>
-          </>
+          <button type="button" onClick={handleAddNew} className="ui-btn-primary">
+            Add to watchlist
+          </button>
         }
       />
 
       <InlineStatusBanner tone="error" message={error} />
       <InlineStatusBanner tone="success" message={success} />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {loading ? (
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        ) : (
-          <>
-            <DataCard title="Watchlist Summary">
-              <DataCardRow label="Total names" value={String(summary.total)} />
-              <DataCardRow label="Ready to buy" value={String(summary.readyToBuy)} />
-              <DataCardRow
-                label="Approaching entry"
-                value={String(summary.approachingEntry)}
-              />
-            </DataCard>
-
-            <DataCard title="Research Queue">
-              <DataCardRow label="Under research" value={String(summary.underResearch)} />
-              <DataCardRow
-                label="Average discount"
-                value={formatPercent(summary.avgDiscount)}
-              />
-              <DataCardRow
-                label="Removed"
-                value={String(items.filter((item) => item.status === 'Removed').length)}
-              />
-            </DataCard>
-
-            <DataCard title="Best Value Gap">
-              {summary.activeItems.length === 0 ? (
-                <DataCardRow label="No watchlist yet" value="—" />
-              ) : (
-                (() => {
-                  const sorted = [...summary.activeItems].sort(
-                    (a, b) =>
-                      Number(b.discount_to_entry ?? -999) - Number(a.discount_to_entry ?? -999)
-                  )
-                  const top = sorted[0]
-                  return (
-                    <>
-                      <DataCardRow label="Ticker" value={top?.ticker ?? '—'} />
-                      <DataCardRow
-                        label="Discount"
-                        value={formatPercent(top?.discount_to_entry ?? null)}
-                      />
-                      <DataCardRow label="Status" value={top?.status ?? '—'} />
-                    </>
-                  )
-                })()
-              )}
-            </DataCard>
-
-            <DataCard title="Most Actionable">
-              {summary.activeItems.length === 0 ? (
-                <DataCardRow label="No watchlist yet" value="—" />
-              ) : (
-                (() => {
-                  const top =
-                    summary.activeItems.find((item) => item.status === 'Ready to buy') ??
-                    summary.activeItems.find(
-                      (item) => item.status === 'Watching — approaching entry'
-                    ) ??
-                    summary.activeItems[0]
-
-                  return (
-                    <>
-                      <DataCardRow label="Ticker" value={top?.ticker ?? '—'} />
-                      <DataCardRow
-                        label="Current price"
-                        value={formatCurrency(top?.current_price ?? null)}
-                      />
-                      <DataCardRow
-                        label="Target entry"
-                        value={formatCurrency(top?.target_entry ?? null)}
-                      />
-                    </>
-                  )
-                })()
-              )}
-            </DataCard>
-          </>
-        )}
-      </section>
-
-      {!loading && items.length > 0 ? (
-        <InvestingSearchToolbar
-          value={search}
-          onChange={(value) => {
-            setSearch(value)
-            setActiveDbSavedViewId(null)
-          }}
-          placeholder="Search ticker, company, sector, status, verdict, confidence, or action hint"
-          savedViews={getWatchlistSavedViews()}
-          activeSavedViewKey={savedView}
-          onSavedViewChange={(key) => {
-            setSavedView(key)
-            setActiveDbSavedViewId(null)
-          }}
-          filters={getWatchlistFilters()}
-          activeFilterKey={activeFilter}
-          onFilterChange={(key) => {
-            setActiveFilter(key)
-            setActiveDbSavedViewId(null)
-          }}
-          onClearFilters={() => {
-            setSearch('')
-            setSavedView('all')
-            setActiveFilter('all')
-            setActiveDbSavedViewId(null)
-          }}
-          dbSavedViews={dbSavedViews.map((view) => ({
-            id: view.id,
-            name: view.name,
-          }))}
-          activeDbSavedViewId={activeDbSavedViewId}
-          onDbSavedViewChange={handleApplyDbSavedView}
-          onSaveCurrentView={handleSaveCurrentDbView}
-          onDeleteDbSavedView={handleDeleteDbSavedView}
-        />
-      ) : null}
-
-      <CollapsibleSection
-        title="Priority watchlist"
-        subtitle="Mobile-first card view of current watchlist names."
-        defaultOpen={true}
-      >
-        {loading ? (
-          <div className="space-y-3">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : watchlist.length === 0 ? (
+        <div className="ui-card p-6 text-center">
+          <div className="mb-2 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Your watchlist is empty
           </div>
-        ) : priorityItems.length === 0 ? (
-          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
-            No active watchlist items found.
+          <div className="mb-4 text-sm text-neutral-500 dark:text-[#a8b2bf]">
+            Research a stock and click &quot;→ Watchlist&quot; to start tracking entry opportunities.
           </div>
-        ) : (
-          <div className="space-y-3">
-            {priorityItems.map((item) => (
-              <div key={item.id} className="space-y-2">
-                <WatchlistCardList
-                  items={[item]}
-                  onEdit={openEditSheet}
-                  onDelete={handleDeleteItem}
-                  deletingId={deletingId}
-                />
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => openAnalysisSheet(item)}
-                    className="ui-btn-secondary"
-                  >
-                    Analyze
-                  </button>
-                </div>
+          <Link href="/investing/research" className="ui-btn-primary">
+            Find a stock
+          </Link>
+        </div>
+      ) : watchlist.length <= 2 ? (
+        <div className="mb-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+          {watchlist.length} stock{watchlist.length !== 1 ? 's' : ''} on your watchlist
+        </div>
+      ) : (
+        <div className="mb-4 grid gap-4 sm:grid-cols-2">
+          <div className="ui-card p-4">
+            <div className="mb-2 text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+              Watchlist Summary
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-neutral-600 dark:text-[#a8b2bf]">Total names</span>
+                <span>{watchlist.length}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-600 dark:text-[#a8b2bf]">Ready to buy</span>
+                <span className="text-green-500">
+                  {watchlist.filter((w) => w.status === 'Ready to buy').length}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-600 dark:text-[#a8b2bf]">Approaching entry</span>
+                <span className="text-blue-500">
+                  {
+                    watchlist.filter(
+                      (w) => w.status === 'Watching — approaching entry'
+                    ).length
+                  }
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {watchlist.some((w) => w.target_entry != null && w.target_entry > 0) && (
+            <div className="ui-card p-4">
+              <div className="mb-2 text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+                Best Value Gap
+              </div>
+              {!bestValueGap ? (
+                <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+                  No targets set yet
+                </div>
+              ) : (
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-[#a8b2bf]">Ticker</span>
+                    <span className="font-medium">{bestValueGap.ticker}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-neutral-600 dark:text-[#a8b2bf]">Discount</span>
+                    <span>{bestValueGap.discount_to_entry?.toFixed(1)}%</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {watchlist.length >= 3 && (
+        <>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search ticker or company"
+            className="ui-input mb-4 w-full"
+          />
+
+          <div className="mb-4 flex gap-2">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'ready', label: 'Ready to buy' },
+              { key: 'research', label: 'Under research' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setActiveFilter(f.key as 'all' | 'ready' | 'research')}
+                className={
+                  activeFilter === f.key ? 'ui-link-pill-active' : 'ui-link-pill-idle'
+                }
+              >
+                {f.label}
+              </button>
             ))}
           </div>
-        )}
-      </CollapsibleSection>
+        </>
+      )}
 
-      <CollapsibleSection
-        title="Watchlist table"
-        subtitle="Search and scan the full watchlist in a denser format."
-        defaultOpen={false}
-      >
+      <div className="space-y-3">
         {loading ? (
-          <SkeletonCard />
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : filteredWatchlist.length === 0 ? (
+          <div className="ui-card p-4 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+            No watchlist items match your current search or filter.
+          </div>
         ) : (
-          <div className="space-y-3">
-            <WatchlistTable
-              items={filteredItems}
-              onEdit={openEditSheet}
-              onDelete={handleDeleteItem}
-              deletingId={deletingId}
-            />
-            {filteredItems.length > 0 ? (
-              <div className="ui-card p-4">
-                <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
-                  Start an analysis directly from any watchlist idea:
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {filteredItems.map((item) => (
-                    <button
-                      key={`analyze-${item.id}`}
-                      type="button"
-                      onClick={() => openAnalysisSheet(item)}
-                      className="ui-btn-secondary"
+          filteredWatchlist.map((item) => {
+            const hasCurrentPrice = item.current_price > 0
+            const hasTargetEntry = item.target_entry != null && item.target_entry > 0
+            const hasFairValue =
+              item.fair_value_low != null && item.fair_value_high != null
+            const hasDiscount = item.discount_to_entry != null
+            const hasScore = item.scorecard_overall != null
+            const hasAnyField =
+              hasCurrentPrice || hasTargetEntry || hasFairValue || hasDiscount || hasScore
+
+            return (
+              <div key={item.id} className="ui-card p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-neutral-900 dark:text-[#e6eaf0]">
+                        {item.ticker}
+                      </span>
+                      <span className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        {item.company}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-xs font-medium ${statusBadgeClass(item.status)}`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                      {item.sector} · Added {item.date_added}
+                    </div>
+
+                    {item.why_watching ? (
+                      <div className="mt-2 text-sm text-neutral-600 dark:text-[#a8b2bf]">
+                        {item.why_watching}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 space-y-1 text-sm">
+                      {hasCurrentPrice && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                            Current price
+                          </span>
+                          <span>{formatCurrency(item.current_price)}</span>
+                        </div>
+                      )}
+
+                      {hasTargetEntry && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                            Target entry
+                          </span>
+                          <span>{formatCurrency(item.target_entry)}</span>
+                        </div>
+                      )}
+
+                      {hasFairValue && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                            Fair value
+                          </span>
+                          <span>
+                            ${item.fair_value_low?.toFixed(0)}–${item.fair_value_high?.toFixed(0)}
+                          </span>
+                        </div>
+                      )}
+
+                      {hasDiscount && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                            Discount to entry
+                          </span>
+                          <span
+                            className={
+                              (item.discount_to_entry ?? 0) > 0
+                                ? 'text-green-500'
+                                : 'text-red-500'
+                            }
+                          >
+                            {item.discount_to_entry?.toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+
+                      {hasScore && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-neutral-600 dark:text-[#a8b2bf]">
+                            Analysis score
+                          </span>
+                          <span>{item.scorecard_overall?.toFixed(1)}</span>
+                        </div>
+                      )}
+
+                      {!hasAnyField && (
+                        <div className="italic text-xs text-neutral-500 dark:text-[#a8b2bf]">
+                          Click &quot;Edit&quot; to add entry target and fair value, or use
+                          &quot;Refresh Prices&quot; on the Dashboard.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-col gap-2">
+                    <Link
+                      href={buildResearchHref(item)}
+                      className="ui-btn-secondary text-center text-xs px-3 py-1"
                     >
-                      Analyze {item.ticker}
+                      Analyze
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => openEditSheet(item)}
+                      className="ui-btn-secondary text-xs px-3 py-1"
+                    >
+                      Edit
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteItem(item)}
+                      disabled={deletingId === item.id}
+                      className="px-3 py-1 text-xs text-red-500 hover:text-red-700"
+                    >
+                      {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            ) : null}
-          </div>
+            )
+          })
         )}
-      </CollapsibleSection>
+      </div>
 
       <BottomSheet
         open={sheetOpen}
         onClose={closeSheet}
-        title={editingItem?.id ? `Edit ${editingItem.ticker}` : 'Add watchlist item'}
+        title={editingItem?.id ? `Edit ${editingItem.ticker}` : 'Add to watchlist'}
       >
         <WatchlistForm
           key={
@@ -1031,26 +654,9 @@ function InvestingWatchlistPageContent() {
           initialItem={editingItem}
           onSubmit={handleSaveItem}
           onCancel={closeSheet}
-          submitLabel={editingItem?.id ? 'Save changes' : 'Add watchlist item'}
+          submitLabel={editingItem?.id ? 'Save changes' : 'Add to watchlist'}
           busy={formBusy}
         />
-      </BottomSheet>
-
-      <BottomSheet
-        open={analysisSheetOpen}
-        onClose={closeAnalysisSheet}
-        title={analysisSourceItem ? `Analyze ${analysisSourceItem.ticker}` : 'Start analysis'}
-      >
-        {analysisSourceItem ? (
-          <StockAnalysisForm
-            key={`analysis-${analysisSourceItem.id || analysisSourceItem.ticker}`}
-            initialAnalysis={watchlistToAnalysisSeed(analysisSourceItem)}
-            onSubmit={handleCreateAnalysis}
-            onCancel={closeAnalysisSheet}
-            submitLabel="Create analysis"
-            busy={analysisBusy}
-          />
-        ) : null}
       </BottomSheet>
     </div>
   )
