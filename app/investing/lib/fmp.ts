@@ -28,9 +28,15 @@ export async function fmpFetch<T>(
     next: { revalidate: 3600 },
   })
 
-  if (!response.ok) {
-    throw new Error(`FMP request failed: ${response.status} ${response.statusText}`)
-  }
+if (!response.ok) {
+  console.error('FMP error', {
+    path,
+    params,
+    status: response.status,
+    statusText: response.statusText,
+  })
+  throw new Error(`FMP request failed: ${response.status} ${response.statusText}`)
+}
 
   return response.json() as Promise<T>
 }
