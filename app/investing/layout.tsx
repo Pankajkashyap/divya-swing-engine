@@ -46,7 +46,7 @@ function InvestingTabNav() {
             <div key={stage.label} className="flex items-center">
               {i > 0 ? (
                 <div
-                  className={`h-[2px] w-6 sm:w-10 ${
+                  className={`h-0.5 w-6 sm:w-10 ${
                     isPast || isActive ? 'bg-blue-500' : 'bg-neutral-300 dark:bg-neutral-700'
                   }`}
                 />
