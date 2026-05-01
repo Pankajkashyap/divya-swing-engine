@@ -391,49 +391,48 @@ function InvestingPortfolioPageContent() {
         data: { user },
       } = await supabase.auth.getUser()
 
-    const [
-      holdingsRes,
-      sectorTargetsRes,
-      bucketTargetsRes,
-      analysesRes,
-      savedViewsRes,
-      journalRes,
-    ] = 
-    await Promise.all([
-          supabase
-            .from('investing_holdings')
-            .select('*')
-            .order('market_value', { ascending: false }),
-          supabase
-            .from('investing_sector_targets')
-            .select('*')
-            .order('sector', { ascending: true }),
-          supabase
-            .from('investing_bucket_targets')
-            .select('*')
-            .order('bucket', { ascending: true }),
-          supabase
-            .from('investing_stock_analyses')
-            .select('*')
-            .order('analysis_date', { ascending: false }),
-          user?.id
-            ? supabase
-                .from('investing_saved_views')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq('page_key', 'portfolio')
-                .order('created_at', { ascending: true })
-            : Promise.resolve({ data: [], error: null }),
-            user?.id
-            ? supabase
-                .from('investing_decision_journal')
-                .select(
-                  'id, review_due_3m, review_due_12m, three_month_review, twelve_month_review, created_at'
-                )
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-            : Promise.resolve({ data: [], error: null }),
-        ])
+const [
+  holdingsRes,
+  sectorTargetsRes,
+  bucketTargetsRes,
+  analysesRes,
+  savedViewsRes,
+  journalRes,
+] = await Promise.all([
+  supabase
+    .from('investing_holdings')
+    .select('*')
+    .order('market_value', { ascending: false }),
+  supabase
+    .from('investing_sector_targets')
+    .select('*')
+    .order('sector', { ascending: true }),
+  supabase
+    .from('investing_bucket_targets')
+    .select('*')
+    .order('bucket', { ascending: true }),
+  supabase
+    .from('investing_stock_analyses')
+    .select('*')
+    .order('analysis_date', { ascending: false }),
+  user?.id
+    ? supabase
+        .from('investing_saved_views')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('page_key', 'portfolio')
+        .order('created_at', { ascending: true })
+    : Promise.resolve({ data: [], error: null }),
+  user?.id
+    ? supabase
+        .from('investing_decision_journal')
+        .select(
+          'id, review_due_3m, review_due_12m, three_month_review, twelve_month_review, created_at'
+        )
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+    : Promise.resolve({ data: [], error: null }),
+])
 
       if (cancelled) return
 
