@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
@@ -321,6 +322,10 @@ function InvestingPortfolioPageContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  const [journalEntryCount, setJournalEntryCount] = useState(0)
+  const [overdueReviewCount, setOverdueReviewCount] = useState(0)
+  const [recentEntryDate, setRecentEntryDate] = useState<string | null>(null)
+
   const [sizerTicker, setSizerTicker] = useState('')
   const [sizerConfidence, setSizerConfidence] = useState<'High' | 'Medium' | 'Low'>('Medium')
   const [sizerSector, setSizerSector] = useState('')
@@ -331,6 +336,7 @@ function InvestingPortfolioPageContent() {
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [savedView, setSavedView] = useState(() => searchParams.get('view') ?? 'all')
   const [activeFilter, setActiveFilter] = useState(() => searchParams.get('filter') ?? 'all')
+
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
@@ -385,8 +391,15 @@ function InvestingPortfolioPageContent() {
         data: { user },
       } = await supabase.auth.getUser()
 
-      const [holdingsRes, sectorTargetsRes, bucketTargetsRes, analysesRes, savedViewsRes] =
-        await Promise.all([
+    const [
+      holdingsRes,
+      sectorTargetsRes,
+      bucketTargetsRes,
+      analysesRes,
+      savedViewsRes,
+      journalRes,
+    ] = 
+    await Promise.all([
           supabase
             .from('investing_holdings')
             .select('*')
@@ -410,6 +423,15 @@ function InvestingPortfolioPageContent() {
                 .eq('user_id', user.id)
                 .eq('page_key', 'portfolio')
                 .order('created_at', { ascending: true })
+            : Promise.resolve({ data: [], error: null }),
+            user?.id
+            ? supabase
+                .from('investing_decision_journal')
+                .select(
+                  'id, review_due_3m, review_due_12m, three_month_review, twelve_month_review, created_at'
+                )
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
             : Promise.resolve({ data: [], error: null }),
         ])
 
@@ -488,6 +510,25 @@ function InvestingPortfolioPageContent() {
       }
 
       setDbSavedViews((savedViewsRes.data ?? []) as SavedPortfolioView[])
+
+      if (!journalRes.error && journalRes.data) {
+        setJournalEntryCount(journalRes.data.length)
+
+        const today = new Date().toISOString().slice(0, 10)
+        const overdue = journalRes.data.filter(
+          (e) =>
+            (e.review_due_3m && e.review_due_3m <= today && !e.three_month_review) ||
+            (e.review_due_12m && e.review_due_12m <= today && !e.twelve_month_review)
+        ).length
+
+        setOverdueReviewCount(overdue)
+
+        if (journalRes.data.length > 0) {
+          setRecentEntryDate(journalRes.data[0].created_at?.slice(0, 10) ?? null)
+        } else {
+          setRecentEntryDate(null)
+        }
+      }
 
       if (errors.length > 0) {
         setError(errors.join(' · '))
@@ -1546,6 +1587,44 @@ function InvestingPortfolioPageContent() {
           </div>
         )}
       </CollapsibleSection>
+
+      <CollapsibleSection title="Decision journal" defaultOpen={false}>
+  <div className="space-y-3">
+    <p className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
+      Log buy, sell, add, and trim decisions with emotional state tracking and pre-decision checklists.
+    </p>
+
+    <div className="grid grid-cols-3 gap-3">
+      <div className="ui-card p-3 text-center">
+        <div className="text-lg font-bold text-neutral-900 dark:text-[#e6eaf0]">
+          {journalEntryCount}
+        </div>
+        <div className="text-xs text-neutral-500 dark:text-[#a8b2bf]">Total entries</div>
+      </div>
+      <div className="ui-card p-3 text-center">
+        <div className="text-lg font-bold text-neutral-900 dark:text-[#e6eaf0]">
+          {overdueReviewCount}
+        </div>
+        <div className="text-xs text-neutral-500 dark:text-[#a8b2bf]">Overdue reviews</div>
+      </div>
+      <div className="ui-card p-3 text-center">
+        <div className="text-lg font-bold text-neutral-900 dark:text-[#e6eaf0]">
+          {recentEntryDate || '—'}
+        </div>
+        <div className="text-xs text-neutral-500 dark:text-[#a8b2bf]">Last entry</div>
+      </div>
+    </div>
+
+    <div className="flex gap-2">
+      <Link href="/investing/journal" className="ui-btn-primary text-sm">
+        Open journal
+      </Link>
+      <Link href="/investing/journal?mode=new" className="ui-btn-secondary text-sm">
+        New entry
+      </Link>
+    </div>
+  </div>
+</CollapsibleSection>
 
       <CollapsibleSection title="Position Sizer" defaultOpen={false}>
         <div className="ui-card p-4 space-y-4">

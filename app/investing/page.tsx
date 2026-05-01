@@ -830,39 +830,51 @@ export default function InvestingDashboardPage() {
       <InlineStatusBanner tone="error" message={error} />
       <InlineStatusBanner tone="success" message={success} />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {loading ? (
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        ) : (
-          <>
-            <DataCard title="Portfolio Summary">
-              <DataCardRow label="Total value" value={formatCurrency(portfolioSummary.totalValue)} />
-              <DataCardRow label="Holdings" value={String(portfolioSummary.holdingsCount)} />
-              <DataCardRow label="Equity exposure" value={formatCurrency(portfolioSummary.equityValue)} />
-              <DataCardRow label="Cash position" value={formatCurrency(portfolioSummary.cashValue)} />
-              <DataCardRow label="Weighted gain/loss" value={formatPercent(portfolioSummary.weightedGainLossPct)} />
-            </DataCard>
+<section>
+  {loading ? (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  ) : portfolioSummary.totalValue === 0 && watchlist.length === 0 ? (
+    <div className="ui-card p-6 text-center">
+      <div className="mb-2 text-lg font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+        Welcome to Shayna
+      </div>
+      <div className="mb-4 text-sm text-neutral-500 dark:text-[#a8b2bf]">
+        Start by researching a stock, then add it to your watchlist and portfolio.
+      </div>
+      <Link href="/investing/research" className="ui-btn-primary">
+        Start researching
+      </Link>
+    </div>
+  ) : (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <DataCard title="Portfolio Summary">
+        <DataCardRow label="Total value" value={formatCurrency(portfolioSummary.totalValue)} />
+        <DataCardRow label="Holdings" value={String(portfolioSummary.holdingsCount)} />
+        <DataCardRow label="Equity exposure" value={formatCurrency(portfolioSummary.equityValue)} />
+        <DataCardRow label="Cash position" value={formatCurrency(portfolioSummary.cashValue)} />
+        <DataCardRow label="Weighted gain/loss" value={formatPercent(portfolioSummary.weightedGainLossPct)} />
+      </DataCard>
 
-            <DataCard title="Watchlist Signals">
-              <DataCardRow label="Ready to buy" value={String(watchlistSummary.readyToBuyCount)} />
-              <DataCardRow label="Keep watching" value={String(watchlistSummary.keepWatchingCount)} />
-              <DataCardRow label="Needs new analysis" value={String(watchlistSummary.needsNewAnalysisCount)} />
-              <DataCardRow label="Total watchlist" value={String(watchlist.length)} />
-            </DataCard>
+      <DataCard title="Watchlist Signals">
+        <DataCardRow label="Ready to buy" value={String(watchlistSummary.readyToBuyCount)} />
+        <DataCardRow label="Keep watching" value={String(watchlistSummary.keepWatchingCount)} />
+        <DataCardRow label="Needs new analysis" value={String(watchlistSummary.needsNewAnalysisCount)} />
+        <DataCardRow label="Total watchlist" value={String(watchlist.length)} />
+      </DataCard>
 
-            <DataCard title="Review Pressure">
-              <DataCardRow label="3M reviews due" value={String(reviewsSummary.due3mCount)} />
-              <DataCardRow label="12M reviews due" value={String(reviewsSummary.due12mCount)} />
-              <DataCardRow label="Thesis risk alerts" value={String(thesisRiskAlerts.length)} />
-              <DataCardRow label="Holdings needing review" value={String(holdingsNeedingReview.length)} />
-            </DataCard>
-          </>
-        )}
-      </section>
+      <DataCard title="Review Pressure">
+        <DataCardRow label="3M reviews due" value={String(reviewsSummary.due3mCount)} />
+        <DataCardRow label="12M reviews due" value={String(reviewsSummary.due12mCount)} />
+        <DataCardRow label="Thesis risk alerts" value={String(thesisRiskAlerts.length)} />
+        <DataCardRow label="Holdings needing review" value={String(holdingsNeedingReview.length)} />
+      </DataCard>
+    </div>
+  )}
+</section>
 
       <CollapsibleSection title="Macro Environment" defaultOpen>
         <div className="mb-2 flex justify-end">
@@ -933,6 +945,7 @@ export default function InvestingDashboardPage() {
         )}
       </CollapsibleSection>
 
+      {portfolioSummary.totalValue > 0 && (
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           <>
@@ -995,7 +1008,9 @@ export default function InvestingDashboardPage() {
           </>
         )}
       </section>
+      )}
 
+{savedViewsSummary.pinned.length > 0 && (
       <CollapsibleSection title="Pinned saved views" subtitle="Your most important investing workflows." defaultOpen={true}>
         {loading ? (
           <SkeletonCard />
@@ -1035,7 +1050,9 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
+      {savedViewsSummary.recent.length > 0 && (
       <CollapsibleSection title="Recent saved views" subtitle="Quick-launch your latest unpinned custom workflows." defaultOpen={true}>
         {loading ? (
           <SkeletonCard />
@@ -1069,7 +1086,9 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
+      {watchlistSummary.topItems.length > 0 && (
       <CollapsibleSection title="Top watchlist opportunities" subtitle="Most actionable watchlist names based on current hint and latest analysis." defaultOpen={true}>
         {loading ? (
           <SkeletonCard />
@@ -1111,7 +1130,9 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
+      {holdingsNeedingReview.length > 0 && (
       <CollapsibleSection title="Holdings needing review" subtitle="Positions flagged for thesis review or trim consideration." defaultOpen={true}>
         {loading ? (
           <SkeletonCard />
@@ -1148,7 +1169,9 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
+      {(reviewsSummary.due3mCount > 0 || reviewsSummary.due12mCount > 0) && (
       <CollapsibleSection title="Overdue journal reviews" subtitle="3M and 12M reviews that need follow-up." defaultOpen={true}>
         {loading ? (
           <SkeletonCard />
@@ -1183,7 +1206,9 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
+      {latestAnalyses.length > 0 && (
       <CollapsibleSection title="Latest analyses" subtitle="Most recent completed analysis work." defaultOpen={false}>
         {loading ? (
           <SkeletonCard />
@@ -1229,7 +1254,9 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
+      {highestConvictionNames.length > 0 && (
       <CollapsibleSection title="Highest conviction names" subtitle="Strong Buy / Buy names with High confidence." defaultOpen={false}>
         {loading ? (
           <SkeletonCard />
@@ -1262,7 +1289,9 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
+      {thesisRiskAlerts.length > 0 && (
       <CollapsibleSection title="Thesis risk alerts" subtitle="Holdings where thesis status has weakened or broken." defaultOpen={false}>
         {loading ? (
           <SkeletonCard />
@@ -1296,40 +1325,41 @@ export default function InvestingDashboardPage() {
           </div>
         )}
       </CollapsibleSection>
+      )}
 
-      <CollapsibleSection title="Quick links" subtitle="Supporting pages that now live under the primary lifecycle tabs." defaultOpen={false}>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Link href="/investing/reviews" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
-            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Reviews</div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">Quarterly reviews and performance discipline.</div>
-          </Link>
+<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+  <Link
+    href="/investing/reviews"
+    className="ui-card p-4 text-center transition-colors hover:border-blue-400"
+  >
+    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Reviews</div>
+    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">Quarterly performance</div>
+  </Link>
 
-          <Link href="/investing/journal" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
-            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Journal</div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">Decision log and review schedule.</div>
-          </Link>
+  <Link
+    href="/investing/journal"
+    className="ui-card p-4 text-center transition-colors hover:border-blue-400"
+  >
+    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Journal</div>
+    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">Decision log</div>
+  </Link>
 
-          <Link href="/investing/save-views" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
-            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Saved Views</div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">Manage saved workflows and filters.</div>
-          </Link>
+  <Link
+    href="/investing/save-views"
+    className="ui-card p-4 text-center transition-colors hover:border-blue-400"
+  >
+    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Saved views</div>
+    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">Custom workflows</div>
+  </Link>
 
-          <Link href="/investing/settings" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
-            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Settings</div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">Investing preferences and configuration.</div>
-          </Link>
-
-          <Link href="/investing/analysis" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
-            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Analysis</div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">Open the current analysis workspace directly.</div>
-          </Link>
-
-          <Link href="/investing/screener" className="ui-card p-4 transition hover:border-neutral-300 dark:hover:border-neutral-700">
-            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Screener</div>
-            <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">Legacy screener route remains available.</div>
-          </Link>
-        </div>
-      </CollapsibleSection>
+  <Link
+    href="/investing/settings"
+    className="ui-card p-4 text-center transition-colors hover:border-blue-400"
+  >
+    <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">Settings</div>
+    <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">Targets & preferences</div>
+  </Link>
+</div>
     </div>
   )
 }
