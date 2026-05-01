@@ -1,32 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { Confidence, Sector, StockAnalysis, Verdict } from '@/app/investing/types'
-import { buildMoatManagementPrompt } from '@/app/investing/lib/qualitative/buildMoatManagementPrompt'
 import { parseQualitativeImport } from '@/app/investing/lib/qualitative/parseQualitativeImport'
 import { scoreQualitativeImport } from '@/app/investing/lib/qualitative/scoreQualitativeImport'
-
-type StockAnalysisFormValues = {
-  ticker: string
-  company: string
-  analysis_date: string
-  sector: Sector | ''
-  moat_score: string
-  valuation_score: string
-  mgmt_score: string
-  roic_score: string
-  fin_health_score: string
-  biz_understanding_score: string
-  verdict: Verdict | ''
-  fair_value_low: string
-  fair_value_high: string
-  thesis: string
-  thesis_breakers: string
-  confidence: Confidence | ''
-  qualitative_json_text: string
-  business_understanding_json_text: string
-  raw_analysis: string
-}
 
 export type StockAnalysisFormPayload = {
   ticker: string
@@ -62,19 +39,6 @@ type Props = {
   busy?: boolean
 }
 
-const sectorOptions: Sector[] = [
-  'Technology',
-  'Consumer Staples',
-  'Consumer Discretionary',
-  'Healthcare',
-  'Financials',
-  'Industrials',
-  'Energy',
-  'Communication Services',
-  'Real Estate',
-  'Utilities',
-  'Materials',
-]
 
 const verdictOptions: Verdict[] = ['Strong Buy', 'Buy', 'Hold', 'Avoid', 'Red Flag']
 const confidenceOptions: Confidence[] = ['High', 'Medium', 'Low']
@@ -83,167 +47,58 @@ function getTodayDateString() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function toFormValues(item?: StockAnalysis | null): StockAnalysisFormValues {
-  return {
-    ticker: item?.ticker ?? '',
-    company: item?.company ?? '',
-    analysis_date: item?.analysis_date ?? getTodayDateString(),
-    sector: (item?.sector as Sector | undefined) ?? '',
-    moat_score: item?.moat_score != null ? String(item.moat_score) : '',
-    valuation_score: item?.valuation_score != null ? String(item.valuation_score) : '',
-    mgmt_score: item?.mgmt_score != null ? String(item.mgmt_score) : '',
-    roic_score: item?.roic_score != null ? String(item.roic_score) : '',
-    fin_health_score: item?.fin_health_score != null ? String(item.fin_health_score) : '',
-    biz_understanding_score:
-      item?.biz_understanding_score != null ? String(item.biz_understanding_score) : '',
-    verdict: item?.verdict ?? '',
-    fair_value_low: item?.fair_value_low != null ? String(item.fair_value_low) : '',
-    fair_value_high: item?.fair_value_high != null ? String(item.fair_value_high) : '',
-    thesis: item?.thesis ?? '',
-    thesis_breakers: item?.thesis_breakers ?? '',
-    confidence: item?.confidence ?? '',
-    qualitative_json_text:
-      item?.moat_json || item?.management_json
-        ? JSON.stringify(
-            {
-              moat: item?.moat_json ?? null,
-              management: item?.management_json ?? null,
-              confidence: item?.qualitative_confidence ?? null,
-            },
-            null,
-            2
-          )
-        : '',
-    business_understanding_json_text: item?.business_understanding_json
-      ? JSON.stringify(item.business_understanding_json, null, 2)
-      : '',
-    raw_analysis: item?.raw_analysis ?? '',
-  }
+function formatScore(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return value.toFixed(1)
 }
 
-function SectionHeader({
+function formatMoney(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return '—'
+  return `$${value.toFixed(0)}`
+}
+
+function formatText(value: string | null | undefined) {
+  return value?.trim() ? value : '—'
+}
+
+function CardChoice({
+  selected,
   title,
   subtitle,
+  onClick,
 }: {
+  selected: boolean
   title: string
-  subtitle?: string
+  subtitle: string
+  onClick: () => void
 }) {
   return (
-    <div className="mb-4">
-      <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">{title}</div>
-      {subtitle ? (
-        <div className="mt-1 text-sm text-neutral-600 dark:text-[#a8b2bf]">{subtitle}</div>
-      ) : null}
-    </div>
-  )
-}
-
-function FieldHint({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="mb-2 block text-xs text-neutral-500 dark:text-[#a8b2bf]">
-      {children}
-    </span>
-  )
-}
-
-function SourceBadge({ source }: { source: 'Manual' | 'Auto' | null }) {
-  if (!source) return null
-
-  const className =
-    source === 'Manual'
-      ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
-
-  return (
-    <span
-      className={`ml-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${className}`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border p-3 text-left transition ${
+        selected
+          ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
+          : 'border-neutral-200 hover:border-neutral-300 dark:border-neutral-700 dark:hover:border-neutral-600'
+      }`}
     >
-      {source}
-    </span>
+      <div className="font-medium text-neutral-900 dark:text-[#e6eaf0]">{title}</div>
+      <div className="mt-1 text-xs text-neutral-500 dark:text-[#a8b2bf]">{subtitle}</div>
+    </button>
   )
 }
 
-function FieldLabel({
-  children,
-  source,
-}: {
-  children: React.ReactNode
-  source?: 'Manual' | 'Auto' | null
-}) {
-  return (
-    <span className="mb-2 block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">
-      {children}
-      <SourceBadge source={source ?? null} />
-    </span>
-  )
-}
-
-function getManualOrAutoSource(args: {
-  manualValue: unknown
-  autoValue: unknown
-}): 'Manual' | 'Auto' | null {
-  const { manualValue, autoValue } = args
-  if (manualValue != null) return 'Manual'
-  if (autoValue != null) return 'Auto'
-  return null
-}
-
-function parseNullableNumber(value: string) {
-  if (value.trim() === '') return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : Number.NaN
-}
-
-function getPreviewNumber(args: {
-  manualText: string
-  autoValue: number | null | undefined
-}): { value: string; source: 'Manual' | 'Auto' | null } {
-  const manualParsed = parseNullableNumber(args.manualText)
-
-  if (manualParsed != null && Number.isFinite(manualParsed)) {
-    return { value: manualParsed.toFixed(1), source: 'Manual' }
-  }
-
-  if (args.autoValue != null && Number.isFinite(args.autoValue)) {
-    return { value: args.autoValue.toFixed(1), source: 'Auto' }
-  }
-
-  return { value: 'Will remain blank', source: null }
-}
-
-function getPreviewText(args: {
-  manualText: string
-  autoValue: string | null | undefined
-}): { value: string; source: 'Manual' | 'Auto' | null } {
-  const manualValue = args.manualText.trim()
-
-  if (manualValue) {
-    return { value: manualValue, source: 'Manual' }
-  }
-
-  if (args.autoValue) {
-    return { value: args.autoValue, source: 'Auto' }
-  }
-
-  return { value: 'Will remain blank', source: null }
-}
-
-function PreviewRow({
+function SummaryChip({
   label,
   value,
-  source,
 }: {
   label: string
   value: string
-  source: 'Manual' | 'Auto' | null
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-neutral-200 py-2 last:border-b-0 dark:border-neutral-800">
-      <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">{label}</div>
-      <div className="flex items-center gap-2 text-right">
-        <div className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">{value}</div>
-        <SourceBadge source={source} />
-      </div>
+    <div className="rounded-md border border-neutral-200 px-3 py-2 dark:border-neutral-700">
+      <span className="text-xs text-neutral-500 dark:text-[#a8b2bf]">{label}: </span>
+      <span className="text-sm font-medium text-neutral-900 dark:text-[#e6eaf0]">{value}</span>
     </div>
   )
 }
@@ -252,739 +107,375 @@ export function StockAnalysisForm({
   initialAnalysis,
   onSubmit,
   onCancel,
-  submitLabel = 'Save analysis',
+  submitLabel = 'Save Analysis',
   busy = false,
 }: Props) {
-  const initialValues = useMemo(() => toFormValues(initialAnalysis), [initialAnalysis])
-  const [values, setValues] = useState<StockAnalysisFormValues>(initialValues)
-  const [error, setError] = useState<string | null>(null)
-  const [promptText, setPromptText] = useState('')
-  const [qualitativeImportSuccess, setQualitativeImportSuccess] = useState<string | null>(null)
-  const [, setMoatJson] = useState<Record<string, unknown> | null>(
-    initialAnalysis?.moat_json ?? null
+  const baseAnalysisDate = initialAnalysis?.analysis_date || getTodayDateString()
+  const baseSector = (initialAnalysis?.sector as Sector | undefined) || 'Technology'
+
+  const [analysisDate] = useState(baseAnalysisDate)
+  const [sector] = useState<Sector>(baseSector)
+  const [thesis, setThesis] = useState(initialAnalysis?.thesis ?? '')
+  const [thesisBreakers, setThesisBreakers] = useState(initialAnalysis?.thesis_breakers ?? '')
+  const [bizUnderstanding, setBizUnderstanding] = useState<'high' | 'medium' | 'low' | null>(
+    initialAnalysis?.biz_understanding_score != null
+      ? initialAnalysis.biz_understanding_score >= 7
+        ? 'high'
+        : initialAnalysis.biz_understanding_score >= 5
+          ? 'medium'
+          : 'low'
+      : null
   )
-  const [, setManagementJson] = useState<Record<string, unknown> | null>(
-    initialAnalysis?.management_json ?? null
+  const [verdictOverride, setVerdictOverride] = useState<Verdict | ''>('')
+  const [confidenceOverride, setConfidenceOverride] = useState<Confidence | ''>('')
+
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [aiCompleted, setAiCompleted] = useState(
+    (initialAnalysis?.moat_score_auto ?? null) != null ||
+      (initialAnalysis?.management_score_auto ?? null) != null
   )
   const [moatScoreAuto, setMoatScoreAuto] = useState<number | null>(
     initialAnalysis?.moat_score_auto ?? null
   )
-  const [managementScoreAuto, setManagementScoreAuto] = useState<number | null>(
+  const [mgmtScoreAuto, setMgmtScoreAuto] = useState<number | null>(
     initialAnalysis?.management_score_auto ?? null
+  )
+  const [moatJson, setMoatJson] = useState<Record<string, unknown> | null>(
+    initialAnalysis?.moat_json ?? null
+  )
+  const [mgmtJson, setMgmtJson] = useState<Record<string, unknown> | null>(
+    initialAnalysis?.management_json ?? null
   )
   const [qualitativeConfidence, setQualitativeConfidence] = useState<string | null>(
     initialAnalysis?.qualitative_confidence ?? null
   )
 
-  const moatSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.moat_score,
-    autoValue: initialAnalysis?.moat_score_auto,
-  })
-  const valuationSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.valuation_score,
-    autoValue: initialAnalysis?.valuation_score_auto,
-  })
-  const mgmtSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.mgmt_score,
-    autoValue: initialAnalysis?.management_score_auto,
-  })
-  const roicSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.roic_score,
-    autoValue: initialAnalysis?.roic_score_auto,
-  })
-  const finHealthSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.fin_health_score,
-    autoValue: initialAnalysis?.fin_health_score_auto,
-  })
-  const bizUnderstandingSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.biz_understanding_score,
-    autoValue: initialAnalysis?.biz_understanding_score_auto,
-  })
-  const verdictSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.verdict,
-    autoValue: initialAnalysis?.verdict_auto,
-  })
-  const confidenceSource = getManualOrAutoSource({
-    manualValue: initialAnalysis?.confidence,
-    autoValue: initialAnalysis?.confidence_auto,
-  })
+  const [showEngineDetails, setShowEngineDetails] = useState(false)
 
-  const moatPreview = getPreviewNumber({
-    manualText: values.moat_score,
-    autoValue: moatScoreAuto ?? initialAnalysis?.moat_score_auto ?? null,
-  })
+  const engineVerdict = initialAnalysis?.verdict_auto ?? initialAnalysis?.verdict ?? null
+  const engineConfidence =
+    initialAnalysis?.confidence_auto ?? initialAnalysis?.confidence ?? null
 
-  const managementPreview = getPreviewNumber({
-    manualText: values.mgmt_score,
-    autoValue: managementScoreAuto ?? initialAnalysis?.management_score_auto ?? null,
-  })
+  const effectiveValuationScore =
+    initialAnalysis?.valuation_score ?? initialAnalysis?.valuation_score_auto ?? null
+  const effectiveRoicScore =
+    initialAnalysis?.roic_score ?? initialAnalysis?.roic_score_auto ?? null
+  const effectiveFinHealthScore =
+    initialAnalysis?.fin_health_score ?? initialAnalysis?.fin_health_score_auto ?? null
+  const effectiveOverallScore = initialAnalysis?.overall_score ?? null
 
-  const valuationPreview = getPreviewNumber({
-    manualText: values.valuation_score,
-    autoValue: initialAnalysis?.valuation_score_auto ?? null,
-  })
 
-  const roicPreview = getPreviewNumber({
-    manualText: values.roic_score,
-    autoValue: initialAnalysis?.roic_score_auto ?? null,
-  })
+  async function handleRunAiAnalysis() {
+    if (!initialAnalysis?.ticker) return
 
-  const finHealthPreview = getPreviewNumber({
-    manualText: values.fin_health_score,
-    autoValue: initialAnalysis?.fin_health_score_auto ?? null,
-  })
-
-  const bizUnderstandingPreview = getPreviewNumber({
-    manualText: values.biz_understanding_score,
-    autoValue: initialAnalysis?.biz_understanding_score_auto ?? null,
-  })
-
-  const confidencePreview = getPreviewText({
-    manualText: values.confidence,
-    autoValue:
-      qualitativeConfidence ?? initialAnalysis?.confidence_auto ?? null,
-  })
-
-  const verdictPreview = getPreviewText({
-    manualText: values.verdict,
-    autoValue: initialAnalysis?.verdict_auto ?? null,
-  })
-
-  function update<K extends keyof StockAnalysisFormValues>(
-    key: K,
-    value: StockAnalysisFormValues[K]
-  ) {
-    setError(null)
-    setQualitativeImportSuccess(null)
-    setValues((prev) => ({ ...prev, [key]: value }))
-  }
-
-  function handleReset() {
-    setValues(initialValues)
-    setPromptText('')
-    setMoatJson(initialAnalysis?.moat_json ?? null)
-    setManagementJson(initialAnalysis?.management_json ?? null)
-    setMoatScoreAuto(initialAnalysis?.moat_score_auto ?? null)
-    setManagementScoreAuto(initialAnalysis?.management_score_auto ?? null)
-    setQualitativeConfidence(initialAnalysis?.qualitative_confidence ?? null)
-    setError(null)
-    setQualitativeImportSuccess(null)
-  }
-
-  function validateScore(name: string, value: number | null) {
-    if (value == null) return null
-    if (!Number.isFinite(value) || value < 0 || value > 10) {
-      return `${name} must be between 0 and 10.`
-    }
-    return null
-  }
-
-  function handleGeneratePrompt() {
-    const ticker = values.ticker.trim().toUpperCase()
-    const company = values.company.trim()
-    const sector = values.sector
-    const thesisNotes = values.thesis.trim() || null
-
-    if (!ticker) {
-      setError('Enter a ticker before generating the prompt.')
-      return
-    }
-
-    if (!company) {
-      setError('Enter a company before generating the prompt.')
-      return
-    }
-
-    const prompt = buildMoatManagementPrompt({
-      ticker,
-      company,
-      sector: sector || null,
-      thesisNotes,
-    })
-
-    setPromptText(prompt)
-    setError(null)
-    setQualitativeImportSuccess('Prompt generated.')
-  }
-
-  async function handleCopyPrompt() {
-    if (!promptText) return
+    setAiLoading(true)
+    setAiError(null)
 
     try {
-      await navigator.clipboard.writeText(promptText)
-      setQualitativeImportSuccess('Prompt copied to clipboard.')
-    } catch {
-      setQualitativeImportSuccess('Prompt generated. Copy manually if needed.')
-    }
-  }
+      const res = await fetch('/investing/api/qualitative-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticker: initialAnalysis.ticker,
+          company: initialAnalysis.company,
+          sector: initialAnalysis.sector,
+          thesisNotes: thesis || null,
+        }),
+      })
 
-  function handleImportQualitativeJson() {
-    try {
-      const parsed = parseQualitativeImport(values.qualitative_json_text)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'AI analysis failed.')
+
+      const parsed = parseQualitativeImport(JSON.stringify(json.data))
       const scored = scoreQualitativeImport(parsed)
 
-      setMoatJson(parsed.moat as unknown as Record<string, unknown>)
-      setManagementJson(parsed.management as unknown as Record<string, unknown>)
       setMoatScoreAuto(scored.moatScoreAuto)
-      setManagementScoreAuto(scored.managementScoreAuto)
-      setQualitativeConfidence(parsed.confidence)
-
-      setValues((prev) => ({
-        ...prev,
-        moat_score: String(scored.moatScoreAuto),
-        mgmt_score: String(scored.managementScoreAuto),
-      }))
-
-      setError(null)
-      setQualitativeImportSuccess(
-        `Imported qualitative analysis. Moat ${scored.moatScoreAuto.toFixed(1)}/10, Management ${scored.managementScoreAuto.toFixed(1)}/10.`
-      )
+      setMgmtScoreAuto(scored.managementScoreAuto)
+      setMoatJson((json.data?.moat as Record<string, unknown> | null) ?? null)
+      setMgmtJson((json.data?.management as Record<string, unknown> | null) ?? null)
+      setQualitativeConfidence((json.data?.confidence as string | null) ?? null)
+      setAiCompleted(true)
     } catch (err) {
-      setQualitativeImportSuccess(null)
-      setError(err instanceof Error ? err.message : 'Failed to import qualitative JSON.')
+      setAiError(err instanceof Error ? err.message : 'AI analysis failed.')
+    } finally {
+      setAiLoading(false)
     }
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
+  function handleSubmit() {
+    if (!initialAnalysis) return
 
-    const ticker = values.ticker.trim().toUpperCase()
-    const company = values.company.trim()
-    const sector = values.sector
+    const bizScore =
+      bizUnderstanding === 'high'
+        ? 8
+        : bizUnderstanding === 'medium'
+          ? 6
+          : bizUnderstanding === 'low'
+            ? 4
+            : null
 
-    const moatScore = parseNullableNumber(values.moat_score)
-    const valuationScore = parseNullableNumber(values.valuation_score)
-    const mgmtScore = parseNullableNumber(values.mgmt_score)
-    const roicScore = parseNullableNumber(values.roic_score)
-    const finHealthScore = parseNullableNumber(values.fin_health_score)
-    const bizUnderstandingScore = parseNullableNumber(values.biz_understanding_score)
-
-    const fairValueLow = parseNullableNumber(values.fair_value_low)
-    const fairValueHigh = parseNullableNumber(values.fair_value_high)
-
-    if (!ticker) {
-      setError('Ticker is required.')
-      return
-    }
-
-    if (!company) {
-      setError('Company is required.')
-      return
-    }
-
-    if (!values.analysis_date) {
-      setError('Analysis date is required.')
-      return
-    }
-
-    if (!sector) {
-      setError('Sector is required.')
-      return
-    }
-
-    const scoreErrors = [
-      validateScore('Moat score', moatScore),
-      validateScore('Valuation score', valuationScore),
-      validateScore('Management score', mgmtScore),
-      validateScore('ROIC score', roicScore),
-      validateScore('Financial health score', finHealthScore),
-      validateScore('Business understanding score', bizUnderstandingScore),
-    ].filter(Boolean)
-
-    if (scoreErrors.length > 0) {
-      setError(scoreErrors[0] ?? 'Invalid score.')
-      return
-    }
-
-    if (fairValueLow != null && (!Number.isFinite(fairValueLow) || fairValueLow < 0)) {
-      setError('Fair value low must be 0 or greater.')
-      return
-    }
-
-    if (fairValueHigh != null && (!Number.isFinite(fairValueHigh) || fairValueHigh < 0)) {
-      setError('Fair value high must be 0 or greater.')
-      return
-    }
-
-    if (fairValueLow != null && fairValueHigh != null && fairValueLow > fairValueHigh) {
-      setError('Fair value low cannot be greater than fair value high.')
-      return
-    }
-
-    let businessUnderstandingJson: Record<string, unknown> | null = null
-
-    if (values.business_understanding_json_text.trim()) {
-      try {
-        const parsed = JSON.parse(values.business_understanding_json_text)
-        if (parsed && typeof parsed === 'object') {
-          businessUnderstandingJson = parsed as Record<string, unknown>
-        }
-      } catch {
-        businessUnderstandingJson = null
-      }
-    }
-
-    await onSubmit({
-      ticker,
-      company,
-      analysis_date: values.analysis_date,
+    const payload: StockAnalysisFormPayload = {
+      ticker: initialAnalysis.ticker,
+      company: initialAnalysis.company,
+      analysis_date: analysisDate,
       sector,
-      moat_score: moatScore,
-      valuation_score: valuationScore,
-      mgmt_score: mgmtScore,
-      roic_score: roicScore,
-      fin_health_score: finHealthScore,
-      biz_understanding_score: bizUnderstandingScore,
-      verdict: values.verdict || null,
-      fair_value_low: fairValueLow,
-      fair_value_high: fairValueHigh,
-      thesis: values.thesis.trim() || null,
-      thesis_breakers: values.thesis_breakers.trim() || null,
-      confidence: values.confidence || null,
-      raw_analysis: values.raw_analysis.trim() || null,
-      moat_json: values.qualitative_json_text.trim()
-        ? (() => {
-            try {
-              const parsed = parseQualitativeImport(values.qualitative_json_text)
-              return parsed.moat as Record<string, unknown>
-            } catch {
-              return null
-            }
-          })()
-        : null,
-      management_json: values.qualitative_json_text.trim()
-        ? (() => {
-            try {
-              const parsed = parseQualitativeImport(values.qualitative_json_text)
-              return parsed.management as Record<string, unknown>
-            } catch {
-              return null
-            }
-          })()
-        : null,
+      moat_score: null,
+      valuation_score: initialAnalysis.valuation_score ?? null,
+      mgmt_score: null,
+      roic_score: initialAnalysis.roic_score ?? null,
+      fin_health_score: initialAnalysis.fin_health_score ?? null,
+      biz_understanding_score: bizScore,
+      verdict: verdictOverride || initialAnalysis.verdict || null,
+      fair_value_low: initialAnalysis.fair_value_low ?? null,
+      fair_value_high: initialAnalysis.fair_value_high ?? null,
+      thesis: thesis.trim() || null,
+      thesis_breakers: thesisBreakers.trim() || null,
+      confidence: confidenceOverride || initialAnalysis.confidence || null,
+      raw_analysis: null,
+      moat_json: moatJson,
+      management_json: mgmtJson,
       moat_score_auto: moatScoreAuto,
-      management_score_auto: managementScoreAuto,
+      management_score_auto: mgmtScoreAuto,
       qualitative_confidence: qualitativeConfidence,
-      business_understanding_json: businessUnderstandingJson,
-    })
+      business_understanding_json: null,
+    }
+
+    void onSubmit(payload)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <SectionHeader
-          title="Core analysis details"
-          subtitle="Basic company information, fair value range, verdict, and thesis notes."
-        />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-lg font-bold text-neutral-900 dark:text-[#e6eaf0]">
+            {initialAnalysis?.ticker} · {initialAnalysis?.company}
+          </div>
+          <div className="text-sm text-neutral-500 dark:text-[#a8b2bf]">
+            {sector} · {analysisDate}
+          </div>
+        </div>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className="ui-btn-secondary">
+            Close
+          </button>
+        ) : null}
+      </div>
+
+      <div className="ui-card p-4">
+        <div className="mb-2 flex items-center justify-between gap-4">
+          <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+            Engine Analysis
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowEngineDetails((prev) => !prev)}
+            className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-[#a8b2bf]"
+          >
+            {showEngineDetails ? 'Hide details' : 'Show details'}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <SummaryChip label="Verdict" value={formatText(engineVerdict)} />
+          <SummaryChip
+            label="Fair value"
+            value={`${formatMoney(initialAnalysis?.fair_value_low)} – ${formatMoney(initialAnalysis?.fair_value_high)}`}
+          />
+          <SummaryChip
+            label="Score"
+            value={
+              effectiveOverallScore != null ? `${effectiveOverallScore.toFixed(1)}/10` : '—'
+            }
+          />
+        </div>
+
+        {showEngineDetails ? (
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-neutral-200 pt-3 text-xs dark:border-neutral-700">
+            <div>Valuation: {formatScore(effectiveValuationScore)}/10</div>
+            <div>ROIC: {formatScore(effectiveRoicScore)}/10</div>
+            <div>Financial Health: {formatScore(effectiveFinHealthScore)}/10</div>
+            <div>Confidence: {formatText(engineConfidence)}</div>
+            <div className="col-span-2">
+              Red flags: {formatText(initialAnalysis?.thesis_breakers)}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="ui-card p-4">
+        <div className="mb-1 text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          AI Qualitative Analysis
+        </div>
+        <p className="mb-3 text-xs text-neutral-500 dark:text-[#a8b2bf]">
+          Evaluates moat strength and management quality using AI.
+        </p>
+
+        {aiCompleted ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-3 text-sm">
+              <div>
+                <span className="text-neutral-500 dark:text-[#a8b2bf]">Moat: </span>
+                <span className="font-medium text-green-600 dark:text-green-400">
+                  {moatScoreAuto?.toFixed(1) ?? '—'}/10
+                </span>
+              </div>
+              <div>
+                <span className="text-neutral-500 dark:text-[#a8b2bf]">Management: </span>
+                <span className="font-medium text-green-600 dark:text-green-400">
+                  {mgmtScoreAuto?.toFixed(1) ?? '—'}/10
+                </span>
+              </div>
+              <div>
+                <span className="text-neutral-500 dark:text-[#a8b2bf]">AI Confidence: </span>
+                <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
+                  {qualitativeConfidence ?? '—'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRunAiAnalysis}
+              disabled={aiLoading}
+              className="text-xs text-neutral-500 hover:text-neutral-700 dark:text-[#a8b2bf]"
+            >
+              {aiLoading ? 'Re-analyzing...' : 'Re-run analysis'}
+            </button>
+
+            {aiError ? (
+              <div className="text-xs text-red-500">{aiError}</div>
+            ) : null}
+          </div>
+        ) : (
+          <div>
+            <button
+              type="button"
+              onClick={handleRunAiAnalysis}
+              disabled={aiLoading || !initialAnalysis?.ticker}
+              className="ui-btn-primary"
+            >
+              {aiLoading ? 'Analyzing with AI...' : 'Run AI Analysis'}
+            </button>
+
+            {aiError ? (
+              <div className="mt-2 text-xs text-red-500">{aiError}</div>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      <div className="ui-card space-y-4 p-4">
+        <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0]">
+          Your Assessment
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+            How well do you understand this business?
+          </label>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <CardChoice
+              selected={bizUnderstanding === 'high'}
+              title="I know it well"
+              subtitle="Use 8/10 business understanding"
+              onClick={() => setBizUnderstanding('high')}
+            />
+            <CardChoice
+              selected={bizUnderstanding === 'medium'}
+              title="Reasonably well"
+              subtitle="Use 6/10 business understanding"
+              onClick={() => setBizUnderstanding('medium')}
+            />
+            <CardChoice
+              selected={bizUnderstanding === 'low'}
+              title="Still learning"
+              subtitle="Use 4/10 business understanding"
+              onClick={() => setBizUnderstanding('low')}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+            Investment Thesis
+          </label>
+          <textarea
+            value={thesis}
+            onChange={(e) => setThesis(e.target.value)}
+            placeholder="Why invest? What's the core reason this stock will compound? e.g., 'Costco's membership model creates sticky recurring revenue with 90%+ renewal rates...'"
+            rows={3}
+            className="ui-input w-full"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+            What would make you sell?
+          </label>
+          <textarea
+            value={thesisBreakers}
+            onChange={(e) => setThesisBreakers(e.target.value)}
+            placeholder="e.g., 'Membership renewal drops below 85%. Margins compress 100bps+ for 2 quarters.'"
+            rows={2}
+            className="ui-input w-full"
+          />
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <FieldLabel>Ticker</FieldLabel>
-            <input
-              value={values.ticker}
-              onChange={(e) => update('ticker', e.target.value)}
-              className="ui-input"
-              placeholder="META"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel>Company</FieldLabel>
-            <input
-              value={values.company}
-              onChange={(e) => update('company', e.target.value)}
-              className="ui-input"
-              placeholder="Meta Platforms"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel>Analysis date</FieldLabel>
-            <input
-              type="date"
-              value={values.analysis_date}
-              onChange={(e) => update('analysis_date', e.target.value)}
-              className="ui-input"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel>Sector</FieldLabel>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+              Override engine verdict? <span className="font-normal text-neutral-500">(optional)</span>
+            </label>
             <select
-              value={values.sector}
-              onChange={(e) => update('sector', e.target.value as Sector | '')}
-              className="ui-select"
+              value={verdictOverride}
+              onChange={(e) => setVerdictOverride(e.target.value as Verdict | '')}
+              className="ui-input max-w-xs"
             >
-              <option value="">Select sector</option>
-              {sectorOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <FieldLabel source={verdictSource}>Verdict</FieldLabel>
-            <select
-              value={values.verdict}
-              onChange={(e) => update('verdict', e.target.value as Verdict | '')}
-              className="ui-select"
-            >
-              <option value="">Select verdict</option>
+              <option value="">Accept engine verdict</option>
               {verdictOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
-          <label className="block">
-            <FieldLabel source={confidenceSource}>Confidence</FieldLabel>
-            <FieldHint>Leave blank to use the auto confidence level when available.</FieldHint>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
+              Override confidence? <span className="font-normal text-neutral-500">(optional)</span>
+            </label>
             <select
-              value={values.confidence}
-              onChange={(e) => update('confidence', e.target.value as Confidence | '')}
-              className="ui-select"
+              value={confidenceOverride}
+              onChange={(e) => setConfidenceOverride(e.target.value as Confidence | '')}
+              className="ui-input max-w-xs"
             >
-              <option value="">Select confidence</option>
+              <option value="">Accept engine confidence</option>
               {confidenceOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
               ))}
             </select>
-          </label>
-
-          <label className="block">
-            <FieldLabel>Fair value low</FieldLabel>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={values.fair_value_low}
-              onChange={(e) => update('fair_value_low', e.target.value)}
-              className="ui-input"
-              placeholder="420.00"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel>Fair value high</FieldLabel>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={values.fair_value_high}
-              onChange={(e) => update('fair_value_high', e.target.value)}
-              className="ui-input"
-              placeholder="510.00"
-            />
-          </label>
-        </div>
-
-        <div className="mt-4 space-y-4">
-          <label className="block">
-            <FieldLabel>Thesis</FieldLabel>
-            <textarea
-              value={values.thesis}
-              onChange={(e) => update('thesis', e.target.value)}
-              className="ui-textarea min-h-28"
-              placeholder="Summarize the investment thesis."
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel>Thesis breakers</FieldLabel>
-            <textarea
-              value={values.thesis_breakers}
-              onChange={(e) => update('thesis_breakers', e.target.value)}
-              className="ui-textarea min-h-24"
-              placeholder="What would invalidate the thesis?"
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <SectionHeader
-          title="Scores"
-          subtitle="Enter manual values if you want to override the app. Otherwise leave auto-capable fields blank."
-        />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <FieldLabel source={moatSource}>Moat score</FieldLabel>
-            <FieldHint>Usually imported from qualitative analysis.</FieldHint>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="10"
-              value={values.moat_score}
-              onChange={(e) => update('moat_score', e.target.value)}
-              className="ui-input"
-              placeholder="8.5"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel source={valuationSource}>Valuation score</FieldLabel>
-            <FieldHint>Leave blank to use the auto valuation score when available.</FieldHint>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="10"
-              value={values.valuation_score}
-              onChange={(e) => update('valuation_score', e.target.value)}
-              className="ui-input"
-              placeholder="7.0"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel source={mgmtSource}>Management score</FieldLabel>
-            <FieldHint>Usually imported from qualitative analysis.</FieldHint>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="10"
-              value={values.mgmt_score}
-              onChange={(e) => update('mgmt_score', e.target.value)}
-              className="ui-input"
-              placeholder="8.0"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel source={roicSource}>ROIC score</FieldLabel>
-            <FieldHint>Leave blank to use the auto ROIC score when available.</FieldHint>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="10"
-              value={values.roic_score}
-              onChange={(e) => update('roic_score', e.target.value)}
-              className="ui-input"
-              placeholder="9.0"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel source={finHealthSource}>Financial health score</FieldLabel>
-            <FieldHint>Leave blank to use the auto financial health score when available.</FieldHint>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="10"
-              value={values.fin_health_score}
-              onChange={(e) => update('fin_health_score', e.target.value)}
-              className="ui-input"
-              placeholder="8.0"
-            />
-          </label>
-
-          <label className="block">
-            <FieldLabel source={bizUnderstandingSource}>Business understanding score</FieldLabel>
-            <FieldHint>
-              Leave blank to use the auto business understanding score when available.
-            </FieldHint>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="10"
-              value={values.biz_understanding_score}
-              onChange={(e) => update('biz_understanding_score', e.target.value)}
-              className="ui-input"
-              placeholder="7.5"
-            />
-          </label>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <SectionHeader
-          title="Live save preview"
-          subtitle="This shows what the app will use if you save right now."
-        />
-
-        <div className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
-          <PreviewRow label="Moat score" value={moatPreview.value} source={moatPreview.source} />
-          <PreviewRow
-            label="Management score"
-            value={managementPreview.value}
-            source={managementPreview.source}
-          />
-          <PreviewRow
-            label="Valuation score"
-            value={valuationPreview.value}
-            source={valuationPreview.source}
-          />
-          <PreviewRow label="ROIC score" value={roicPreview.value} source={roicPreview.source} />
-          <PreviewRow
-            label="Financial health score"
-            value={finHealthPreview.value}
-            source={finHealthPreview.source}
-          />
-          <PreviewRow
-            label="Business understanding score"
-            value={bizUnderstandingPreview.value}
-            source={bizUnderstandingPreview.source}
-          />
-          <PreviewRow
-            label="Confidence"
-            value={confidencePreview.value}
-            source={confidencePreview.source}
-          />
-          <PreviewRow
-            label="Verdict"
-            value={verdictPreview.value}
-            source={verdictPreview.source}
-          />
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <SectionHeader
-          title="Qualitative import"
-          subtitle="Generate a prompt, run it in ChatGPT, then paste the Moat / Management JSON here."
-        />
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleGeneratePrompt}
-            className="ui-btn-secondary"
-            disabled={busy}
-          >
-            Generate Moat/Management Prompt
-          </button>
-
-          {promptText ? (
-            <button
-              type="button"
-              onClick={handleCopyPrompt}
-              className="ui-btn-secondary"
-              disabled={busy}
-            >
-              Copy Prompt
-            </button>
-          ) : null}
-        </div>
-
-        {promptText ? (
-          <div className="mt-4">
-            <label className="block">
-              <FieldLabel>Generated prompt</FieldLabel>
-              <textarea value={promptText} readOnly className="ui-textarea min-h-40" />
-            </label>
           </div>
-        ) : null}
-
-        <div className="mt-4">
-          <label className="block">
-            <FieldLabel>Moat / Management JSON</FieldLabel>
-            <textarea
-              value={values.qualitative_json_text}
-              onChange={(e) => {
-                update('qualitative_json_text', e.target.value)
-                setError(null)
-                setQualitativeImportSuccess(null)
-              }}
-              className="ui-textarea min-h-40"
-              placeholder='Paste JSON like { "moat": { ... }, "management": { ... }, "confidence": "High" }'
-            />
-          </label>
         </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleImportQualitativeJson}
-            className="ui-btn-secondary"
-            disabled={busy}
-          >
-            Import Qualitative Analysis
-          </button>
-
-          {moatScoreAuto != null || managementScoreAuto != null ? (
-            <div className="text-sm text-neutral-600 dark:text-[#a8b2bf]">
-              Imported scores: Moat {moatScoreAuto?.toFixed(1) ?? '--'} / 10 · Management{' '}
-              {managementScoreAuto?.toFixed(1) ?? '--'} / 10
-              {qualitativeConfidence ? ` · Confidence ${qualitativeConfidence}` : ''}
-            </div>
-          ) : null}
-        </div>
-
-        {qualitativeImportSuccess ? (
-          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-            {qualitativeImportSuccess}
-          </div>
-        ) : null}
       </div>
 
-      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <SectionHeader
-          title="Business understanding import"
-          subtitle="Paste the structured Business Understanding JSON here. Leave the score blank above if you want the app to calculate it automatically."
-        />
-
-        <label className="block">
-          <FieldLabel>Business Understanding JSON</FieldLabel>
-          <textarea
-            value={values.business_understanding_json_text}
-            onChange={(e) => update('business_understanding_json_text', e.target.value)}
-            className="ui-textarea min-h-40"
-            placeholder='Paste JSON like { "business_understanding": { ... }, "confidence": "High" }'
-          />
-        </label>
-      </div>
-
-      <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <SectionHeader
-          title="Raw notes"
-          subtitle="Use this area for free-form research notes, copied writeups, or anything you want to save that is not structured JSON."
-        />
-
-        <label className="block">
-          <FieldLabel>Raw analysis</FieldLabel>
-          <textarea
-            value={values.raw_analysis}
-            onChange={(e) => update('raw_analysis', e.target.value)}
-            className="ui-textarea min-h-40"
-            placeholder="Paste the full research output or your own notes."
-          />
-        </label>
-      </div>
-
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-[#f0a3a3]">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+      <div className="flex justify-end gap-3">
         {onCancel ? (
-          <button type="button" onClick={onCancel} className="ui-btn-secondary" disabled={busy}>
+          <button type="button" onClick={onCancel} className="ui-btn-secondary">
             Cancel
           </button>
         ) : null}
-
-        <button type="button" onClick={handleReset} className="ui-btn-secondary" disabled={busy}>
-          Reset
-        </button>
-
-        <button type="submit" className="ui-btn-primary" disabled={busy}>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={busy || !thesis.trim()}
+          className="ui-btn-primary"
+        >
           {busy ? 'Saving...' : submitLabel}
         </button>
       </div>
-    </form>
+    </div>
   )
 }
