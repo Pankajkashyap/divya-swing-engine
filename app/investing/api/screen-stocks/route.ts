@@ -11,18 +11,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing Supabase config' }, { status: 500 })
     }
 
-    const authHeader = request.headers.get('authorization')
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: authHeader ? { Authorization: authHeader } : {},
-      },
-    })
-
     const { searchParams } = new URL(request.url)
     const sector = searchParams.get('sector') || null
     const marketCapTier = searchParams.get('marketCapTier') || null
     const search = searchParams.get('search')?.trim() || null
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100)
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     let query = supabase
       .from('investing_stock_universe')
