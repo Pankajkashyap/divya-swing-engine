@@ -107,6 +107,15 @@ export function StockAnalysisForm({
 
   const engineVerdict = initialAnalysis?.verdict_auto ?? initialAnalysis?.verdict ?? null
   const engineConfidence = initialAnalysis?.confidence_auto ?? initialAnalysis?.confidence ?? null
+  
+  console.log('FORM DEBUG:', {
+  verdict: initialAnalysis?.verdict,
+  verdict_auto: initialAnalysis?.verdict_auto,
+  confidence: initialAnalysis?.confidence,
+  confidence_auto: initialAnalysis?.confidence_auto,
+  overall_score: initialAnalysis?.overall_score,
+})
+  
   const engineValuation =
     initialAnalysis?.valuation_score ?? initialAnalysis?.valuation_score_auto ?? null
   const engineRoic = initialAnalysis?.roic_score ?? initialAnalysis?.roic_score_auto ?? null
