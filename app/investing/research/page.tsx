@@ -225,12 +225,12 @@ const supabase = useMemo(() => createSupabaseBrowserClient(), [])
     }
   }, [supabase])
 
-  useEffect(() => {
-    if (queryMode === 'new' && initialPrefill) {
+useEffect(() => {
+    if (queryMode === 'new' && initialPrefill && !sheetOpen) {
       setEditingAnalysis(initialPrefill)
       setSheetOpen(true)
     }
-  }, [queryMode, initialPrefill])
+  }, [queryMode, initialPrefill, sheetOpen])
 
   const filteredAnalyses = useMemo(() => {
     let result = [...analyses]
