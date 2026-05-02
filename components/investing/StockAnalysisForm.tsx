@@ -200,11 +200,6 @@ export function StockAnalysisForm({
             {sector} · {analysisDate}
           </div>
         </div>
-        {onCancel ? (
-          <button type="button" onClick={onCancel} className="ui-btn-secondary text-sm">
-            Close
-          </button>
-        ) : null}
       </div>
 
       <div className="ui-card p-4">
@@ -432,11 +427,6 @@ export function StockAnalysisForm({
       </div>
 
       <div className="flex justify-end gap-3 pt-2">
-        {onCancel ? (
-          <button type="button" onClick={onCancel} className="ui-btn-secondary">
-            Cancel
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={handleSubmit}
