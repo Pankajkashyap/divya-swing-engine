@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
 import type { WatchlistItem } from '@/app/investing/types'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
@@ -128,7 +128,7 @@ function buildResearchHref(item: EnrichedWatchlistItem) {
 }
 
 function InvestingWatchlistPageContent() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+const supabase = useMemo(() => createInvestingBrowserClient(), [])
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()

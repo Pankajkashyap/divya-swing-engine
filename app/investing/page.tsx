@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
 import type {
   BucketTarget,
   DecisionJournalEntry,
@@ -280,8 +280,7 @@ function buildSavedViewUrl(view: SavedDashboardView) {
 }
 
 export default function InvestingDashboardPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
-
+const supabase = useMemo(() => createInvestingBrowserClient(), [])
   const [holdings, setHoldings] = useState<EnrichedHolding[]>([])
   const [watchlist, setWatchlist] = useState<EnrichedWatchlistItem[]>([])
   const [analyses, setAnalyses] = useState<StockAnalysis[]>([])

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
+import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
 import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
 import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
 import { DataCard } from '@/components/ui/DataCard'
@@ -63,7 +63,7 @@ function buildSavedViewUrl(view: SavedViewRecord) {
 }
 
 export default function InvestingSavedViewsPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+const supabase = useMemo(() => createInvestingBrowserClient(), [])
   const router = useRouter()
 
   const [savedViews, setSavedViews] = useState<SavedViewRecord[]>([])
