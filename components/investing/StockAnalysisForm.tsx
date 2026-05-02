@@ -110,8 +110,10 @@ export function StockAnalysisForm({
   const engineValuation =
     initialAnalysis?.valuation_score ?? initialAnalysis?.valuation_score_auto ?? null
   const engineRoic = initialAnalysis?.roic_score ?? initialAnalysis?.roic_score_auto ?? null
-  const engineFinHealth =
-    initialAnalysis?.fin_health_score ?? initialAnalysis?.fin_health_score_auto ?? null
+  const engineFinHealth = initialAnalysis?.fin_health_score ?? initialAnalysis?.fin_health_score_auto ?? null
+  const engineGrowth = initialAnalysis?.overall_score != null && engineValuation != null && engineRoic != null && engineFinHealth != null
+  ? Math.max(0, Math.min(10, Number(((initialAnalysis.overall_score * 4) - (engineValuation ?? 0) - (engineRoic ?? 0) - (engineFinHealth ?? 0)).toFixed(1))))
+  : null
   const engineOverall = initialAnalysis?.overall_score ?? null
 
   async function handleCopyPrompt() {
@@ -247,9 +249,9 @@ export function StockAnalysisForm({
             <div>Valuation: {formatScore(engineValuation)}</div>
             <div>ROIC: {formatScore(engineRoic)}</div>
             <div>Financial Health: {formatScore(engineFinHealth)}</div>
-            <div>Growth: —</div>
+            <div>Growth: {engineGrowth != null ? `${engineGrowth.toFixed(1)}/10` : '—'}</div>
             <div className="col-span-2">
-              Red flags: {formatText(initialAnalysis?.thesis_breakers)}
+              Red flags: {initialAnalysis?.thesis_breakers ? initialAnalysis.thesis_breakers.split('\n').length + ' triggered' : 'None'}
             </div>
           </div>
         ) : null}
