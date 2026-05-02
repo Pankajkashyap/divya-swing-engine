@@ -37,8 +37,8 @@ function computeWatchlistStatus(args: {
 
 export async function POST(request: Request) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_INVESTING_SUPABASE_URL
-    const supabaseKey = process.env.NEXT_PUBLIC_INVESTING_SUPABASE_ANON_KEY
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json({ error: 'Missing Supabase config' }, { status: 500 })

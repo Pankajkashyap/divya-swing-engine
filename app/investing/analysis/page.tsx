@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import type { StockAnalysis, WatchlistItem } from '@/app/investing/types'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
@@ -233,7 +233,7 @@ function analysisToWatchlistSeed(analysis: StockAnalysis): WatchlistItem {
 }
 
 function InvestingAnalysisPageContent() {
-const supabase = useMemo(() => createInvestingBrowserClient(), [])
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()

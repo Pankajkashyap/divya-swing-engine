@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { CollapsibleSection } from '@/components/ui/CollapsibleSection'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { InlineStatusBanner } from '@/components/ui/InlineStatusBanner'
@@ -148,7 +148,7 @@ function createEmptyAnalysis(): StockAnalysis {
 }
 
 function ResearchPageContent() {
-const supabase = useMemo(() => createInvestingBrowserClient(), [])
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const router = useRouter()
   const searchParams = useSearchParams()
 

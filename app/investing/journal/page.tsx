@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import type {
   DecisionJournalEntry,
   Holding,
@@ -250,7 +250,7 @@ function buildPrefilledJournalEntry(searchParams: URLSearchParams): DecisionJour
 }
 
 function InvestingJournalPageContent() {
-const supabase = useMemo(() => createInvestingBrowserClient(), [])
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()

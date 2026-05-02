@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { FormEvent, useMemo, useState } from 'react'
-import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 type ScreenerRuleResult = {
   id: string
@@ -143,7 +143,7 @@ function formatRatio(value: number | null) {
 }
 
 export default function InvestingScreenerPage() {
-const supabase = useMemo(() => createInvestingBrowserClient(), [])
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const [ticker, setTicker] = useState('MSFT')
   const [loading, setLoading] = useState(false)

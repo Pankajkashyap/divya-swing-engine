@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { InvestingPageHeader } from '@/components/investing/InvestingPageHeader'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
@@ -25,7 +25,7 @@ type InvestingUserSettings = {
 }
 
 export default function InvestingSettingsPage() {
-const supabase = useMemo(() => createInvestingBrowserClient(), [])
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const [defaultAccount, setDefaultAccount] = useState<'TFSA' | 'Non-registered'>('TFSA')
   const [defaultCurrency, setDefaultCurrency] = useState<'USD' | 'CAD'>('USD')

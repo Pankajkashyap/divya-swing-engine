@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { createInvestingBrowserClient } from '@/app/investing/lib/supabaseBrowser'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import type { DecisionJournalEntry, QuarterlyReview } from '@/app/investing/types'
 import { DataCard } from '@/components/ui/DataCard'
 import { DataCardRow } from '@/components/ui/DataCardRow'
@@ -70,7 +70,7 @@ function SkeletonCard() {
 }
 
 export default function InvestingReviewsPage() {
-const supabase = useMemo(() => createInvestingBrowserClient(), [])
+const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [reviews, setReviews] = useState<QuarterlyReview[]>([])
   const [journalEntries, setJournalEntries] = useState<DecisionJournalEntry[]>([])
   const [loading, setLoading] = useState(true)
