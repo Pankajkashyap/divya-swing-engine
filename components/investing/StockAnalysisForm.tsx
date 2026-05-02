@@ -61,7 +61,6 @@ function formatText(value: string | null | undefined) {
 export function StockAnalysisForm({
   initialAnalysis,
   onSubmit,
-  onCancel,
   submitLabel,
   busy,
 }: Props) {
