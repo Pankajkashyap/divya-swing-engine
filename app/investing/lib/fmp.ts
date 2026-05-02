@@ -76,7 +76,7 @@ export async function getBatchQuotes(tickers: string[]): Promise<FmpQuote[]> {
   const allQuotes: FmpQuote[] = []
   for (const chunk of chunks) {
     const joined = chunk.join(',')
-    const quotes = await fmpFetch<FmpQuote[]>(`/quote/${joined}`)
+const quotes = await fmpFetch<FmpQuote[]>('/quote', { symbol: joined })
     if (Array.isArray(quotes)) {
       allQuotes.push(...quotes)
     }
