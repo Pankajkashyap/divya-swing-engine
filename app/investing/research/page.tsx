@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
@@ -151,7 +151,6 @@ function ResearchPageContent() {
 const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const router = useRouter()
   const searchParams = useSearchParams()
-
   const queryMode = searchParams.get('mode')
   const prefilledRoicTtm = toNullableNumber(searchParams.get('roic_ttm'))
   const prefilledRoic5yAvg = toNullableNumber(searchParams.get('roic_5y_avg'))
@@ -194,7 +193,7 @@ const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const [autoAnalyzeTicker, setAutoAnalyzeTicker] = useState('')
   const [autoAnalyzeLoading, setAutoAnalyzeLoading] = useState(false)
-
+  const autoAnalyzeTriggered = useRef(false)
   useEffect(() => {
     let cancelled = false
 
@@ -226,11 +225,11 @@ const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   }, [supabase])
 
 useEffect(() => {
-    if (queryMode === 'new' && initialPrefill && !sheetOpen) {
-      setEditingAnalysis(initialPrefill)
-      setSheetOpen(true)
-    }
-  }, [queryMode, initialPrefill, sheetOpen])
+  if (queryMode === 'new' && initialPrefill && !autoAnalyzeTriggered.current) {
+    setEditingAnalysis(initialPrefill)
+    setSheetOpen(true)
+  }
+}, [queryMode, initialPrefill])
 
   const filteredAnalyses = useMemo(() => {
     let result = [...analyses]
@@ -384,6 +383,7 @@ useEffect(() => {
         biz_understanding_score_explanation: null,
       }
 
+      autoAnalyzeTriggered.current = true
       setEditingAnalysis(prefilled)
       setSheetOpen(true)
 
@@ -476,6 +476,7 @@ useEffect(() => {
 
   function closeSheet() {
     if (formBusy) return
+    autoAnalyzeTriggered.current = false
     setSheetOpen(false)
     setEditingAnalysis(null)
 
@@ -683,6 +684,7 @@ useEffect(() => {
 
     setSuccess(existingId ? 'Analysis updated.' : 'Analysis saved.')
     setFormBusy(false)
+    autoAnalyzeTriggered.current = false
     setSheetOpen(false)
     setEditingAnalysis(null)
 
