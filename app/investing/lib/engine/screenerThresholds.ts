@@ -96,6 +96,42 @@ const SECTOR_OVERRIDES: Partial<Record<SectorKey, Partial<ScreenerThresholds>>> 
     debtToEquityMax: 0.8,
   },
 
+  'Communication Services': {
+    grossMarginMin: 40,
+    operatingMarginMin: 15,
+    revenueGrowth3yCagrMin: 5,
+    evToEbitMax: 25,
+  },
+
+  'Consumer Discretionary': {
+    grossMarginMin: 25,
+    operatingMarginMin: 10,
+    revenueGrowth3yCagrMin: 5,
+    evToEbitMax: 22,
+  },
+
+  Utilities: {
+    roicTtmMin: 8,
+    roic5yAvgMin: 6,
+    grossMarginMin: null,
+    operatingMarginMin: 15,
+    fcfMarginMin: null,
+    revenueGrowth3yCagrMin: 2,
+    epsGrowth3yCagrMin: 3,
+    fcfGrowth3yCagrMin: null,
+    evToEbitMax: 18,
+    debtToEquityMax: 2.0,
+    netDebtToEbitdaMax: 5.0,
+  },
+
+  Materials: {
+    grossMarginMin: 25,
+    operatingMarginMin: 10,
+    revenueGrowth3yCagrMin: 3,
+    evToEbitMax: 15,
+    debtToEquityMax: 1.5,
+  },
+
   'Real Estate': {
     roicTtmMin: null,
     roic5yAvgMin: null,

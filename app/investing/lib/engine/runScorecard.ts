@@ -68,23 +68,24 @@ function getValuationOverlay(snapshot?: InvestingSnapshot): {
   }
 
   const discountToFairValue = ((fairValueBase - price) / fairValueBase) * 100
+  const confidence = methodCount >= 3 ? 1.5 : methodCount >= 2 ? 1.2 : 1.0
 
   let overlay = 0
 
-  if (discountToFairValue >= 30) overlay = 2.0
-  else if (discountToFairValue >= 20) overlay = 1.5
-  else if (discountToFairValue >= 10) overlay = 1.0
-  else if (discountToFairValue >= 0) overlay = 0.5
+  if (discountToFairValue >= 30) overlay = 3.0 * confidence
+  else if (discountToFairValue >= 20) overlay = 2.5 * confidence
+  else if (discountToFairValue >= 10) overlay = 2.0 * confidence
+  else if (discountToFairValue >= 0) overlay = 1.0 * confidence
   else if (discountToFairValue >= -10) overlay = 0
-  else if (discountToFairValue >= -20) overlay = -0.5
-  else if (discountToFairValue >= -30) overlay = -1.0
-  else overlay = -1.5
+  else if (discountToFairValue >= -20) overlay = -1.0 * confidence
+  else if (discountToFairValue >= -30) overlay = -2.0 * confidence
+  else overlay = -3.0 * confidence
 
   return {
     adjustedScore: overlay,
     overlayText: `Fair value overlay applied from price vs fair value base (${discountToFairValue.toFixed(
       1
-    )}%).`,
+    )}%) using ${methodCount} valuation method(s).`,
   }
 }
 
