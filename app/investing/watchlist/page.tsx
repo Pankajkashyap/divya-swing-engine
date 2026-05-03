@@ -157,6 +157,23 @@ function InvestingWatchlistPageContent() {
   )
   const [formBusy, setFormBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!editingItem || editingItem.id || editingItem.current_price > 0) return
+    const ticker = editingItem.ticker
+    if (!ticker) return
+    const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY
+    if (!apiKey) return
+    fetch(`https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const price = Array.isArray(data) ? data[0]?.price : data?.price
+        if (price != null && price > 0) {
+          setEditingItem((prev) => prev ? { ...prev, current_price: Math.round(price * 100) / 100 } : prev)
+        }
+      })
+      .catch(() => {})
+  }, [editingItem?.ticker, editingItem?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
