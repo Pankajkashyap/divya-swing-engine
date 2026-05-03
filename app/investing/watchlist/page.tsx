@@ -161,9 +161,7 @@ function InvestingWatchlistPageContent() {
     if (!editingItem || editingItem.id || editingItem.current_price > 0) return
     const ticker = editingItem.ticker
     if (!ticker) return
-    const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY
-    if (!apiKey) return
-    fetch(`https://financialmodelingprep.com/stable/quote?symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`)
+    fetch(`/investing/api/quote?ticker=${encodeURIComponent(ticker)}`)
       .then((r) => r.json())
       .then((data) => {
         const price = Array.isArray(data) ? data[0]?.price : data?.price
