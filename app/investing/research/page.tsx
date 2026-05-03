@@ -937,8 +937,6 @@ useEffect(() => {
                 : effectiveVerdict === 'Hold'
                   ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                   : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-              const parsedRaw = analysis.raw_analysis ? JSON.parse(analysis.raw_analysis) : null
-              const analysisCurrentPrice = parsedRaw?.currentPrice ?? parsedRaw?.snapshot?.currentPrice ?? ""
 
               return (
                 <div key={analysis.id} className="ui-card p-4">
@@ -991,7 +989,7 @@ useEffect(() => {
                         Delete
                       </button>
                       <Link
-                        href={`/investing/watchlist?mode=new&ticker=${encodeURIComponent(analysis.ticker)}&company=${encodeURIComponent(analysis.company ?? '')}&sector=${encodeURIComponent((analysis.sector as string) ?? '')}&fair_value_low=${analysis.fair_value_low ?? ''}&fair_value_high=${analysis.fair_value_high ?? ''}&scorecard_overall=${analysis.overall_score ?? ''}&current_price=${analysisCurrentPrice}&target_entry=${analysis.fair_value_low ?? ''}`}
+                        href={`/investing/watchlist?mode=new&ticker=${encodeURIComponent(analysis.ticker)}&company=${encodeURIComponent(analysis.company ?? '')}&sector=${encodeURIComponent((analysis.sector as string) ?? '')}&fair_value_low=${analysis.fair_value_low ?? ''}&fair_value_high=${analysis.fair_value_high ?? ''}&scorecard_overall=${analysis.overall_score ?? ''}&target_entry=${analysis.fair_value_low ?? ''}`}
                         className="ui-btn-secondary px-3 py-1 text-xs"
                       >
                         → Watchlist
