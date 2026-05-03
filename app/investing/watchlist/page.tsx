@@ -164,12 +164,12 @@ function InvestingWatchlistPageContent() {
     fetch(`/investing/api/quote?ticker=${encodeURIComponent(ticker)}`)
       .then((r) => r.json())
       .then((data) => {
-        const price = Array.isArray(data) ? data[0]?.price : data?.price
+        console.log("Quote response:", data); const price = Array.isArray(data) ? data[0]?.price : data?.price
         if (price != null && price > 0) {
           setEditingItem((prev) => prev ? { ...prev, current_price: Math.round(price * 100) / 100 } : prev)
         }
       })
-      .catch(() => {})
+      .catch((err) => console.error("Quote fetch error:", err))
   }, [editingItem?.ticker, editingItem?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
 
