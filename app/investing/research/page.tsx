@@ -989,7 +989,7 @@ useEffect(() => {
                         Delete
                       </button>
                       <Link
-                        href={`/investing/watchlist?mode=new&ticker=${encodeURIComponent(analysis.ticker)}&company=${encodeURIComponent(analysis.company)}&sector=${encodeURIComponent(analysis.sector as string)}`}
+                        href={`/investing/watchlist?mode=new&ticker=${encodeURIComponent(analysis.ticker)}&company=${encodeURIComponent(analysis.company ?? '')}&sector=${encodeURIComponent((analysis.sector as string) ?? '')}&fair_value_low=${analysis.fair_value_low ?? ''}&fair_value_high=${analysis.fair_value_high ?? ''}&scorecard_overall=${analysis.overall_score ?? ''}`}
                         className="ui-btn-secondary px-3 py-1 text-xs"
                       >
                         → Watchlist
