@@ -72,7 +72,7 @@ function toFormValues(item?: WatchlistItem | null): WatchlistFormValues {
     sector: (item?.sector as Sector | undefined) ?? '',
     why_watching: item?.why_watching ?? '',
     target_entry: item?.target_entry != null ? String(item.target_entry) : '',
-    current_price: item?.current_price != null ? String(item.current_price) : '',
+    current_price: item?.current_price != null && item.current_price > 0 ? String(item.current_price) : '',
     fair_value_low: item?.fair_value_low != null ? String(item.fair_value_low) : '',
     fair_value_high: item?.fair_value_high != null ? String(item.fair_value_high) : '',
     scorecard_overall:

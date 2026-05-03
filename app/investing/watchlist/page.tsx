@@ -59,7 +59,7 @@ function buildPrefilledWatchlistItem(searchParams: URLSearchParams): EnrichedWat
   const currentPrice = toNullableNumber(searchParams.get('current_price')) ?? 0
   const fairValueLow = toNullableNumber(searchParams.get('fair_value_low'))
   const fairValueHigh = toNullableNumber(searchParams.get('fair_value_high'))
-  const scorecardOverall = toNullableNumber(searchParams.get('scorecard_overall'))
+  const scorecardOverall = toNullableNumber(searchParams.get('scorecard_overall')) != null ? Math.round(toNullableNumber(searchParams.get('scorecard_overall'))! * 10) / 10 : null
 
   return {
     id: '',
