@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Sector, WatchlistItem, WatchlistStatus } from '@/app/investing/types'
 
 type WatchlistFormValues = {
@@ -92,6 +92,12 @@ export function WatchlistForm({
   const initialValues = useMemo(() => toFormValues(initialItem), [initialItem])
   const [values, setValues] = useState<WatchlistFormValues>(initialValues)
   const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (initialItem?.current_price != null && initialItem.current_price > 0) {
+      setValues((prev) => ({ ...prev, current_price: String(initialItem.current_price) }))
+    }
+  }, [initialItem?.current_price])
+
 
   function update<K extends keyof WatchlistFormValues>(
     key: K,
