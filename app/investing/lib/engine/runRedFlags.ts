@@ -1,6 +1,5 @@
 import type { InvestingSnapshot, RedFlagResult } from './types'
 
-
 export function runRedFlags(snapshot: InvestingSnapshot): RedFlagResult[] {
   return [
     {
@@ -20,45 +19,56 @@ export function runRedFlags(snapshot: InvestingSnapshot): RedFlagResult[] {
       id: 'RF-02',
       label: 'ROIC consistently below 8%',
       triggered:
+        !['Financials'].includes(snapshot.sector) &&
         snapshot.roicTtm != null &&
         snapshot.roic5yAvg != null &&
         snapshot.roicTtm < 8 &&
         snapshot.roic5yAvg < 8,
       severity: 'critical',
       explanation:
-        snapshot.roicTtm == null || snapshot.roic5yAvg == null
-          ? 'ROIC data is incomplete.'
-          : snapshot.roicTtm < 8 && snapshot.roic5yAvg < 8
-            ? 'Both trailing and multi-year ROIC are below 8%.'
-            : 'ROIC does not indicate persistent value destruction at this threshold.',
+        ['Financials'].includes(snapshot.sector)
+          ? 'ROIC threshold is not applied for financial companies. Use ROE instead.'
+          : snapshot.roicTtm == null || snapshot.roic5yAvg == null
+            ? 'ROIC data is incomplete.'
+            : snapshot.roicTtm < 8 && snapshot.roic5yAvg < 8
+              ? 'Both trailing and multi-year ROIC are below 8%.'
+              : 'ROIC does not indicate persistent value destruction at this threshold.',
     },
 
     {
       id: 'RF-03',
       label: 'Net Debt / EBITDA above 5x',
       triggered:
-        snapshot.netDebtToEbitda != null && snapshot.netDebtToEbitda > 5,
+        !['Financials', 'Real Estate'].includes(snapshot.sector) &&
+        snapshot.netDebtToEbitda != null &&
+        snapshot.netDebtToEbitda > 5,
       severity: 'critical',
       explanation:
-        snapshot.netDebtToEbitda == null
-          ? 'Net Debt / EBITDA data is unavailable.'
-          : snapshot.netDebtToEbitda > 5
-            ? `Net Debt / EBITDA is ${snapshot.netDebtToEbitda.toFixed(2)}x, above 5x.`
-            : 'Leverage is below the 5x danger threshold.',
+        ['Financials', 'Real Estate'].includes(snapshot.sector)
+          ? 'Net Debt / EBITDA is not applicable for this sector.'
+          : snapshot.netDebtToEbitda == null
+            ? 'Net Debt / EBITDA data is unavailable.'
+            : snapshot.netDebtToEbitda > 5
+              ? `Net Debt / EBITDA is ${snapshot.netDebtToEbitda.toFixed(2)}x, above 5x.`
+              : 'Leverage is below the 5x danger threshold.',
     },
 
     {
       id: 'RF-04',
       label: 'Interest coverage below 2x',
       triggered:
-        snapshot.interestCoverage != null && snapshot.interestCoverage < 2,
+        !['Financials'].includes(snapshot.sector) &&
+        snapshot.interestCoverage != null &&
+        snapshot.interestCoverage < 2,
       severity: 'critical',
       explanation:
-        snapshot.interestCoverage == null
-          ? 'Interest coverage data is unavailable.'
-          : snapshot.interestCoverage < 2
-            ? `Interest coverage is ${snapshot.interestCoverage.toFixed(2)}x, below 2x.`
-            : 'Interest coverage remains above the distress threshold.',
+        ['Financials'].includes(snapshot.sector)
+          ? 'Interest coverage is not applicable for financial companies.'
+          : snapshot.interestCoverage == null
+            ? 'Interest coverage data is unavailable.'
+            : snapshot.interestCoverage < 2
+              ? `Interest coverage is ${snapshot.interestCoverage.toFixed(2)}x, below 2x.`
+              : 'Interest coverage remains above the distress threshold.',
     },
 
     {

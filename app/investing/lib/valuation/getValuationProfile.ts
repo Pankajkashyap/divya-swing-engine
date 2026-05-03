@@ -21,10 +21,6 @@ export function getValuationProfile(snapshot: FairValueSnapshot & {
   revenueGrowth3yCagr?: number | null
   criticalRedFlags?: number | null
 }): ValuationProfile {
-  if (snapshot.sector === 'Financials') {
-    return 'financial'
-  }
-
   const roicTtm = snapshot.roicTtm
   const roic5yAvg = snapshot.roic5yAvg
   const grossMargin = snapshot.grossMarginTtm
@@ -33,6 +29,17 @@ export function getValuationProfile(snapshot: FairValueSnapshot & {
   const netDebtToEbitda = snapshot.netDebtToEbitda
   const revenueGrowth = snapshot.revenueGrowth3yCagr
   const criticalRedFlags = snapshot.criticalRedFlags ?? 0
+
+  if (snapshot.sector === 'Financials') {
+    const isHighMarginFinancial =
+      (isNumber(grossMargin) && grossMargin > 50) ||
+      (isNumber(operatingMargin) && operatingMargin > 30) ||
+      (isNumber(roicTtm) && roicTtm > 20)
+
+    if (!isHighMarginFinancial) {
+      return 'financial'
+    }
+  }
 
   if (criticalRedFlags > 0) {
     return 'cyclical'

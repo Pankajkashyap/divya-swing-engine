@@ -103,6 +103,13 @@ function getNormalizedFcf(snapshot: FairValueSnapshot): number | null {
     }
   }
 
+  if (snapshot.sector === 'Energy' || snapshot.sector === 'Materials') {
+    if (isValidPositiveNumber(operatingCashFlow) && isValidPositiveNumber(trailingFcf)) {
+      const ocfBased = operatingCashFlow * 0.6
+      return (trailingFcf + ocfBased) / 2
+    }
+  }
+
   return trailingFcf
 }
 
