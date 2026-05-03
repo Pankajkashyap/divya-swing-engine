@@ -181,7 +181,7 @@ export function StockAnalysisForm({
       roic_score: initialAnalysis.roic_score ?? null,
       fin_health_score: initialAnalysis.fin_health_score ?? null,
       biz_understanding_score: bizScore,
-      verdict: verdictOverride || initialAnalysis.verdict || null,
+      verdict: verdictOverride || null,
       fair_value_low: initialAnalysis.fair_value_low ?? null,
       fair_value_high: initialAnalysis.fair_value_high ?? null,
       thesis: thesis.trim() || null,
