@@ -51,11 +51,11 @@ function getProfileAssumptions(profile: ReturnType<typeof getValuationProfile>):
 } {
   switch (profile) {
     case 'elite_compounder':
-    return {
+      return {
         low: { r: 0.09, g1: 0.09, g2: 0.055, tg: 0.025 },
         base: { r: 0.08, g1: 0.11, g2: 0.065, tg: 0.03 },
         high: { r: 0.07, g1: 0.13, g2: 0.075, tg: 0.03 },
-    }
+      }
     case 'quality_grower':
       return {
         low: { r: 0.105, g1: 0.07, g2: 0.04, tg: 0.02 },
@@ -83,6 +83,29 @@ function getProfileAssumptions(profile: ReturnType<typeof getValuationProfile>):
   }
 }
 
+function getNormalizedFcf(snapshot: FairValueSnapshot): number | null {
+  const trailingFcf = snapshot.freeCashFlowTtm
+  const operatingCashFlow = snapshot.operatingCashFlowTtm
+
+  if (!isValidPositiveNumber(trailingFcf)) {
+    if (isValidPositiveNumber(operatingCashFlow)) {
+      return operatingCashFlow * 0.7
+    }
+    return null
+  }
+
+  const historicalCagr = snapshot.historicalFcfCagr3y
+
+  if (isValidPositiveNumber(historicalCagr) && historicalCagr < -0.15) {
+    if (isValidPositiveNumber(operatingCashFlow)) {
+      const ocfBased = operatingCashFlow * 0.7
+      return Math.max(trailingFcf, (trailingFcf + ocfBased) / 2)
+    }
+  }
+
+  return trailingFcf
+}
+
 export function runDcfValuation(snapshot: FairValueSnapshot): RangeValuation {
   const profile = getValuationProfile(snapshot)
 
@@ -90,11 +113,11 @@ export function runDcfValuation(snapshot: FairValueSnapshot): RangeValuation {
     return { low: null, base: null, high: null }
   }
 
-  const fcf0 = snapshot.freeCashFlowTtm
+  const fcf0 = getNormalizedFcf(snapshot)
   const sharesOut = snapshot.dilutedSharesOutstanding
   const netDebt = snapshot.netDebt ?? 0
 
-  if (!isValidPositiveNumber(fcf0) || !isValidPositiveNumber(sharesOut)) {
+  if (fcf0 == null || fcf0 <= 0 || !Number.isFinite(fcf0) || !isValidPositiveNumber(sharesOut)) {
     return { low: null, base: null, high: null }
   }
 

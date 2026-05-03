@@ -20,7 +20,7 @@ export function getValuationProfile(snapshot: FairValueSnapshot & {
   netDebtToEbitda?: number | null
   revenueGrowth3yCagr?: number | null
   criticalRedFlags?: number | null
-}) : ValuationProfile {
+}): ValuationProfile {
   if (snapshot.sector === 'Financials') {
     return 'financial'
   }
@@ -34,12 +34,23 @@ export function getValuationProfile(snapshot: FairValueSnapshot & {
   const revenueGrowth = snapshot.revenueGrowth3yCagr
   const criticalRedFlags = snapshot.criticalRedFlags ?? 0
 
-  if (
-    criticalRedFlags > 0 ||
-    (isNumber(roicTtm) && roicTtm < 10) ||
-    (isNumber(operatingMargin) && operatingMargin < 10) ||
-    (isNumber(netDebtToEbitda) && netDebtToEbitda > 3.5)
-  ) {
+  if (criticalRedFlags > 0) {
+    return 'cyclical'
+  }
+
+  const isCyclicalSector = ['Energy', 'Materials', 'Industrials'].includes(snapshot.sector ?? '')
+
+  const cyclicalSignals = [
+    isNumber(roicTtm) && roicTtm < 8,
+    isNumber(operatingMargin) && operatingMargin < 8,
+    isNumber(netDebtToEbitda) && netDebtToEbitda > 4,
+  ].filter(Boolean).length
+
+  if (isCyclicalSector && cyclicalSignals >= 1) {
+    return 'cyclical'
+  }
+
+  if (!isCyclicalSector && cyclicalSignals >= 2) {
     return 'cyclical'
   }
 

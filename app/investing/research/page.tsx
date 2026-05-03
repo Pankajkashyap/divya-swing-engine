@@ -574,10 +574,13 @@ useEffect(() => {
     const effectiveBusinessUnderstandingScore =
       payload.biz_understanding_score ?? businessUnderstandingScoreResult.score
 
+    const effectiveMoatScore = payload.moat_score ?? payload.moat_score_auto ?? null
+    const effectiveMgmtScore = payload.mgmt_score ?? payload.management_score_auto ?? null
+
     const scoreValues = [
-      payload.moat_score,
+      effectiveMoatScore,
       effectiveValuationScore,
-      payload.mgmt_score,
+      effectiveMgmtScore,
       effectiveRoicScore,
       effectiveFinancialHealthScore,
       effectiveBusinessUnderstandingScore,
@@ -593,9 +596,9 @@ useEffect(() => {
       verdict: payload.verdict,
       fairValueLow: payload.fair_value_low,
       fairValueHigh: payload.fair_value_high,
-      moatScore: payload.moat_score,
+      moatScore: effectiveMoatScore,
       valuationScore: effectiveValuationScore,
-      managementScore: payload.mgmt_score,
+      managementScore: effectiveMgmtScore,
       roicScore: effectiveRoicScore,
       financialHealthScore: effectiveFinancialHealthScore,
       businessUnderstandingScore: effectiveBusinessUnderstandingScore,
