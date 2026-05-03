@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Confidence, Sector, StockAnalysis, Verdict } from '@/app/investing/types'
 import { buildMoatManagementPrompt } from '@/app/investing/lib/qualitative/buildMoatManagementPrompt'
+import { buildThesisPrompt } from '@/app/investing/lib/qualitative/buildThesisPrompt'
 import { parseQualitativeImport } from '@/app/investing/lib/qualitative/parseQualitativeImport'
 import { scoreQualitativeImport } from '@/app/investing/lib/qualitative/scoreQualitativeImport'
 
@@ -58,6 +59,12 @@ function formatText(value: string | null | undefined) {
   return value?.trim() ? value : '—'
 }
 
+function safeJsonSummary(value: Record<string, unknown> | null): string | null {
+  if (!value) return null
+  const summary = value.summary
+  return typeof summary === 'string' && summary.trim() ? summary.trim() : null
+}
+
 export function StockAnalysisForm({
   initialAnalysis,
   onSubmit,
@@ -100,6 +107,9 @@ export function StockAnalysisForm({
     initialAnalysis?.qualitative_confidence ?? null
   )
 
+  const [thesisImported, setThesisImported] = useState(false)
+  const [thesisImportText, setThesisImportText] = useState('')
+
   const ticker = initialAnalysis?.ticker ?? ''
   const company = initialAnalysis?.company ?? ''
   const analysisDate = initialAnalysis?.analysis_date || getTodayDateString()
@@ -107,22 +117,31 @@ export function StockAnalysisForm({
 
   const engineVerdict = initialAnalysis?.verdict_auto ?? initialAnalysis?.verdict ?? null
   const engineConfidence = initialAnalysis?.confidence_auto ?? initialAnalysis?.confidence ?? null
-  
-  console.log('FORM DEBUG:', {
-  verdict: initialAnalysis?.verdict,
-  verdict_auto: initialAnalysis?.verdict_auto,
-  confidence: initialAnalysis?.confidence,
-  confidence_auto: initialAnalysis?.confidence_auto,
-  overall_score: initialAnalysis?.overall_score,
-})
-  
   const engineValuation =
     initialAnalysis?.valuation_score ?? initialAnalysis?.valuation_score_auto ?? null
   const engineRoic = initialAnalysis?.roic_score ?? initialAnalysis?.roic_score_auto ?? null
-  const engineFinHealth = initialAnalysis?.fin_health_score ?? initialAnalysis?.fin_health_score_auto ?? null
-  const engineGrowth = initialAnalysis?.overall_score != null && engineValuation != null && engineRoic != null && engineFinHealth != null
-  ? Math.max(0, Math.min(10, Number(((initialAnalysis.overall_score * 4) - (engineValuation ?? 0) - (engineRoic ?? 0) - (engineFinHealth ?? 0)).toFixed(1))))
-  : null
+  const engineFinHealth =
+    initialAnalysis?.fin_health_score ?? initialAnalysis?.fin_health_score_auto ?? null
+  const engineGrowth =
+    initialAnalysis?.overall_score != null &&
+    engineValuation != null &&
+    engineRoic != null &&
+    engineFinHealth != null
+      ? Math.max(
+          0,
+          Math.min(
+            10,
+            Number(
+              (
+                initialAnalysis.overall_score * 4 -
+                (engineValuation ?? 0) -
+                (engineRoic ?? 0) -
+                (engineFinHealth ?? 0)
+              ).toFixed(1)
+            )
+          )
+        )
+      : null
   const engineOverall = initialAnalysis?.overall_score ?? null
 
   async function handleCopyPrompt() {
@@ -160,15 +179,98 @@ export function StockAnalysisForm({
       setQualJsonText('')
       setPromptCopied(false)
     } catch (err) {
-      setQualError(err instanceof Error ? err.message : 'Invalid JSON. Check the ChatGPT response.')
+      setQualError(
+        err instanceof Error ? err.message : 'Invalid JSON. Check the ChatGPT response.'
+      )
+    }
+  }
+
+  async function handleCopyThesisPrompt() {
+    const prompt = buildThesisPrompt({
+      ticker,
+      company,
+      sector,
+      valuationScore: engineValuation,
+      roicScore: engineRoic,
+      finHealthScore: engineFinHealth,
+      growthScore: engineGrowth,
+      overallEngineScore: engineOverall,
+      verdict: engineVerdict,
+      fairValueLow: initialAnalysis?.fair_value_low ?? null,
+      fairValueHigh: initialAnalysis?.fair_value_high ?? null,
+      currentPrice: null,
+      redFlagsSummary: initialAnalysis?.thesis_breakers ?? null,
+      moatScore: moatScoreAuto,
+      managementScore: mgmtScoreAuto,
+      moatSummary: safeJsonSummary(moatJson),
+      managementSummary: safeJsonSummary(mgmtJson),
+      bizUnderstandingLevel:
+        bizUnderstanding === 'high'
+          ? 'I know it well'
+          : bizUnderstanding === 'medium'
+            ? 'Reasonably well'
+            : bizUnderstanding === 'low'
+              ? 'Still learning'
+              : null,
+    })
+
+    try {
+      await navigator.clipboard.writeText(prompt)
+      alert('Thesis prompt copied! Paste it in ChatGPT, then paste the JSON response below.')
+    } catch {
+      const textArea = document.createElement('textarea')
+      textArea.value = prompt
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert('Thesis prompt copied!')
+    }
+  }
+
+  function handleImportThesis() {
+    try {
+      const parsed = JSON.parse(thesisImportText.trim()) as {
+        thesis?: string
+        thesis_breakers?: string
+        bear_case?: string
+      }
+
+      if (parsed.thesis) {
+        setThesis(parsed.thesis)
+      }
+
+      if (parsed.thesis_breakers) {
+        let nextBreakers = parsed.thesis_breakers
+        if (parsed.bear_case) {
+          nextBreakers = `${nextBreakers}\n\nBear case: ${parsed.bear_case}`
+        }
+        setThesisBreakers(nextBreakers)
+      } else if (parsed.bear_case) {
+        setThesisBreakers((prev) =>
+          prev ? `${prev}\n\nBear case: ${parsed.bear_case}` : `Bear case: ${parsed.bear_case}`
+        )
+      }
+
+      setThesisImported(true)
+      setThesisImportText('')
+    } catch {
+      alert('Invalid JSON. Please paste the exact response from ChatGPT.')
     }
   }
 
   function handleSubmit() {
     if (!initialAnalysis) return
+    if (!thesis.trim() || !thesisBreakers.trim()) return
 
     const bizScore =
-      bizUnderstanding === 'high' ? 8 : bizUnderstanding === 'medium' ? 6 : bizUnderstanding === 'low' ? 4 : null
+      bizUnderstanding === 'high'
+        ? 8
+        : bizUnderstanding === 'medium'
+          ? 6
+          : bizUnderstanding === 'low'
+            ? 4
+            : null
 
     const payload: StockAnalysisFormPayload = {
       ticker: initialAnalysis.ticker,
@@ -236,7 +338,8 @@ export function StockAnalysisForm({
           <div>
             <span className="text-neutral-500 dark:text-[#a8b2bf]">Fair value: </span>
             <span className="font-medium text-neutral-900 dark:text-[#e6eaf0]">
-              {formatMoney(initialAnalysis?.fair_value_low)} – {formatMoney(initialAnalysis?.fair_value_high)}
+              {formatMoney(initialAnalysis?.fair_value_low)} –{' '}
+              {formatMoney(initialAnalysis?.fair_value_high)}
             </span>
           </div>
           <div>
@@ -260,7 +363,10 @@ export function StockAnalysisForm({
             <div>Financial Health: {formatScore(engineFinHealth)}</div>
             <div>Growth: {engineGrowth != null ? `${engineGrowth.toFixed(1)}/10` : '—'}</div>
             <div className="col-span-2">
-              Red flags: {initialAnalysis?.thesis_breakers ? initialAnalysis.thesis_breakers.split('\n').length + ' triggered' : 'None'}
+              Red flags:{' '}
+              {initialAnalysis?.thesis_breakers
+                ? `${initialAnalysis.thesis_breakers.split('\n').length} triggered`
+                : 'None'}
             </div>
           </div>
         ) : null}
@@ -326,11 +432,15 @@ export function StockAnalysisForm({
             <div className="flex flex-wrap gap-3 text-sm">
               <div>
                 <span className="text-neutral-500 dark:text-[#a8b2bf]">Moat: </span>
-                <span className="font-medium text-green-500">{moatScoreAuto?.toFixed(1) ?? '—'}/10</span>
+                <span className="font-medium text-green-500">
+                  {moatScoreAuto?.toFixed(1) ?? '—'}/10
+                </span>
               </div>
               <div>
                 <span className="text-neutral-500 dark:text-[#a8b2bf]">Management: </span>
-                <span className="font-medium text-green-500">{mgmtScoreAuto?.toFixed(1) ?? '—'}/10</span>
+                <span className="font-medium text-green-500">
+                  {mgmtScoreAuto?.toFixed(1) ?? '—'}/10
+                </span>
               </div>
               <div>
                 <span className="text-neutral-500 dark:text-[#a8b2bf]">Confidence: </span>
@@ -389,29 +499,61 @@ export function StockAnalysisForm({
           </div>
         </div>
 
+        {moatScoreAuto != null && !thesisImported && !thesis ? (
+          <div className="ui-card p-4 mb-4">
+            <div className="text-sm font-semibold text-neutral-900 dark:text-[#e6eaf0] mb-1">
+              Generate Thesis
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-[#a8b2bf] mb-3">
+              Copy the prompt, paste it in ChatGPT, then paste the JSON response below.
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleCopyThesisPrompt()}
+              className="ui-btn-primary mb-3"
+            >
+              Copy Thesis Prompt for ChatGPT
+            </button>
+            <textarea
+              value={thesisImportText}
+              onChange={(e) => setThesisImportText(e.target.value)}
+              placeholder="Paste ChatGPT JSON response here..."
+              className="ui-input w-full mb-2"
+              rows={4}
+            />
+            {thesisImportText.trim() ? (
+              <button type="button" onClick={handleImportThesis} className="ui-btn-primary">
+                Import Thesis
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div>
-          <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
-            Investment Thesis <span className="text-red-400">*</span>
+          <label className="block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0] mb-1">
+            Investment Thesis <span className="text-red-500">*</span>
           </label>
           <textarea
             value={thesis}
             onChange={(e) => setThesis(e.target.value)}
             placeholder="Why invest? What's the core reason it will compound?"
-            rows={3}
             className="ui-input w-full"
+            rows={4}
+            required
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-[#a8b2bf]">
-            What would make you sell? <span className="font-normal text-neutral-500">(optional)</span>
+          <label className="block text-sm font-medium text-neutral-900 dark:text-[#e6eaf0] mb-1">
+            What would make you sell? <span className="text-red-500">*</span>
           </label>
           <textarea
             value={thesisBreakers}
             onChange={(e) => setThesisBreakers(e.target.value)}
-            placeholder="e.g., Membership renewal drops below 85%..."
-            rows={2}
+            placeholder="Specific conditions that would invalidate your thesis..."
             className="ui-input w-full"
+            rows={4}
+            required
           />
         </div>
 
@@ -440,7 +582,7 @@ export function StockAnalysisForm({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={busy || !thesis.trim()}
+          disabled={busy || !thesis.trim() || !thesisBreakers.trim()}
           className="ui-btn-primary"
         >
           {busy ? 'Saving...' : submitLabel || 'Save Analysis'}
